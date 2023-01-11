@@ -1,14 +1,14 @@
 import { useRef, useState, useEffect, createRef, useReducer, useCallback, useContext } from 'react';
-import { Navbar, Container, Nav, Accordion, Button, Col, Row, Spinner, Form } from 'react-bootstrap';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer';
+import { Navbar, Container, Nav, Accordion, Button, Col, Row, Spinner, Form, Toast, ToastContainer } from 'react-bootstrap';
 import { MoorhenDisplayObjects } from './MoorhenDisplayObjects';
 import { MoorhenWebMG } from './MoorhenWebMG';
 import { MoorhenCommandCentre, convertRemToPx, convertViewtoPx } from '../utils/MoorhenUtils';
 import { MoorhenButtonBar } from './MoorhenButtonBar';
 import { MoorhenFileMenu } from './MoorhenFileMenu';
+import { MoorhenCloudMenu } from './MoorhenCloudMenu';
 import { MoorhenPreferencesMenu } from './MoorhenPreferencesMenu';
 import { ArrowBackIosOutlined, ArrowForwardIosOutlined } from '@mui/icons-material';
+import { Backdrop } from '@mui/material';
 import { MoorhenHistoryMenu, historyReducer, initialHistoryState } from './MoorhenHistoryMenu';
 import { MoorhenViewMenu } from './MoorhenViewMenu';
 import { MoorhenLigandMenu } from './MoorhenLigandMenu';
@@ -16,7 +16,7 @@ import { MoorhenToolsAccordion } from './MoorhenToolsAccordion'
 import { PreferencesContext } from "../utils/MoorhenPreferences";
 import { babyGruKeyPress } from './MoorhenKeyboardAccelerators';
 import { MoorhenEditMenu } from './MoorhenEditMenu';
-import { MoorhenSearchBar } from './MoorhenSearchBar';
+import { MoorhenHelpMenu } from './MoorhenHelpMenu'
 import './MoorhenContainer.css'
 
 const initialMoleculesState = []
@@ -288,8 +288,15 @@ export const MoorhenContainer = (props) => {
 
     return <> <div className={`border ${theme}`} ref={headerRef}>
 
+        <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={!cootInitialized}>
+            <Spinner animation="border" style={{ marginRight: '0.5rem' }}/>
+            <span>Starting moorhen...</span>
+        </Backdrop>
+
         <Navbar ref={navBarRef} id='navbar-baby-gru' className={preferences.darkMode ? "navbar-dark" : "navbar-light"} style={{ height: '3rem', justifyContent: 'between', margin: '0.5rem', padding: '0.5rem' }}>
-            <Navbar.Brand href="#home">{appTitle}</Navbar.Brand>
+            <Navbar.Brand href="#home">
+                <img src={`${props.urlPrefix}/baby-gru/pixmaps/MoorhenLogo.png`} alt={appTitle} style={{height: '3rem'}}/>
+            </Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav">
                 <Nav className="justify-content-left">
@@ -299,7 +306,8 @@ export const MoorhenContainer = (props) => {
                     <MoorhenViewMenu dropdownId="View" {...collectedProps} />
                     <MoorhenHistoryMenu dropdownId="History" {...collectedProps} />
                     <MoorhenPreferencesMenu dropdownId="Preferences" {...collectedProps} />
-                    <MoorhenSearchBar setSelectedToolKey={setSelectedToolKey} consoleBodyHeight={consoleBodyHeight} {...collectedProps}/>
+                    <MoorhenHelpMenu dropdownId="Help" setSelectedToolKey={setSelectedToolKey} consoleBodyHeight={consoleBodyHeight} {...collectedProps}/>
+                    {props.enableCloudMenu && <MoorhenCloudMenu dropdownId="CloudExport" {...collectedProps}/>}
                     {props.extraMenus && props.extraMenus.map(menu=>menu)}
                 </Nav>
             </Navbar.Collapse>
@@ -353,7 +361,7 @@ export const MoorhenContainer = (props) => {
                     </div>
                 </Col>
                 <Col className={`side-bar-column ${theme}`} style={{ padding: '0.5rem', margin: '0', display: showSideBar ? "block" : "none" }} >
-                    <Accordion className='side-bar-accordion' style={{ height: accordionHeight, overflowY: 'scroll' }}
+                    <Accordion className='side-bar-accordion scroller' style={{ height: accordionHeight, overflowY: 'scroll' }}
                         alwaysOpen={true}
                         defaultActiveKey={''}
                         onSelect={(openPanels) => {
@@ -379,7 +387,7 @@ export const MoorhenContainer = (props) => {
                         }}>
                         <Accordion.Item eventKey="showDisplayObjects" style={{ width: sideBarWidth, padding: '0', margin: '0' }} >
                             <Accordion.Header style={{ padding: '0', margin: '0', height: '4rem' }}>Display Objects</Accordion.Header>
-                            <Accordion.Body className='side-bar-accordion-body' style={{ overflowY: 'auto', height: displayObjectsAccordionBodyHeight }}>
+                            <Accordion.Body className='side-bar-accordion-body scroller' style={{ overflowY: 'auto', height: displayObjectsAccordionBodyHeight }}>
                                 {molecules.length === 0 && maps.length === 0 ? "No data files loaded" : <MoorhenDisplayObjects {...collectedProps} />}
                             </Accordion.Body>
                         </Accordion.Item>
@@ -421,5 +429,6 @@ export const MoorhenContainer = (props) => {
 }
 
 MoorhenContainer.defaultProps = {
-    urlPrefix: '.'
+    urlPrefix: '.',
+    enableCloudMenu: false
 }

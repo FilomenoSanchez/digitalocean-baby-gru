@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import { Col, Row, Form } from 'react-bootstrap';
 import { Chart, registerables } from 'chart.js';
 import { MoorhenChainSelect } from './MoorhenChainSelect'
@@ -60,12 +60,12 @@ export const MoorhenValidation = (props) => {
     const [selectedModel, setSelectedModel] = useState(null)
     const [selectedMap, setSelectedMap] = useState(null)
     const [selectedChain, setSelectedChain] = useState(null)
-    const [cachedAtoms, setCachedAtoms] = useState(null)
+    const [cachedStructure, setCachedStructure] = useState(null)
 
     const getSequenceData = () => {
         let selectedMolecule = props.molecules.find(molecule => molecule.molNo == selectedModel)
         if (selectedMolecule) {
-            let sequenceData = selectedMolecule.cachedAtoms.sequences.find(sequence => sequence.chain == chainSelectRef.current.value)
+            let sequenceData = selectedMolecule.sequences.find(sequence => sequence.chain == chainSelectRef.current.value)
             if (sequenceData) {
                 return sequenceData.sequence
             }    
@@ -139,7 +139,7 @@ export const MoorhenValidation = (props) => {
         if(selectedMolecule) {
             const clickedResidue = getResidueInfo(selectedMolecule, residueIndex)
             if (clickedResidue) {
-                selectedMolecule.centreOn(props.glRef, clickedResidue)
+                selectedMolecule.centreOn(props.glRef, `/*/${clickedResidue.chain}/${clickedResidue.seqNum}-${clickedResidue.seqNum}/*`)
             }
         }
     }
@@ -156,7 +156,7 @@ export const MoorhenValidation = (props) => {
             if (clickedResidue) {
                 props.setHoveredAtom({
                     molecule: selectedMolecule,
-                    cid:  `//${clickedResidue.chain}/${clickedResidue.seqNum}(${residueCodesOneToThree[clickedResidue.resCode]})`
+                    cid:  `//${clickedResidue.chain}/${clickedResidue.seqNum}(${residueCodesOneToThree[clickedResidue.resCode]})/`
                 })
                 return `${clickedResidue.seqNum} (${residueCodesOneToThree[clickedResidue.resCode]})`
             }
@@ -191,7 +191,7 @@ export const MoorhenValidation = (props) => {
         if (selectedModel !== null) {
             let selectedMoleculeIndex = props.molecules.findIndex(molecule => molecule.molNo == selectedModel);
             if (selectedMoleculeIndex != -1 && props.molecules[selectedMoleculeIndex]){
-                setCachedAtoms(props.molecules[selectedMoleculeIndex].cachedAtoms)
+                setCachedStructure(props.molecules[selectedMoleculeIndex].gemmiStructure)
             }
         }
     })
@@ -220,7 +220,7 @@ export const MoorhenValidation = (props) => {
         let availableMetrics = getAvailableMetrics()
         fetchData(availableMetrics)   
 
-    }, [selectedChain, selectedMap, selectedModel, cachedAtoms])
+    }, [selectedChain, selectedMap, selectedModel, cachedStructure])
 
     useEffect(() => {
         if (chartRef.current) {
@@ -275,6 +275,9 @@ export const MoorhenValidation = (props) => {
         let datasets = []
         let availableMetrics = getAvailableMetrics()
         for(let methodIndex=0; methodIndex < plotData.length; methodIndex++){
+            if (!plotData[methodIndex]) {
+                continue
+            }
             let metricScale = metricInfoScaling[availableMetrics[methodIndex].command]
             let palette = colourPalettes[availableMetrics[methodIndex].command]
             datasets.push({
@@ -373,7 +376,7 @@ export const MoorhenValidation = (props) => {
                                 <MoorhenMoleculeSelect width="" onChange={handleModelChange} molecules={props.molecules} ref={moleculeSelectRef}/>
                             </Col>
                             <Col>
-                                <MoorhenChainSelect width="" onChange={handleChainChange} molecules={props.molecules} selectedCoordMolNo={selectedModel} allowedTypes={['polypeptide(L)']} ref={chainSelectRef}/>
+                                <MoorhenChainSelect width="" onChange={handleChainChange} molecules={props.molecules} selectedCoordMolNo={selectedModel} allowedTypes={[1, 2]} ref={chainSelectRef}/>
                             </Col>
                             <Col>
                                 <MoorhenMapSelect width="" onChange={handleMapChange} maps={props.maps} ref={mapSelectRef}/>

@@ -22,8 +22,6 @@ export const MoorhenSearchBar = (props) => {
     const getComputedStyle = (element, timeOut=800) => {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
-                console.log('HELO')
-                console.log(window.getComputedStyle(element).display)
                 resolve(window.getComputedStyle(element))
             }, timeOut)    
         })
@@ -221,46 +219,46 @@ export const MoorhenSearchBar = (props) => {
 
 
     return <Fragment> 
-        <Row style={{padding: '0.5rem', width: '20rem'}}>
-            <Autocomplete 
-                    ref={selectRef}
-                    disablePortal
-                    selectOnFocus
-                    clearOnBlur
-                    handleHomeEndKeys
-                    freeSolo
-                    includeInputInList
-                    filterSelectedOptions
-                    open={openPopup}
-                    onInputChange={(_, value) => {
-                        if (value.length === 0) {
-                            if (openPopup) setOpenPopup(false);
-                        } else {
-                              if (!openPopup) setOpenPopup(true);
-                        }
-                    }}
-                    onClose={() => setOpenPopup(false)}
-                    sx={{
-                        '& .MuiInputBase-root': {
-                            backgroundColor:  props.darkMode ? '#222' : 'white',
-                            color: props.darkMode ? 'white' : '#222',
-                        },
-                        '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: props.darkMode ? 'white' : 'grey',
-                        },
-                        '& .MuiButtonBase-root': {
-                            color: props.darkMode ? 'white' : 'grey',
-                        },
-                        '& .MuiFormLabel-root': {
-                            color: props.darkMode ? 'white' : '#222',
-                        },
-                    }}               
-                    onChange={handleChange}
-                    size='small'
-                    options={searchOptions.map(item => item.label)}
-                    renderInput={(params) => <TextField {...params} label="Search" />}
-                />
-        </Row>
+                    <Row style={{padding: '0.5rem', width: '20rem'}}>
+                        <Autocomplete 
+                                ref={selectRef}
+                                disablePortal
+                                selectOnFocus
+                                clearOnBlur
+                                handleHomeEndKeys
+                                freeSolo
+                                includeInputInList
+                                filterSelectedOptions
+                                open={openPopup}
+                                onInputChange={(_, value) => {
+                                    if (value.length === 0) {
+                                        if (openPopup) setOpenPopup(false);
+                                    } else {
+                                        if (!openPopup) setOpenPopup(true);
+                                    }
+                                }}
+                                onClose={() => setOpenPopup(false)}
+                                sx={{
+                                    '& .MuiInputBase-root': {
+                                        backgroundColor:  props.darkMode ? '#222' : 'white',
+                                        color: props.darkMode ? 'white' : '#222',
+                                    },
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: props.darkMode ? 'white' : 'grey',
+                                    },
+                                    '& .MuiButtonBase-root': {
+                                        color: props.darkMode ? 'white' : 'grey',
+                                    },
+                                    '& .MuiFormLabel-root': {
+                                        color: props.darkMode ? 'white' : '#222',
+                                    },
+                                }}               
+                                onChange={handleChange}
+                                size='small'
+                                options={searchOptions.map(item => item.label)}
+                                renderInput={(params) => <TextField {...params} label="Search" />}
+                        />
+                    </Row>
     </Fragment> 
 
 }

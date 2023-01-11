@@ -6,7 +6,7 @@ import { GetSplinesColoured } from '../WebGL/mgSecStr';
 import { atomsToSpheresInfo } from '../WebGL/mgWebGLAtomsToPrimitives';
 import { contactsToCylindersInfo, contactsToLinesInfo } from '../WebGL/mgWebGLAtomsToPrimitives';
 import { singletonsToLinesInfo } from '../WebGL/mgWebGLAtomsToPrimitives';
-import { readTextFile, readGemmiStructure, cidToSpec } from './MoorhenUtils'
+import { readTextFile, readGemmiStructure, cidToSpec, residueCodesThreeToOne, centreOnGemmiAtoms } from './MoorhenUtils'
 import { quatToMat4 } from '../WebGL/quatToMat4.js';
 import * as vec3 from 'gl-matrix/vec3';
 
@@ -20,6 +20,7 @@ export function MoorhenMolecule(commandCentre, urlPrefix) {
     this.name = "unnamed"
     this.molNo = null
     this.gemmiStructure = null
+    this.sequences = []
     this.cootBondsOptions = {
         isDarkBackground: false,
         smoothness: 1,
@@ -33,6 +34,7 @@ export function MoorhenMolecule(commandCentre, urlPrefix) {
         rama: [],
         rotamer: [],
         CBs: [],
+        gaussian: [],
         hover: [],
         ligands: [],
         CRs: [],
@@ -47,9 +49,44 @@ MoorhenMolecule.prototype.updateGemmiStructure = async function () {
     let response = await this.getAtoms()
     this.gemmiStructure = readGemmiStructure(response.data.result.pdbData, this.name)
     window.CCP4Module.gemmi_setup_entities(this.gemmiStructure)
+    this.parseSequences()
     return Promise.resolve()
 }
 
+MoorhenMolecule.prototype.parseSequences = function () {
+    if (this.gemmiStructure === null) {
+        return
+    }
+
+    let sequences = []
+    for (let modelIndex = 0; modelIndex < this.gemmiStructure.models.size(); modelIndex++) {
+        const model = this.gemmiStructure.models.get(modelIndex).clone()
+        window.CCP4Module.remove_ligands_and_waters_model(model)
+        for (let chainIndex = 0; chainIndex < model.chains.size(); chainIndex++) {
+            let currentSequence = []
+            const chain = model.chains.get(chainIndex)
+            const residues = chain.residues
+            for (let residueIndex = 0; residueIndex < residues.size(); residueIndex++) {
+                const residue = residues.get(residueIndex)
+                currentSequence.push({
+                    resNum: Number(residue.seqid.str()),
+                    resCode: residueCodesThreeToOne[residue.name]
+                })
+            }
+            if (currentSequence.length > 0) {
+                sequences.push({
+                    name: `${this.name}_${chain.name}`,
+                    chain: chain.name,
+                    type: window.CCP4Module.check_polymer_type(chain.get_polymer_const()),
+                    sequence: currentSequence,
+                })
+            }
+        }
+    }
+    console.log('Parsed the following sequences')
+    console.log(sequences)
+    this.sequences = sequences
+}
 
 MoorhenMolecule.prototype.delete = async function (glRef) {
     const $this = this
@@ -60,6 +97,24 @@ MoorhenMolecule.prototype.delete = async function (glRef) {
     const inputData = { message: "delete", molNo: $this.molNo }
     const response = await $this.commandCentre.current.postMessage(inputData)
     return response
+}
+
+MoorhenMolecule.prototype.copyMolecule = async function (glRef) {
+
+    let moleculeAtoms = await this.getAtoms()
+    let newMolecule = new MoorhenMolecule(this.commandCentre, this.urlPrefix)
+    newMolecule.name = `${this.name}-placeholder`
+
+    let response = await this.commandCentre.current.cootCommand({
+        returnType: "status",
+        command: 'shim_read_pdb',
+        commandArgs: [moleculeAtoms.data.result.pdbData, newMolecule.name]
+    }, true)
+
+    newMolecule.molNo = response.data.result.result
+
+    await newMolecule.fetchIfDirtyAndDraw('CBs', glRef)
+    return newMolecule
 }
 
 MoorhenMolecule.prototype.copyFragment = async function (chainId, res_no_start, res_no_end, glRef, doRecentre) {
@@ -74,15 +129,6 @@ MoorhenMolecule.prototype.copyFragment = async function (chainId, res_no_start, 
     newMolecule.molNo = response.data.result
     await newMolecule.fetchIfDirtyAndDraw('CBs', glRef)
     if (doRecentre) await newMolecule.centreOn(glRef)
-
-    const sequenceInputData = { returnType: "residue_codes", command: "get_single_letter_codes_for_chain", commandArgs: [response.data.result, chainId] }
-    const sequenceResponse = await $this.commandCentre.current.cootCommand(sequenceInputData)
-    newMolecule.cachedAtoms.sequences = [{
-        "sequence": sequenceResponse.data.result.result,
-        "name": `${$this.name} fragment`,
-        "chain": chainId,
-        "type": this.cachedAtoms.sequences.length > 0 ? this.cachedAtoms.sequences[0].type : 'ligand'
-    }]
 
     return newMolecule
 }
@@ -111,6 +157,7 @@ MoorhenMolecule.prototype.loadToCootFromString = async function (coordData, name
     $this.cachedAtoms = $this.webMGAtomsFromFileString(coordData)
     $this.gemmiStructure = readGemmiStructure(coordData, $this.name)
     window.CCP4Module.gemmi_setup_entities($this.gemmiStructure)
+    $this.parseSequences()
     $this.atomsDirty = false
 
     return this.commandCentre.current.cootCommand({
@@ -179,6 +226,7 @@ MoorhenMolecule.prototype.updateAtoms = function () {
             $this.cachedAtoms = $this.webMGAtomsFromFileString(result.data.result.pdbData)
             $this.gemmiStructure = readGemmiStructure(result.data.result.pdbData, $this.name)
             window.CCP4Module.gemmi_setup_entities($this.gemmiStructure)
+            $this.parseSequences()
             $this.atomsDirty = false
             resolve($this.cachedAtoms)
         })
@@ -199,9 +247,8 @@ MoorhenMolecule.prototype.fetchIfDirtyAndDraw = async function (style, glRef) {
     })
 }
 
-MoorhenMolecule.prototype.centreOn = function (glRef, selection) {
+MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid) {
     //Note add selection to permit centringh on subset
-    const $this = this
     let promise
     if (this.atomsDirty) {
         promise = this.updateAtoms()
@@ -210,26 +257,17 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selection) {
         promise = Promise.resolve()
     }
 
-    return promise.then(() => {
+    return promise.then(async () => {
 
-        let selectionCentre = null;
-        if (selection) {
-            let selectedChainIndex = $this.cachedAtoms.atoms[selection.modelIndex].chains.findIndex(chain => chain.residues[0].atoms[0]["_atom_site.auth_asym_id"] === selection.chain);
-            if (selectedChainIndex === -1) {
-                console.log(`Cannot find chain ${selection.molName}/${selection.chain}`);
-                return;
-            }
-            let selectedResidueIndex = $this.cachedAtoms.atoms[selection.modelIndex].chains[selectedChainIndex].residues.findIndex(residue => residue.atoms[0]["_atom_site.label_seq_id"] == selection.seqNum);
-            if (selectedResidueIndex === -1) {
-                console.log(`Cannot find residue ${selection.molName}/${selection.chain}/${selection.seqNum}`);
-                return;
-            } else {
-                let selectedAtoms = $this.cachedAtoms.atoms[selection.modelIndex].chains[selectedChainIndex].residues[selectedResidueIndex].atoms;
-                selectionCentre = $this.cachedAtoms.atoms[selection.modelIndex].centreOnAtoms(selectedAtoms);
-            }
+        let selectionAtoms = []
+        if (selectionCid) {
+            selectionAtoms = await this.gemmiAtomsForCid(selectionCid)
+
         } else {
-            selectionCentre = $this.cachedAtoms.atoms[0].centre();
+            selectionAtoms = await this.gemmiAtomsForCid('/*/*/*/*')
         }
+
+        let selectionCentre = centreOnGemmiAtoms(selectionAtoms)
 
         return new Promise((resolve, reject) => {
             glRef.current.setOrigin(selectionCentre);
@@ -259,6 +297,9 @@ MoorhenMolecule.prototype.drawWithStyleFromAtoms = async function (style, glRef,
             break;
         case 'CBs':
             await this.drawCootBonds(webMGAtoms, glRef)
+            break;
+        case 'gaussian':
+            await this.drawCootGaussianSurface(glRef)
             break;
         case 'CRs':
             await this.drawCootRepresentation(webMGAtoms, glRef, style)
@@ -354,6 +395,41 @@ MoorhenMolecule.prototype.drawCootBonds = async function (webMGAtoms, glRef) {
                     this.displayObjects[style][0].atoms = bufferAtoms
                 })
             }
+        }
+        else {
+            this.clearBuffersOfStyle(style, glRef)
+        }
+        return Promise.resolve(true)
+    })
+}
+
+MoorhenMolecule.prototype.drawCootGaussianSurface = async function (glRef) {
+    const $this = this
+    const style = "gaussian"
+    return this.commandCentre.current.cootCommand({
+        returnType: "mesh",
+        command: "get_gaussian_surface",
+        commandArgs: [
+            $this.molNo
+        ]
+    }).then(response => {
+        const objects = [response.data.result.result]
+        if (objects.length > 0) {
+            const flippedNormObjects = objects.map(object => {
+                const flippedNormalsObject = { ...object }
+                /*
+                flippedNormalsObject.norm_tri = object.norm_tri.map(
+                    element => element.map(subElement => subElement.map(coord => coord * -1.))
+                )
+                */
+                flippedNormalsObject.idx_tri = object.idx_tri.map(
+                    element => element.map(subElement => subElement.reverse())
+                )
+                return flippedNormalsObject
+            })
+            //Empty existing buffers of this type
+            this.clearBuffersOfStyle(style, glRef)
+            this.addBuffersOfStyle(glRef, flippedNormObjects, style)
         }
         else {
             this.clearBuffersOfStyle(style, glRef)
@@ -798,42 +874,47 @@ MoorhenMolecule.prototype.redraw = function (glRef) {
 MoorhenMolecule.prototype.transformedCachedAtomsAsMovedAtoms = function (glRef) {
     const $this = this
     let movedResidues = [];
-    $this.cachedAtoms.atoms.forEach(mod => {
-        mod.chains.forEach(chain => {
-            chain.residues.forEach(res => {
-                if (res.atoms.length > 0) {
-                    const cid = res.atoms[0].getChainID() + "/" + res.atoms[0].getResidueID()
-                    let movedAtoms = [];
-                    res.atoms.forEach(atom => {
-                        const atomName = atom["_atom_site.label_atom_id"];
-                        const atomSymbol = atom["_atom_site.type_symbol"];
-                        const diff = $this.displayObjects.transformation.centre
-                        let x = atom.x() + glRef.current.origin[0] - diff[0]
-                        let y = atom.y() + glRef.current.origin[1] - diff[1]
-                        let z = atom.z() + glRef.current.origin[2] - diff[2]
-                        const origin = $this.displayObjects.transformation.origin
-                        const quat = $this.displayObjects.transformation.quat
-                        if (quat) {
-                            const theMatrix = quatToMat4(quat)
-                            theMatrix[12] = origin[0]
-                            theMatrix[13] = origin[1]
-                            theMatrix[14] = origin[2]
-                            // And then transform ...
-                            const atomPos = vec3.create()
-                            const transPos = vec3.create()
-                            vec3.set(atomPos, x, y, z)
-                            vec3.transformMat4(transPos, atomPos, theMatrix);
-                            if (atomSymbol.length == 2)
-                                movedAtoms.push({ name: (atomName).padEnd(4, " "), x: transPos[0] - glRef.current.origin[0] + diff[0], y: transPos[1] - glRef.current.origin[1] + diff[1], z: transPos[2] - glRef.current.origin[2] + diff[2], resCid: cid })
-                            else
-                                movedAtoms.push({ name: (" " + atomName).padEnd(4, " "), x: transPos[0] - glRef.current.origin[0] + diff[0], y: transPos[1] - glRef.current.origin[1] + diff[1], z: transPos[2] - glRef.current.origin[2] + diff[2], resCid: cid })
+
+    for (let modelIndex = 0; modelIndex < this.gemmiStructure.models.size(); modelIndex++) {
+        const model = this.gemmiStructure.models.get(modelIndex)
+        for (let chainIndex = 0; chainIndex < model.chains.size(); chainIndex++) {
+            const chain = model.chains.get(chainIndex)
+            for (let residueIndex = 0; residueIndex < chain.residues.size(); residueIndex++) {
+                const residue = chain.residues.get(residueIndex)
+                const cid = `${chain.name}/${residue.seqid.str()}`
+                let movedAtoms = []
+                for (let atomIndex = 0; atomIndex < residue.atoms.size(); atomIndex++) {
+                    const atom = residue.atoms.get(atomIndex)
+                    const atomName = atom.name
+                    const atomSymbol = window.CCP4Module.getElementNameAsString(atom.element)
+                    const diff = $this.displayObjects.transformation.centre
+                    let x = atom.pos.x + glRef.current.origin[0] - diff[0]
+                    let y = atom.pos.y + glRef.current.origin[1] - diff[1]
+                    let z = atom.pos.z + glRef.current.origin[2] - diff[2]
+                    const origin = $this.displayObjects.transformation.origin
+                    const quat = $this.displayObjects.transformation.quat
+                    if (quat) {
+                        const theMatrix = quatToMat4(quat)
+                        theMatrix[12] = origin[0]
+                        theMatrix[13] = origin[1]
+                        theMatrix[14] = origin[2]
+                        // And then transform ...
+                        const atomPos = vec3.create()
+                        const transPos = vec3.create()
+                        vec3.set(atomPos, x, y, z)
+                        vec3.transformMat4(transPos, atomPos, theMatrix);
+                        if (atomSymbol.length == 2) {
+                            movedAtoms.push({ name: (atomName).padEnd(4, " "), x: transPos[0] - glRef.current.origin[0] + diff[0], y: transPos[1] - glRef.current.origin[1] + diff[1], z: transPos[2] - glRef.current.origin[2] + diff[2], resCid: cid })
+                        } else {
+                            movedAtoms.push({ name: (" " + atomName).padEnd(4, " "), x: transPos[0] - glRef.current.origin[0] + diff[0], y: transPos[1] - glRef.current.origin[1] + diff[1], z: transPos[2] - glRef.current.origin[2] + diff[2], resCid: cid })
                         }
-                    })
-                    movedResidues.push(movedAtoms)
+                    }
                 }
-            })
-        })
-    })
+                movedResidues.push(movedAtoms)
+            }
+        }
+    }
+
     return movedResidues
 }
 
@@ -965,7 +1046,9 @@ MoorhenMolecule.prototype.redo = async function (glRef) {
 
 MoorhenMolecule.prototype.gemmiAtomsForCid = async function (cid) {
     const $this = this
-    if ($this.atomsDirty) { const cachedAtoms = await $this.updateAtoms() }
+    if ($this.atomsDirty) {
+        await $this.updateAtoms()
+    }
     let result = []
     const selection = new window.CCP4Module.Selection(cid)
     const model = $this.gemmiStructure.first_model()

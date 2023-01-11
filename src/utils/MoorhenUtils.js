@@ -51,6 +51,30 @@ export const residueCodesOneToThree = {
     '-': 'MISSING'
 }
 
+export const residueCodesThreeToOne = {
+        "ALA":'A',
+        "ARG":'R',
+        "ASN":'N',
+        "ASP":'D',
+        "CYS":'C',
+        "GLN":'Q',
+        "GLU":'E',
+        "GLY":'G',
+        "HIS":'H',
+        "ILE":'I',
+        "LEU":'L',
+        "LYS":'K',
+        "MET":'M',
+        "PHE":'F',
+        "PRO":'P',
+        "SER":'S',
+        "THR":'T',
+        "TRP":'W',
+        "TYR":'Y',
+        "VAL":'V',
+        "UNK":'X',
+}
+
 export const nucleotideCodesOneToThree = {
     "A": "A",
     "T": "T",
@@ -62,6 +86,30 @@ export const nucleotideCodesOneToThree = {
     "X": "UNKOWN",
     'UNK': 'UNKOWN',
     '-': 'MISSING'
+}
+
+export const nucleotideCodesThreeToOne = {
+    "A": "A",
+    "T": "T",
+    "G": "G",
+    "C": "C",
+    "U": "U",
+    "N": "N",
+    "I": "I",
+    "DT": "T",
+    "DG": "G",
+    "DC": "C",
+    "DA": "A",
+    "DU": "U",
+    "ADE": "A",
+    "THY": "T",
+    "GUA": "G",
+    "CYT": "C",
+    "URA": "U",
+    "PSU": "U",
+    "UNKOWN": "X",
+    'UNK': 'X',
+    'MISSING': '-'
 }
 
 export const postCootMessage = (cootWorker, kwargs) => {
@@ -258,6 +306,26 @@ export const MoorhenMtzWrapper = class {
     loadFromData(data) {
 
     }
+}
+
+export const centreOnGemmiAtoms = (atoms) => {
+    const atomCount = atoms.length
+    if (atomCount === 0) {
+        return [0, 0, 0]
+    }
+
+    let xtot = 0.0
+    let ytot = 0.0
+    let ztot = 0.0
+    
+    for (const atom of atoms) {
+        xtot += atom.pos.x
+        ytot += atom.pos.y
+        ztot += atom.pos.z
+    }
+    
+    return [-xtot/atomCount, -ytot/atomCount, -ztot/atomCount]
+    
 }
 
 export const cidToSpec = (cid) => {

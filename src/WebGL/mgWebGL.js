@@ -15,56 +15,56 @@ import * as mat3 from 'gl-matrix/mat3';
 import { base64encode, base64decode } from './mgBase64.js';
 
 //WebGL2 shaders
-/*
-import {lines_fragment_shader_source} from './lines-fragment-shader.js';
-import {lines_vertex_shader_source} from './lines-vertex-shader.js';
-import {perfect_sphere_fragment_shader_source} from './perfect-sphere-fragment-shader.js';
-import {perfect_sphere_shadow_fragment_shader_source} from './perfect-sphere-shadow-fragment-shader.js';
-import {pointspheres_fragment_shader_source} from './pointspheres-fragment-shader.js';
-import {pointspheres_shadow_fragment_shader_source} from './pointspheres-shadow-fragment-shader.js';
-import {pointspheres_shadow_vertex_shader_source} from './pointspheres-shadow-vertex-shader.js';
-import {pointspheres_vertex_shader_source} from './pointspheres-vertex-shader.js';
-import {render_framebuffer_fragment_shader_source} from './render-framebuffer-fragment-shader.js';
-import {shadow_fragment_shader_source} from './shadow-fragment-shader.js';
-import {shadow_vertex_shader_source} from './shadow-vertex-shader.js';
-import {text_fragment_shader_source} from './text-fragment-shader.js';
-import {circles_fragment_shader_source} from './circle-fragment-shader.js';
-import {circles_vertex_shader_source} from './circle-vertex-shader.js';
-import {thick_lines_vertex_shader_source} from './thick-lines-vertex-shader.js';
-import {thick_lines_normal_vertex_shader_source} from './thick-lines-normal-vertex-shader.js';
-import {triangle_fragment_shader_source} from './triangle-fragment-shader.js';
-import {triangle_shadow_fragment_shader_source} from './triangle-shadow-fragment-shader.js';
-import {triangle_shadow_vertex_shader_source} from './triangle-shadow-vertex-shader.js';
-import {triangle_vertex_shader_source} from './triangle-vertex-shader.js';
-import {twod_fragment_shader_source} from './twodshapes-fragment-shader.js';
-import {twod_vertex_shadow_shader_source} from './twodshapes-shadow-vertex-shader.js';
-import {twod_vertex_shader_source} from './twodshapes-vertex-shader.js';
-*/
+import { lines_fragment_shader_source as lines_fragment_shader_source_webgl2 } from './lines-fragment-shader.js';
+import { lines_vertex_shader_source as lines_vertex_shader_source_webgl2 } from './lines-vertex-shader.js';
+import { perfect_sphere_fragment_shader_source as perfect_sphere_fragment_shader_source_webgl2 } from './perfect-sphere-fragment-shader.js';
+import { perfect_sphere_shadow_fragment_shader_source as perfect_sphere_shadow_fragment_shader_source_webgl2 } from './perfect-sphere-shadow-fragment-shader.js';
+import { pointspheres_fragment_shader_source as pointspheres_fragment_shader_source_webgl2 } from './pointspheres-fragment-shader.js';
+import { pointspheres_shadow_fragment_shader_source as pointspheres_shadow_fragment_shader_source_webgl2 } from './pointspheres-shadow-fragment-shader.js';
+import { pointspheres_shadow_vertex_shader_source as pointspheres_shadow_vertex_shader_source_webgl2 } from './pointspheres-shadow-vertex-shader.js';
+import { pointspheres_vertex_shader_source as pointspheres_vertex_shader_source_webgl2 } from './pointspheres-vertex-shader.js';
+import { render_framebuffer_fragment_shader_source as render_framebuffer_fragment_shader_source_webgl2 } from './render-framebuffer-fragment-shader.js';
+import { shadow_fragment_shader_source as shadow_fragment_shader_source_webgl2 } from './shadow-fragment-shader.js';
+import { shadow_vertex_shader_source as shadow_vertex_shader_source_webgl2 } from './shadow-vertex-shader.js';
+import { text_fragment_shader_source as text_fragment_shader_source_webgl2 } from './text-fragment-shader.js';
+import { circles_fragment_shader_source as circles_fragment_shader_source_webgl2 } from './circle-fragment-shader.js';
+import { circles_vertex_shader_source as circles_vertex_shader_source_webgl2 } from './circle-vertex-shader.js';
+import { thick_lines_vertex_shader_source as thick_lines_vertex_shader_source_webgl2 } from './thick-lines-vertex-shader.js';
+import { thick_lines_normal_vertex_shader_source as thick_lines_normal_vertex_shader_source_webgl2 } from './thick-lines-normal-vertex-shader.js';
+import { triangle_fragment_shader_source as triangle_fragment_shader_source_webgl2 } from './triangle-fragment-shader.js';
+import { triangle_shadow_fragment_shader_source as triangle_shadow_fragment_shader_source_webgl2 } from './triangle-shadow-fragment-shader.js';
+import { triangle_shadow_vertex_shader_source as triangle_shadow_vertex_shader_source_webgl2 } from './triangle-shadow-vertex-shader.js';
+import { triangle_vertex_shader_source as triangle_vertex_shader_source_webgl2 } from './triangle-vertex-shader.js';
+import { twod_fragment_shader_source as twod_fragment_shader_source_webgl2 } from './twodshapes-fragment-shader.js';
+import { twod_vertex_shadow_shader_source as twod_vertex_shadow_shader_source_webgl2 } from './twodshapes-shadow-vertex-shader.js';
+import { twod_vertex_shader_source as twod_vertex_shader_source_webgl2 } from './twodshapes-vertex-shader.js';
+import { triangle_instanced_vertex_shader_source as triangle_instanced_vertex_shader_source_webgl2 } from './triangle-instanced-vertex-shader.js';
 
 //WebGL1 shaders
-import { lines_fragment_shader_source } from './webgl-1/lines-fragment-shader.js';
-import { lines_vertex_shader_source } from './webgl-1/lines-vertex-shader.js';
-import { perfect_sphere_fragment_shader_source } from './webgl-1/perfect-sphere-fragment-shader.js';
-import { perfect_sphere_shadow_fragment_shader_source } from './webgl-1/perfect-sphere-shadow-fragment-shader.js';
-import { pointspheres_fragment_shader_source } from './webgl-1/pointspheres-fragment-shader.js';
-import { pointspheres_shadow_fragment_shader_source } from './webgl-1/pointspheres-shadow-fragment-shader.js';
-import { pointspheres_shadow_vertex_shader_source } from './webgl-1/pointspheres-shadow-vertex-shader.js';
-import { pointspheres_vertex_shader_source } from './webgl-1/pointspheres-vertex-shader.js';
-import { render_framebuffer_fragment_shader_source } from './webgl-1/render-framebuffer-fragment-shader.js';
-import { shadow_fragment_shader_source } from './webgl-1/shadow-fragment-shader.js';
-import { shadow_vertex_shader_source } from './webgl-1/shadow-vertex-shader.js';
-import { text_fragment_shader_source } from './webgl-1/text-fragment-shader.js';
-import { circles_fragment_shader_source } from './webgl-1/circle-fragment-shader.js';
-import { circles_vertex_shader_source } from './webgl-1/circle-vertex-shader.js';
-import { thick_lines_vertex_shader_source } from './webgl-1/thick-lines-vertex-shader.js';
-import { thick_lines_normal_vertex_shader_source } from './webgl-1/thick-lines-normal-vertex-shader.js';
-import { triangle_fragment_shader_source } from './webgl-1/triangle-fragment-shader.js';
-import { triangle_shadow_fragment_shader_source } from './webgl-1/triangle-shadow-fragment-shader.js';
-import { triangle_shadow_vertex_shader_source } from './webgl-1/triangle-shadow-vertex-shader.js';
-import { triangle_vertex_shader_source } from './webgl-1/triangle-vertex-shader.js';
-import { twod_fragment_shader_source } from './webgl-1/twodshapes-fragment-shader.js';
-import { twod_vertex_shadow_shader_source } from './webgl-1/twodshapes-shadow-vertex-shader.js';
-import { twod_vertex_shader_source } from './webgl-1/twodshapes-vertex-shader.js';
+import { lines_fragment_shader_source as lines_fragment_shader_source_webgl1 } from './webgl-1/lines-fragment-shader.js';
+import { lines_vertex_shader_source as lines_vertex_shader_source_webgl1 } from './webgl-1/lines-vertex-shader.js';
+import { perfect_sphere_fragment_shader_source as perfect_sphere_fragment_shader_source_webgl1 } from './webgl-1/perfect-sphere-fragment-shader.js';
+import { perfect_sphere_shadow_fragment_shader_source as perfect_sphere_shadow_fragment_shader_source_webgl1 } from './webgl-1/perfect-sphere-shadow-fragment-shader.js';
+import { pointspheres_fragment_shader_source as pointspheres_fragment_shader_source_webgl1 } from './webgl-1/pointspheres-fragment-shader.js';
+import { pointspheres_shadow_fragment_shader_source as pointspheres_shadow_fragment_shader_source_webgl1 } from './webgl-1/pointspheres-shadow-fragment-shader.js';
+import { pointspheres_shadow_vertex_shader_source as pointspheres_shadow_vertex_shader_source_webgl1 } from './webgl-1/pointspheres-shadow-vertex-shader.js';
+import { pointspheres_vertex_shader_source as pointspheres_vertex_shader_source_webgl1 } from './webgl-1/pointspheres-vertex-shader.js';
+import { render_framebuffer_fragment_shader_source as render_framebuffer_fragment_shader_source_webgl1 } from './webgl-1/render-framebuffer-fragment-shader.js';
+import { shadow_fragment_shader_source as shadow_fragment_shader_source_webgl1 } from './webgl-1/shadow-fragment-shader.js';
+import { shadow_vertex_shader_source as shadow_vertex_shader_source_webgl1 } from './webgl-1/shadow-vertex-shader.js';
+import { text_fragment_shader_source as text_fragment_shader_source_webgl1 } from './webgl-1/text-fragment-shader.js';
+import { circles_fragment_shader_source as circles_fragment_shader_source_webgl1 } from './webgl-1/circle-fragment-shader.js';
+import { circles_vertex_shader_source as circles_vertex_shader_source_webgl1 } from './webgl-1/circle-vertex-shader.js';
+import { thick_lines_vertex_shader_source as thick_lines_vertex_shader_source_webgl1 } from './webgl-1/thick-lines-vertex-shader.js';
+import { thick_lines_normal_vertex_shader_source as thick_lines_normal_vertex_shader_source_webgl1 } from './webgl-1/thick-lines-normal-vertex-shader.js';
+import { triangle_fragment_shader_source as triangle_fragment_shader_source_webgl1 } from './webgl-1/triangle-fragment-shader.js';
+import { triangle_shadow_fragment_shader_source as triangle_shadow_fragment_shader_source_webgl1 } from './webgl-1/triangle-shadow-fragment-shader.js';
+import { triangle_shadow_vertex_shader_source as triangle_shadow_vertex_shader_source_webgl1 } from './webgl-1/triangle-shadow-vertex-shader.js';
+import { triangle_vertex_shader_source as triangle_vertex_shader_source_webgl1 } from './webgl-1/triangle-vertex-shader.js';
+import { twod_fragment_shader_source as twod_fragment_shader_source_webgl1 } from './webgl-1/twodshapes-fragment-shader.js';
+import { twod_vertex_shadow_shader_source as twod_vertex_shadow_shader_source_webgl1 } from './webgl-1/twodshapes-shadow-vertex-shader.js';
+import { twod_vertex_shader_source as twod_vertex_shader_source_webgl1 } from './webgl-1/twodshapes-vertex-shader.js';
+import { triangle_instanced_vertex_shader_source as triangle_instanced_vertex_shader_source_webgl1 } from './webgl-1/triangle-instanced-vertex-shader.js';
 
 import { CIsoSurface } from './CIsoSurface.js';
 import { SplineCurve, BezierCurve, DistanceBetweenPointAndLine, DistanceBetweenTwoLines, DihedralAngle } from './mgMaths.js';
@@ -1273,9 +1273,15 @@ class DisplayBuffer {
         this.triangleVertexPositionBuffer = [];
         this.triangleVertexIndexBuffer = [];
         this.triangleVertexTextureBuffer = [];
+        this.triangleInstanceOriginBuffer = [];
+        this.triangleInstanceOrientationBuffer = [];
+        this.triangleInstanceSizeBuffer = [];
         this.triangleColourBuffer = [];
         this.triangleIndexs = [];
         this.triangleVertices = [];
+        this.triangleInstanceOrigins = [];
+        this.triangleInstanceSizes = [];
+        this.triangleInstanceOrientations = [];
         this.triangleColours = [];
         this.triangleNormals = [];
         this.primitiveSizes = [];
@@ -1474,6 +1480,8 @@ class MGWebGL extends Component {
         this.mouseMoved = null;
         this.zoom = null;
         this.ext = null;
+        this.instanced_ext = null;
+        this.frag_depth_ext = null;
         this.gl_fog_start = null;
         this.gl_fog_end = null;
         this.gl_nClipPlanes = null;
@@ -1516,7 +1524,7 @@ class MGWebGL extends Component {
 
         var self = this;
 
-        this.textCtx = document.createElement("canvas").getContext("2d");
+        this.textCtx = document.createElement("canvas").getContext("2d", {willReadFrequently: true});
         this.circleCtx = document.createElement("canvas").getContext("2d");
 
         this.myQuat = quat4.create();
@@ -1568,6 +1576,7 @@ class MGWebGL extends Component {
         if (this.WEBGL2) {
             this.ext = true;
             this.frag_depth_ext = true;
+            this.instanced_ext = true;
             this.depth_texture = true;
         } else {
             this.ext = this.gl.getExtension("OES_element_index_uint");
@@ -1576,6 +1585,10 @@ class MGWebGL extends Component {
             }
             this.frag_depth_ext = this.gl.getExtension("EXT_frag_depth");
             this.depth_texture = this.gl.getExtension("WEBGL_depth_texture");
+            this.instanced_ext = this.gl.getExtension("ANGLE_instanced_arrays");
+            if (!this.instanced_ext) {
+                alert("No instancing support");
+            }
             if (!this.depth_texture) {
                 this.depth_texture = this.gl.getExtension("MOZ_WEBGL_depth_texture");
                 if (!this.depth_texture) {
@@ -1666,7 +1679,60 @@ class MGWebGL extends Component {
         this.doRedraw = false;
         var myVar = setInterval(function () { self.drawSceneIfDirty() }, 16);
 
+        let lines_fragment_shader_source = lines_fragment_shader_source_webgl1;
+        let lines_vertex_shader_source = lines_vertex_shader_source_webgl1;
+        let perfect_sphere_fragment_shader_source = perfect_sphere_fragment_shader_source_webgl1;
+        let perfect_sphere_shadow_fragment_shader_source = perfect_sphere_shadow_fragment_shader_source_webgl1;
+        let pointspheres_fragment_shader_source = pointspheres_fragment_shader_source_webgl1;
+        let pointspheres_shadow_fragment_shader_source = pointspheres_shadow_fragment_shader_source_webgl1;
+        let pointspheres_shadow_vertex_shader_source = pointspheres_shadow_vertex_shader_source_webgl1;
+        let pointspheres_vertex_shader_source = pointspheres_vertex_shader_source_webgl1;
+        let render_framebuffer_fragment_shader_source = render_framebuffer_fragment_shader_source_webgl1;
+        let shadow_fragment_shader_source = shadow_fragment_shader_source_webgl1;
+        let shadow_vertex_shader_source = shadow_vertex_shader_source_webgl1;
+        let text_fragment_shader_source = text_fragment_shader_source_webgl1;
+        let circles_fragment_shader_source = circles_fragment_shader_source_webgl1;
+        let circles_vertex_shader_source = circles_vertex_shader_source_webgl1;
+        let thick_lines_vertex_shader_source = thick_lines_vertex_shader_source_webgl1;
+        let thick_lines_normal_vertex_shader_source = thick_lines_normal_vertex_shader_source_webgl1;
+        let triangle_fragment_shader_source = triangle_fragment_shader_source_webgl1;
+        let triangle_shadow_fragment_shader_source = triangle_shadow_fragment_shader_source_webgl1;
+        let triangle_shadow_vertex_shader_source = triangle_shadow_vertex_shader_source_webgl1;
+        let triangle_vertex_shader_source = triangle_vertex_shader_source_webgl1;
+        let twod_fragment_shader_source = twod_fragment_shader_source_webgl1;
+        let twod_vertex_shadow_shader_source = twod_vertex_shadow_shader_source_webgl1;
+        let twod_vertex_shader_source = twod_vertex_shader_source_webgl1;
+        let triangle_instanced_vertex_shader_source = triangle_instanced_vertex_shader_source_webgl1;
+
+        if(this.WEBGL2){
+            lines_fragment_shader_source = lines_fragment_shader_source_webgl2;
+            lines_vertex_shader_source = lines_vertex_shader_source_webgl2;
+            perfect_sphere_fragment_shader_source = perfect_sphere_fragment_shader_source_webgl2;
+            perfect_sphere_shadow_fragment_shader_source = perfect_sphere_shadow_fragment_shader_source_webgl2;
+            pointspheres_fragment_shader_source = pointspheres_fragment_shader_source_webgl2;
+            pointspheres_shadow_fragment_shader_source = pointspheres_shadow_fragment_shader_source_webgl2;
+            pointspheres_shadow_vertex_shader_source = pointspheres_shadow_vertex_shader_source_webgl2;
+            pointspheres_vertex_shader_source = pointspheres_vertex_shader_source_webgl2;
+            render_framebuffer_fragment_shader_source = render_framebuffer_fragment_shader_source_webgl2;
+            shadow_fragment_shader_source = shadow_fragment_shader_source_webgl2;
+            shadow_vertex_shader_source = shadow_vertex_shader_source_webgl2;
+            text_fragment_shader_source = text_fragment_shader_source_webgl2;
+            circles_fragment_shader_source = circles_fragment_shader_source_webgl2;
+            circles_vertex_shader_source = circles_vertex_shader_source_webgl2;
+            thick_lines_vertex_shader_source = thick_lines_vertex_shader_source_webgl2;
+            thick_lines_normal_vertex_shader_source = thick_lines_normal_vertex_shader_source_webgl2;
+            triangle_fragment_shader_source = triangle_fragment_shader_source_webgl2;
+            triangle_shadow_fragment_shader_source = triangle_shadow_fragment_shader_source_webgl2;
+            triangle_shadow_vertex_shader_source = triangle_shadow_vertex_shader_source_webgl2;
+            triangle_vertex_shader_source = triangle_vertex_shader_source_webgl2;
+            twod_fragment_shader_source = twod_fragment_shader_source_webgl2;
+            twod_vertex_shadow_shader_source = twod_vertex_shadow_shader_source_webgl2;
+            twod_vertex_shader_source = twod_vertex_shader_source_webgl2;
+            triangle_instanced_vertex_shader_source = triangle_instanced_vertex_shader_source_webgl2;
+        }
+
         vertexShader = getShader(self.gl, triangle_vertex_shader_source, "vertex");
+        const vertexShaderInstanced = getShader(self.gl, triangle_instanced_vertex_shader_source, "vertex");
         fragmentShader = getShader(self.gl, triangle_fragment_shader_source, "fragment");
         lineVertexShader = getShader(self.gl, lines_vertex_shader_source, "vertex");
         thickLineVertexShader = getShader(self.gl, thick_lines_vertex_shader_source, "vertex");
@@ -1713,6 +1779,7 @@ class MGWebGL extends Component {
         self.initCirclesShaders(circlesVertexShader, circlesFragmentShader);
         self.gl.disableVertexAttribArray(self.shaderProgramCircles.vertexTextureAttribute);
         self.initShaders(vertexShader, fragmentShader);
+        self.initShadersInstanced(vertexShaderInstanced, fragmentShader);
 
         self.buildBuffers();
 
@@ -2051,6 +2118,30 @@ class MGWebGL extends Component {
                 self.createNormalBuffer(norms[i]);
             }
 
+            if (jsondata.instance_origins) {
+                rssentries = jsondata.instance_origins[idat];
+                let instance_origins = rssentries;
+                for (let i = 0; i < instance_origins.length; i++) {
+                    self.createInstanceOriginsBuffer(instance_origins[i]);
+                }
+            }
+
+            if (jsondata.instance_sizes) {
+                rssentries = jsondata.instance_sizes[idat];
+                let instance_sizes = rssentries;
+                for (let i = 0; i < instance_sizes.length; i++) {
+                    self.createInstanceSizesBuffer(instance_sizes[i]);
+                }
+            }
+
+            if (jsondata.instance_orientations) {
+                rssentries = jsondata.instance_orientations[idat];
+                let instance_orientations = rssentries;
+                for (let i = 0; i < instance_orientations.length; i++) {
+                    self.createInstanceOrientationsBuffer(instance_orientations[i]);
+                }
+            }
+
             if (jsondata.additional_norm_tri) {
                 rssentries = jsondata.additional_norm_tri[idat];
                 let add_norms = rssentries;
@@ -2078,6 +2169,15 @@ class MGWebGL extends Component {
                 for (var j = 0; j < idxs[i].length; j++) {
                 }
                 self.createIndexBuffer(idxs[i]);
+            }
+
+            if (typeof (jsondata.instance_use_colors) !== "undefined") {
+                if (typeof (jsondata.instance_use_colors[idat]) !== "undefined") {
+                    rssentries = jsondata.instance_use_colors[idat];
+                    for (let i = 0; i < rssentries.length; i++) {
+                        self.addSupplementaryInfo(rssentries[i], "instance_use_colors");
+                    }
+                }
             }
 
             if (typeof (jsondata.useIndices) !== "undefined") {
@@ -3143,7 +3243,7 @@ class MGWebGL extends Component {
             //this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_COMPARE_MODE, this.gl.COMPARE_R_TO_TEXTURE);
             //this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_COMPARE_FUNC, this.gl.LEQUAL);
             if (this.WEBGL2) {
-                this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.DEPTH_COMPONENT, this.rttFramebufferDepth.width, this.rttFramebufferDepth.height, 0, this.gl.DEPTH_COMPONENT, this.gl.UNSIGNED_INT_24_8, null);
+                this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.DEPTH_COMPONENT24, this.rttFramebufferDepth.width, this.rttFramebufferDepth.height, 0, this.gl.DEPTH_COMPONENT, this.gl.UNSIGNED_INT, null);
             } else {
                 this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.DEPTH_COMPONENT, this.rttFramebufferDepth.width, this.rttFramebufferDepth.height, 0, this.gl.DEPTH_COMPONENT, this.gl.UNSIGNED_SHORT, null);
             }
@@ -4134,8 +4234,6 @@ class MGWebGL extends Component {
         this.gl.attachShader(this.shaderProgramShadow, fragmentShaderShadow);
         this.gl.bindAttribLocation(this.shaderProgramShadow, 0, "aVertexPosition");
         this.gl.bindAttribLocation(this.shaderProgramShadow, 1, "aVertexColour");
-        this.gl.bindAttribLocation(this.shaderProgramShadow, 2, "aVertexNormal");
-        this.gl.bindAttribLocation(this.shaderProgramShadow, 3, "aVertexTexture");
         this.gl.linkProgram(this.shaderProgramShadow);
 
         if (!this.gl.getProgramParameter(this.shaderProgramShadow, this.gl.LINK_STATUS)) {
@@ -4144,17 +4242,11 @@ class MGWebGL extends Component {
 
         this.gl.useProgram(this.shaderProgramShadow);
 
-        this.shaderProgramShadow.vertexNormalAttribute = this.gl.getAttribLocation(this.shaderProgramShadow, "aVertexNormal");
-        this.gl.enableVertexAttribArray(this.shaderProgramShadow.vertexNormalAttribute);
-
         this.shaderProgramShadow.vertexPositionAttribute = this.gl.getAttribLocation(this.shaderProgramShadow, "aVertexPosition");
         this.gl.enableVertexAttribArray(this.shaderProgramShadow.vertexPositionAttribute);
 
         this.shaderProgramShadow.vertexColourAttribute = this.gl.getAttribLocation(this.shaderProgramShadow, "aVertexColour");
         this.gl.enableVertexAttribArray(this.shaderProgramShadow.vertexColourAttribute);
-
-        this.shaderProgramShadow.vertexTextureAttribute = this.gl.getAttribLocation(this.shaderProgramShadow, "aVertexTexture");
-        this.gl.enableVertexAttribArray(this.shaderProgramShadow.vertexTextureAttribute);
 
         this.shaderProgramShadow.pMatrixUniform = this.gl.getUniformLocation(this.shaderProgramShadow, "uPMatrix");
         this.shaderProgramShadow.mvMatrixUniform = this.gl.getUniformLocation(this.shaderProgramShadow, "uMVMatrix");
@@ -4381,6 +4473,72 @@ class MGWebGL extends Component {
         this.shaderProgram.light_colours_ambient = this.gl.getUniformLocation(this.shaderProgram, "light_colours_ambient");
         this.shaderProgram.light_colours_specular = this.gl.getUniformLocation(this.shaderProgram, "light_colours_specular");
         this.shaderProgram.light_colours_diffuse = this.gl.getUniformLocation(this.shaderProgram, "light_colours_diffuse");
+    }
+
+    initShadersInstanced(vertexShader, fragmentShader) {
+
+        this.shaderProgramInstanced = this.gl.createProgram();
+
+        this.gl.attachShader(this.shaderProgramInstanced, vertexShader);
+        this.gl.attachShader(this.shaderProgramInstanced, fragmentShader);
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 0, "aVertexPosition");
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 1, "aVertexColour");
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 2, "aVertexNormal");
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 3, "aVertexTexture");
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 4, "instancePosition");
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 5, "instanceSize");
+        this.gl.bindAttribLocation(this.shaderProgramInstanced, 6, "instanceOrientation");
+        this.gl.linkProgram(this.shaderProgramInstanced);
+
+        if (!this.gl.getProgramParameter(this.shaderProgramInstanced, this.gl.LINK_STATUS)) {
+            alert("Could not initialise shaders (initShadersInstanced)");
+        }
+
+        this.gl.useProgram(this.shaderProgramInstanced);
+
+        this.shaderProgramInstanced.vertexNormalAttribute = this.gl.getAttribLocation(this.shaderProgramInstanced, "aVertexNormal");
+        this.gl.enableVertexAttribArray(this.shaderProgramInstanced.vertexNormalAttribute);
+
+        this.shaderProgramInstanced.vertexPositionAttribute = this.gl.getAttribLocation(this.shaderProgramInstanced, "aVertexPosition");
+        this.gl.enableVertexAttribArray(this.shaderProgramInstanced.vertexPositionAttribute);
+
+        this.shaderProgramInstanced.vertexColourAttribute = this.gl.getAttribLocation(this.shaderProgramInstanced, "aVertexColour");
+        this.gl.enableVertexAttribArray(this.shaderProgramInstanced.vertexColourAttribute);
+
+        this.shaderProgramInstanced.vertexInstanceOriginAttribute = this.gl.getAttribLocation(this.shaderProgramInstanced, "instancePosition");
+        this.shaderProgramInstanced.vertexInstanceSizeAttribute = this.gl.getAttribLocation(this.shaderProgramInstanced, "instanceSize");
+        this.shaderProgramInstanced.vertexInstanceOrientationAttribute = this.gl.getAttribLocation(this.shaderProgramInstanced, "instanceOrientation");
+
+        this.gl.enableVertexAttribArray(this.shaderProgramInstanced.vertexColourAttribute);
+
+        this.shaderProgramInstanced.pMatrixUniform = this.gl.getUniformLocation(this.shaderProgramInstanced, "uPMatrix");
+        this.shaderProgramInstanced.mvMatrixUniform = this.gl.getUniformLocation(this.shaderProgramInstanced, "uMVMatrix");
+        this.shaderProgramInstanced.mvInvMatrixUniform = this.gl.getUniformLocation(this.shaderProgramInstanced, "uMVINVMatrix");
+
+        this.shaderProgramInstanced.fog_start = this.gl.getUniformLocation(this.shaderProgramInstanced, "fog_start");
+        this.shaderProgramInstanced.fog_end = this.gl.getUniformLocation(this.shaderProgramInstanced, "fog_end");
+        this.shaderProgramInstanced.fogColour = this.gl.getUniformLocation(this.shaderProgramInstanced, "fogColour");
+
+        this.shaderProgramInstanced.clipPlane0 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane0");
+        this.shaderProgramInstanced.clipPlane1 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane1");
+        this.shaderProgramInstanced.clipPlane2 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane2");
+        this.shaderProgramInstanced.clipPlane3 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane3");
+        this.shaderProgramInstanced.clipPlane4 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane4");
+        this.shaderProgramInstanced.clipPlane5 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane5");
+        this.shaderProgramInstanced.clipPlane6 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane6");
+        this.shaderProgramInstanced.clipPlane7 = this.gl.getUniformLocation(this.shaderProgramInstanced, "clipPlane7");
+        this.shaderProgramInstanced.nClipPlanes = this.gl.getUniformLocation(this.shaderProgramInstanced, "nClipPlanes");
+
+        this.shaderProgramInstanced.cursorPos = this.gl.getUniformLocation(this.shaderProgramInstanced, "cursorPos");
+
+        this.shaderProgramInstanced.shinyBack = this.gl.getUniformLocation(this.shaderProgramInstanced, "shinyBack");
+        this.shaderProgramInstanced.defaultColour = this.gl.getUniformLocation(this.shaderProgramInstanced, "defaultColour");
+        this.shaderProgramInstanced.backColour = this.gl.getUniformLocation(this.shaderProgramInstanced, "backColour");
+
+        this.shaderProgramInstanced.light_positions = this.gl.getUniformLocation(this.shaderProgramInstanced, "light_positions");
+        this.shaderProgramInstanced.light_colours_ambient = this.gl.getUniformLocation(this.shaderProgramInstanced, "light_colours_ambient");
+        this.shaderProgramInstanced.light_colours_specular = this.gl.getUniformLocation(this.shaderProgramInstanced, "light_colours_specular");
+        this.shaderProgramInstanced.light_colours_diffuse = this.gl.getUniformLocation(this.shaderProgramInstanced, "light_colours_diffuse");
     }
 
     initThickLineNormalShaders(vertexShader, fragmentShader) {
@@ -6266,6 +6424,22 @@ class MGWebGL extends Component {
                     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleColourBuffer[j]);
                     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.displayBuffers[idx].triangleColours[j]), this.gl.STATIC_DRAW);
                     this.displayBuffers[idx].triangleColourBuffer[j].itemSize = 4;
+                    if(this.displayBuffers[idx].triangleInstanceSizeBuffer[j]){
+                        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceSizeBuffer[j]);
+                        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.displayBuffers[idx].triangleInstanceSizes[j]), this.gl.STATIC_DRAW);
+                        this.displayBuffers[idx].triangleInstanceSizeBuffer[j].itemSize = 1;
+                    }
+                    if(this.displayBuffers[idx].triangleInstanceOriginBuffer[j]){
+                        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceOriginBuffer[j]);
+                        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.displayBuffers[idx].triangleInstanceOrigins[j]), this.gl.STATIC_DRAW);
+                        this.displayBuffers[idx].triangleInstanceOriginBuffer[j].itemSize = 3;
+                    }
+                    if(this.displayBuffers[idx].triangleInstanceOrientationBuffer[j]){
+                        console.log("Buffering instance orientations");
+                        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceOrientationBuffer[j]);
+                        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.displayBuffers[idx].triangleInstanceOrientations[j]), this.gl.STATIC_DRAW);
+                        this.displayBuffers[idx].triangleInstanceOrientationBuffer[j].itemSize = 16;
+                    }
                 }
             }
         }
@@ -6744,14 +6918,28 @@ class MGWebGL extends Component {
         }
         this.gl.uniform1i(this.shaderProgram.shinyBack, this.shinyBack);
 
+        this.gl.useProgram(this.shaderProgramInstanced);
+        if (this.backColour === "default") {
+            this.gl.uniform1i(this.shaderProgramInstanced.defaultColour, true);
+        } else {
+            this.gl.uniform1i(this.shaderProgramInstanced.defaultColour, false);
+            this.gl.uniform4fv(this.shaderProgramInstanced.backColour, new Float32Array(this.backColour));
+        }
+        this.gl.uniform1i(this.shaderProgramInstanced.shinyBack, this.shinyBack);
+
         mat4.scale(this.pMatrix, this.pMatrix, [1. / this.zoom, 1. / this.zoom, 1]);
         mat4.translate(this.mvMatrix, this.mvMatrix, this.origin);
 
         this.pmvMatrix = mat4.create();
         mat4.multiply(this.pmvMatrix, this.pMatrix, this.mvMatrix);
 
+        this.gl.useProgram(this.shaderProgram);
         this.setMatrixUniforms(this.shaderProgram);
         this.setLightUniforms(this.shaderProgram);
+
+        this.gl.useProgram(this.shaderProgramInstanced);
+        this.setMatrixUniforms(this.shaderProgramInstanced);
+        this.setLightUniforms(this.shaderProgramInstanced);
 
         this.gl.useProgram(this.shaderProgramLines);
         this.setMatrixUniforms(this.shaderProgramLines);
@@ -6762,6 +6950,9 @@ class MGWebGL extends Component {
 
         this.gl.useProgram(this.shaderProgram);
         this.gl.enableVertexAttribArray(this.shaderProgram.vertexNormalAttribute);
+
+        this.gl.useProgram(this.shaderProgramInstanced);
+        this.gl.enableVertexAttribArray(this.shaderProgramInstanced.vertexNormalAttribute);
 
         this.drawTriangles(calculatingShadowMap, invMat);
         this.drawImagesAndText(invMat);
@@ -6982,6 +7173,7 @@ class MGWebGL extends Component {
                     continue;
                 }
 
+                let theShader;
                 if (this.doShadow) {
                     if (calculatingShadowMap) {
                         // We use a simple shader here.
@@ -7003,29 +7195,103 @@ class MGWebGL extends Component {
                         this.gl.uniformMatrix4fv(this.shaderProgramTriangleShadow.textureMatrixUniform, false, this.textureMatrix);
                     }
                 } else {
-                    this.gl.useProgram(this.shaderProgram);
+                    if(this.displayBuffers[idx].triangleInstanceOriginBuffer[j]){
+                        theShader = this.shaderProgramInstanced;
+                    } else {
+                        theShader = this.shaderProgram;
+                    }
+                    this.gl.useProgram(theShader);
                 }
 
                 this.gl.bindBuffer(this.gl.ARRAY_BUFFER, triangleVertexNormalBuffer[j]);
-                this.gl.vertexAttribPointer(this.shaderProgram.vertexNormalAttribute, triangleVertexNormalBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
+                this.gl.vertexAttribPointer(theShader.vertexNormalAttribute, triangleVertexNormalBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
                 this.gl.bindBuffer(this.gl.ARRAY_BUFFER, triangleVertexPositionBuffer[j]);
-                this.gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, triangleVertexPositionBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
+                this.gl.vertexAttribPointer(theShader.vertexPositionAttribute, triangleVertexPositionBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
                 this.gl.bindBuffer(this.gl.ARRAY_BUFFER, triangleColourBuffer[j]);
-                this.gl.vertexAttribPointer(this.shaderProgram.vertexColourAttribute, triangleColourBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
+                this.gl.vertexAttribPointer(theShader.vertexColourAttribute, triangleColourBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
                 this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, triangleVertexIndexBuffer[j]);
+
                 if (bufferTypes[j] === "TRIANGLES" || bufferTypes[j] === "CYLINDERS" || bufferTypes[j] === "CAPCYLINDERS" || this.displayBuffers[idx].bufferTypes[j] === "TORUSES") {
                     if (this.displayBuffers[idx].transformMatrix) {
-                        this.drawTransformMatrix(this.displayBuffers[idx].transformMatrix, this.displayBuffers[idx], this.shaderProgram, this.gl.TRIANGLES, j);
+                        this.drawTransformMatrix(this.displayBuffers[idx].transformMatrix, this.displayBuffers[idx], theShader, this.gl.TRIANGLES, j);
                     } else if (this.displayBuffers[idx].transformMatrixInteractive) {
-                        this.drawTransformMatrixInteractive(this.displayBuffers[idx].transformMatrixInteractive, this.displayBuffers[idx].transformOriginInteractive, this.displayBuffers[idx], this.shaderProgram, this.gl.TRIANGLES, j);
+                        this.drawTransformMatrixInteractive(this.displayBuffers[idx].transformMatrixInteractive, this.displayBuffers[idx].transformOriginInteractive, this.displayBuffers[idx], theShader, this.gl.TRIANGLES, j);
                     } else {
                         if (this.ext) {
-                            this.gl.drawElements(this.gl.TRIANGLES, triangleVertexIndexBuffer[j].numItems, this.gl.UNSIGNED_INT, 0);
+                            if(this.displayBuffers[idx].triangleInstanceOriginBuffer[j]){
+                                this.gl.enableVertexAttribArray(theShader.vertexInstanceOriginAttribute);
+                                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceOriginBuffer[j]);
+                                this.gl.vertexAttribPointer(theShader.vertexInstanceOriginAttribute, this.displayBuffers[idx].triangleInstanceOriginBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
+                                if (this.WEBGL2) {
+                                    this.gl.vertexAttribDivisor(theShader.vertexInstanceOriginAttribute, 1);
+                                } else {
+                                    this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexInstanceOriginAttribute, 1);
+                                }
+                                if(this.displayBuffers[idx].triangleInstanceSizeBuffer[j]){
+                                    this.gl.enableVertexAttribArray(theShader.vertexInstanceSizeAttribute);
+                                    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceSizeBuffer[j]);
+                                    this.gl.vertexAttribPointer(theShader.vertexInstanceSizeAttribute, this.displayBuffers[idx].triangleInstanceSizeBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
+                                    if (this.WEBGL2) {
+                                        this.gl.vertexAttribDivisor(theShader.vertexInstanceSizeAttribute, 1);
+                                    } else {
+                                        this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexInstanceSizeAttribute, 1);
+                                    }
+                                }
+                                if(this.displayBuffers[idx].triangleInstanceOrientationBuffer[j]){
+                                    this.gl.enableVertexAttribArray(theShader.vertexInstanceOrientationAttribute);
+                                    this.gl.enableVertexAttribArray(theShader.vertexInstanceOrientationAttribute+1);
+                                    this.gl.enableVertexAttribArray(theShader.vertexInstanceOrientationAttribute+2);
+                                    this.gl.enableVertexAttribArray(theShader.vertexInstanceOrientationAttribute+3);
+                                    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceOrientationBuffer[j]);
+                                    this.gl.vertexAttribPointer(theShader.vertexInstanceOrientationAttribute, 4, this.gl.FLOAT, false, 64, 0);
+                                    this.gl.vertexAttribPointer(theShader.vertexInstanceOrientationAttribute+1, 4, this.gl.FLOAT, false, 64, 16);
+                                    this.gl.vertexAttribPointer(theShader.vertexInstanceOrientationAttribute+2, 4, this.gl.FLOAT, false, 64, 32);
+                                    this.gl.vertexAttribPointer(theShader.vertexInstanceOrientationAttribute+3, 4, this.gl.FLOAT, false, 64, 48);
+                                    if (this.WEBGL2) {
+                                        this.gl.vertexAttribDivisor(theShader.vertexInstanceOrientationAttribute, 1);
+                                        this.gl.vertexAttribDivisor(theShader.vertexInstanceOrientationAttribute+1, 1);
+                                        this.gl.vertexAttribDivisor(theShader.vertexInstanceOrientationAttribute+2, 1);
+                                        this.gl.vertexAttribDivisor(theShader.vertexInstanceOrientationAttribute+3, 1);
+                                    } else {
+                                        this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexInstanceOrientationAttribute, 1);
+                                        this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexInstanceOrientationAttribute+1, 1);
+                                        this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexInstanceOrientationAttribute+2, 1);
+                                        this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexInstanceOrientationAttribute+3, 1);
+                                    }
+                                }
+                                if(this.displayBuffers[idx].supplementary["instance_use_colors"]){
+                                    if(this.displayBuffers[idx].supplementary["instance_use_colors"][j]){
+                                        if (this.WEBGL2) {
+                                            this.gl.vertexAttribDivisor(theShader.vertexColourAttribute, 1);
+                                        } else {
+                                            this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexColourAttribute, 1);
+                                        }
+                                    }
+                                }
+                                if (this.WEBGL2) {
+                                    this.gl.drawElementsInstanced(this.gl.TRIANGLES, triangleVertexIndexBuffer[j].numItems, this.gl.UNSIGNED_INT, 0, this.displayBuffers[idx].triangleInstanceOriginBuffer[j].numItems);
+                                } else {
+                                    this.instanced_ext.drawElementsInstancedANGLE(this.gl.TRIANGLES, triangleVertexIndexBuffer[j].numItems, this.gl.UNSIGNED_INT, 0, this.displayBuffers[idx].triangleInstanceOriginBuffer[j].numItems);
+                                }
+                                this.gl.disableVertexAttribArray(theShader.vertexInstanceOriginAttribute);
+                                this.gl.disableVertexAttribArray(theShader.vertexInstanceSizeAttribute);
+                                this.gl.disableVertexAttribArray(theShader.vertexInstanceOrientationAttribute);
+                                this.gl.disableVertexAttribArray(theShader.vertexInstanceOrientationAttribute+1);
+                                this.gl.disableVertexAttribArray(theShader.vertexInstanceOrientationAttribute+2);
+                                this.gl.disableVertexAttribArray(theShader.vertexInstanceOrientationAttribute+3);
+                                if (this.WEBGL2) {
+                                    this.gl.vertexAttribDivisor(theShader.vertexColourAttribute, 0);
+                                } else {
+                                    this.instanced_ext.vertexAttribDivisorANGLE(theShader.vertexColourAttribute, 0);
+                                }
+                            } else {
+                                this.gl.drawElements(this.gl.TRIANGLES, triangleVertexIndexBuffer[j].numItems, this.gl.UNSIGNED_INT, 0);
+                            }
                         } else {
                             this.gl.drawElements(this.gl.TRIANGLES, triangleVertexIndexBuffer[j].numItems, this.gl.UNSIGNED_SHORT, 0);
                         }
                     }
-                    if (symmetry) this.drawSymmetry(symmetry, this.displayBuffers[idx], this.shaderProgram, this.gl.TRIANGLES, j);
+                    if (symmetry) this.drawSymmetry(symmetry, this.displayBuffers[idx], theShader, this.gl.TRIANGLES, j);
                 } else if (bufferTypes[j] === "TRIANGLE_STRIP" || bufferTypes[j] === "SPLINE" || bufferTypes[j] === "WORM") {
                     if (this.displayBuffers[idx].transformMatrix) {
                         this.drawTransformMatrix(this.displayBuffers[idx].transformMatrix, this.displayBuffers[idx], this.shaderProgram, this.gl.TRIANGLE_STRIP, j);
@@ -7909,6 +8175,7 @@ class MGWebGL extends Component {
 
     drawClickedAtoms(up, right) {
 
+        this.gl.useProgram(this.shaderProgramTextBackground);
         this.gl.uniform1f(this.shaderProgramTextBackground.maxTextureS, 1.0);
         let textTextureDirty = false;
         let textColour = "black";
@@ -9182,10 +9449,10 @@ class MGWebGL extends Component {
 
         // Actual axes
         var horizontalHairStart = vec3.create();
-        vec3.set(horizontalHairStart, -3.0 * this.zoom, 0.0, 0.0);
+        vec3.set(horizontalHairStart, -1.0 * this.zoom, 0.0, 0.0);
         vec3.transformMat4(horizontalHairStart, horizontalHairStart, invMat);
         var horizontalHairEnd = vec3.create();
-        vec3.set(horizontalHairEnd, 3.0 * this.zoom, 0.0, 0.0);
+        vec3.set(horizontalHairEnd, 1.0 * this.zoom, 0.0, 0.0);
         vec3.transformMat4(horizontalHairEnd, horizontalHairEnd, invMat);
 
         addSegment(renderArrays,
@@ -9195,10 +9462,10 @@ class MGWebGL extends Component {
         )
 
         var verticalHairStart = vec3.create();
-        vec3.set(verticalHairStart, 0.0, -3.0 * this.zoom, 0.0);
+        vec3.set(verticalHairStart, 0.0, -1.0 * this.zoom, 0.0);
         vec3.transformMat4(verticalHairStart, verticalHairStart, invMat);
         var verticalHairEnd = vec3.create();
-        vec3.set(verticalHairEnd, 0.0, 3.0 * this.zoom, 0.0);
+        vec3.set(verticalHairEnd, 0.0, 1.0 * this.zoom, 0.0);
         vec3.transformMat4(verticalHairEnd, verticalHairEnd, invMat);
 
         addSegment(renderArrays,
@@ -9246,6 +9513,7 @@ class MGWebGL extends Component {
 
     drawAxes(invMat) {
         this.gl.depthFunc(this.gl.ALWAYS);
+        this.gl.useProgram(this.shaderProgramTextBackground);
         this.gl.uniform1f(this.shaderProgramTextBackground.fog_start, 1000.0);
         this.gl.uniform1f(this.shaderProgramTextBackground.fog_end, 1000.0);
         var axesOffset = vec3.create();
@@ -9385,7 +9653,12 @@ class MGWebGL extends Component {
         //console.log("thickLines",thickLines);
         this.gl.depthFunc(this.gl.ALWAYS);
 
+        for(let i = 0; i<7; i++)
+            this.gl.disableVertexAttribArray(i);
+
         this.gl.enableVertexAttribArray(this.shaderProgramThickLines.vertexNormalAttribute);
+        this.gl.enableVertexAttribArray(this.shaderProgramThickLines.vertexPositionAttribute);
+        this.gl.enableVertexAttribArray(this.shaderProgramThickLines.vertexColourAttribute);
 
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.axesNormalBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(axesNormals), this.gl.DYNAMIC_DRAW);
@@ -11029,6 +11302,38 @@ class MGWebGL extends Component {
         const textMetric = this.textCtx.measureText(text);
         //Return the maximum width in fractional box coordinates
         return textMetric.actualBoundingBoxRight / width;
+    }
+
+    createInstanceOriginsBuffer(tri) {
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer.push(this.gl.createBuffer());
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer.length - 1].numItems = 0;
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOrigins.push([]);
+        for (var j = 0; j < tri.length; j++) {
+            this.displayBuffers[this.currentBufferIdx].triangleInstanceOrigins[this.displayBuffers[this.currentBufferIdx].triangleInstanceOrigins.length - 1].push(parseFloat(tri[j]));
+            this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer.length - 1].numItems++;
+        }
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceOriginBuffer.length - 1].numItems /= 3;
+    }
+
+    createInstanceOrientationsBuffer(tri) {
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer.push(this.gl.createBuffer());
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer.length - 1].numItems = 0;
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientations.push([]);
+        for (var j = 0; j < tri.length; j++) {
+            this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientations[this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientations.length - 1].push(parseFloat(tri[j]));
+            this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer.length - 1].numItems++;
+        }
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceOrientationBuffer.length - 1].numItems /= 16;
+    }
+
+    createInstanceSizesBuffer(tri) {
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceSizeBuffer.push(this.gl.createBuffer());
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceSizeBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceSizeBuffer.length - 1].numItems = 0;
+        this.displayBuffers[this.currentBufferIdx].triangleInstanceSizes.push([]);
+        for (var j = 0; j < tri.length; j++) {
+            this.displayBuffers[this.currentBufferIdx].triangleInstanceSizes[this.displayBuffers[this.currentBufferIdx].triangleInstanceSizes.length - 1].push(parseFloat(tri[j]));
+            this.displayBuffers[this.currentBufferIdx].triangleInstanceSizeBuffer[this.displayBuffers[this.currentBufferIdx].triangleInstanceSizeBuffer.length - 1].numItems++;
+        }
     }
 
     createVertexBuffer(tri) {

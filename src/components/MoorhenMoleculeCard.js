@@ -109,7 +109,7 @@ export const MoorhenMoleculeCard = (props) => {
             return
         }
 
-        props.molecule.centreOn(props.glRef, clickedResidue)
+        props.molecule.centreOn(props.glRef, `/*/${clickedResidue.chain}/${clickedResidue.seqNum}-${clickedResidue.seqNum}/*`)
 
     }, [clickedResidue]);
 
@@ -250,26 +250,6 @@ export const MoorhenMoleculeCard = (props) => {
                                 </div>
                             </Col>
                         </Row>
-                        <hr></hr>
-                        <Row style={{ height: '100%' }}>
-                            <Col>
-                                <Form.Check checked={props.molecule === props.activeMolecule}
-                                    style={{ margin: '0' }}
-                                    inline
-                                    label={`Rotate/Translate`}
-                                    type="checkbox"
-                                    variant="outline"
-                                    disabled={!isVisible}
-                                    onChange={(e) => {
-                                        if (e.target.checked) {
-                                            props.setActiveMolecule(props.molecule)
-                                        } else {
-                                            props.setActiveMolecule(null)
-                                        }
-                                    }}
-                                />
-                            </Col>
-                        </Row>
                     </Accordion.Body>
                 </Accordion.Item>
 
@@ -277,11 +257,11 @@ export const MoorhenMoleculeCard = (props) => {
                 <Accordion.Item eventKey="sequences" style={{ padding: '0', margin: '0' }} >
                     <Accordion.Header style={{ padding: '0', margin: '0' }}>Sequences</Accordion.Header>
                     <Accordion.Body>
-                        {props.molecule.cachedAtoms.sequences && props.molecule.cachedAtoms.sequences.length > 0 ?
+                        {props.molecule.sequences && props.molecule.sequences.length > 0 ?
                             <>
                                 <Row style={{ height: '100%' }}>
                                     <Col>
-                                        {props.molecule.cachedAtoms.sequences.map(
+                                        {props.molecule.sequences.map(
                                             sequence => {
                                                 if (!sequenceIsValid(sequence.sequence)) {
                                                     return (
