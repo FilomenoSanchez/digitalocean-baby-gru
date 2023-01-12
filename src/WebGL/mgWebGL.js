@@ -6315,7 +6315,6 @@ class MGWebGL extends Component {
                     this.displayBuffers[idx].triangleVertexPositionBuffer[j].numItems = triangleNormals.length / 3;
                     this.displayBuffers[idx].triangleColourBuffer[j].numItems = triangleColours.length / 4;
                     this.displayBuffers[idx].triangleVertexIndexBuffer[j].numItems = triangleIndexs.length;
-
                     this.displayBuffers[idx].triangleVertexIndexBuffer[j].itemSize = 1;
                     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleVertexNormalBuffer[j]);
                     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(triangleNormals), this.gl.STATIC_DRAW);
@@ -6418,6 +6417,7 @@ class MGWebGL extends Component {
                         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.displayBuffers[idx].triangleNormals[j]), this.gl.STATIC_DRAW);
                         this.displayBuffers[idx].triangleVertexNormalBuffer[j].itemSize = 3;
                     }
+                    console.log('VertLength', this.displayBuffers[idx].triangleVertices[j].length)
                     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleVertexPositionBuffer[j]);
                     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.displayBuffers[idx].triangleVertices[j]), this.gl.STATIC_DRAW);
                     this.displayBuffers[idx].triangleVertexPositionBuffer[j].itemSize = 3;
