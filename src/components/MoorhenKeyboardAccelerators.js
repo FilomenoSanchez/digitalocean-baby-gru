@@ -64,7 +64,7 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
     else if (action === 'flip_peptide' && activeMap && hoveredAtom.molecule) {
         const chosenAtom = cidToSpec(hoveredAtom.cid)
         const commandArgs = [
-            `${hoveredAtom.molecule.molNo}`,
+            parseInt(`${hoveredAtom.molecule.molNo}`),
             `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}`,
             '']
         commandCentre.current.cootCommand({
