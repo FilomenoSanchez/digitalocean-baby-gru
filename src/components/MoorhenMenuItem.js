@@ -115,7 +115,7 @@ export const MoorhenLoadTutorialDataMenuItem = (props) => {
             }).then(_ => {
                 return newMap.loadToCootFromMtzURL(`${props.urlPrefix}/baby-gru/tutorials/moorhen-tutorial-map-number-${tutorialNumber}.mtz`, `moorhen-tutorial-${tutorialNumber}`,
                     {
-                        F: "FWT", PHI: "PHWT", Fobs: tutorialNumber == 1 ? 'F' : 'FP', SigFobs: tutorialNumber == 1 ? 'SIGF' : 'SIGFP', FreeR: tutorialNumber == 1 ? 'FREER' : 'FREE',
+                        F: "FWT", PHI: "PHWT", Fobs: tutorialNumber === "1" ? 'F' : 'FP', SigFobs: tutorialNumber === "1" ? 'SIGF' : 'SIGFP', FreeR: tutorialNumber === "1" ? 'FREER' : 'FREE',
                         isDifference: false, useWeight: false, calcStructFact: true
                     })
             }).then(_ => {
@@ -228,7 +228,7 @@ export const MoorhenRenameDisplayObjectMenuItem = (props) => {
 
     const onCompleted = () => {
         let newName = newNameInputRef.current.value
-        if (newName == "") {
+        if (newName === "") {
             return
         }
         props.item.name ? props.item.name = newName : props.item.name = newName
@@ -512,8 +512,8 @@ export const MoorhenImportDictionaryMenuItem = (props) => {
         }, true)
             .then(_ => {
                 props.molecules.forEach(molecule => {
-                    if (molecule.molNo == parseInt(selectedMoleculeIndex) ||
-                        -999999 == parseInt(selectedMoleculeIndex)) {
+                    if (molecule.molNo === parseInt(selectedMoleculeIndex) ||
+                        -999999 === parseInt(selectedMoleculeIndex)) {
                         molecule.addDict(fileContent)
                     }
                 })
@@ -521,8 +521,8 @@ export const MoorhenImportDictionaryMenuItem = (props) => {
             })
             .then(async (result) => {
                 props.molecules.forEach(async molecule => {
-                    if (molecule.molNo == parseInt(selectedMoleculeIndex) ||
-                        -999999 == parseInt(selectedMoleculeIndex)) {
+                    if (molecule.molNo === parseInt(selectedMoleculeIndex) ||
+                        -999999 === parseInt(selectedMoleculeIndex)) {
                         let a = await molecule.redraw(props.glRef)
                     }
                 })
@@ -1002,7 +1002,7 @@ export const MoorhenGoToMenuItem = (props) => {
             return
         }
 
-        const molecule = props.molecules.find(molecule => molecule.name == molName)
+        const molecule = props.molecules.find(molecule => molecule.name === molName)
         if (!molecule) {
             return
         }
@@ -1140,7 +1140,7 @@ export const MoorhenAddWatersMenuItem = (props) => {
             changesMolecules: [parseInt(molNo.current)]
         }, true).then(result => {
             props.molecules
-                .filter(molecule => molecule.molNo == molNo.current)
+                .filter(molecule => molecule.molNo === molNo.current)
                 .forEach(molecule => {
                     molecule.setAtomsDirty(true)
                     molecule.redraw(props.glRef)
@@ -1178,15 +1178,29 @@ export const MoorhenCentreOnLigandMenuItem = (props) => {
             let newMoleculeNode = { title: molecule.name, key: molecule.molNo, type: "molecule" }
             const model = molecule.gemmiStructure.first_model()
             const ligandCids = []
-            for (let i = 0; i < model.chains.size(); i++) {
-                const chain = model.chains.get(i)
-                const ligands = chain.get_ligands()
-                for (let j = 0; j < ligands.length(); j++) {
-                    const ligand = ligands.at(j)
-                    const ligandCid = `/${model.name}/${chain.name}/${ligand.seqid.num?.value}(${ligand.name})`
-                    ligandCids.push({ molecule: molecule, title: ligandCid, key: ligandCid, type: "ligand" })
+            
+            try {
+                const chains = model.chains
+                const chainsSize = chains.size()
+                for (let i = 0; i < chainsSize; i++) {
+                    const chain = chains.get(i)
+                    const ligands = chain.get_ligands()
+                    for (let j = 0; j < ligands.length(); j++) {
+                        const ligand = ligands.at(j)
+                        const ligandSeqId = ligand.seqid
+                        const ligandCid = `/${model.name}/${chain.name}/${ligandSeqId.num?.value}(${ligand.name})`
+                        ligandCids.push({ molecule: molecule, title: ligandCid, key: ligandCid, type: "ligand" })
+                        ligand.delete()
+                        ligandSeqId.delete()
+                    }
+                    chains.delete()
+                    ligands.delete()
                 }
+                chains.delete()   
+            } finally {
+                model.delete()
             }
+
             if (ligandCids.length > 0) {
                 newMoleculeNode.children = ligandCids
             }
@@ -1207,7 +1221,7 @@ export const MoorhenCentreOnLigandMenuItem = (props) => {
                             const selAtoms = await e.node.molecule.gemmiAtomsForCid(e.node.title)
                             const reducedValue = selAtoms.reduce(
                                 (accumulator, currentValue) => {
-                                    const newSum = accumulator.sumXyz.map((coord, i) => coord + currentValue.pos.at(i))
+                                    const newSum = accumulator.sumXyz.map((coord, i) => coord + currentValue.pos[i])
                                     const newCount = accumulator.count + 1
                                     return { sumXyz: newSum, count: newCount }
                                 },
@@ -1219,7 +1233,6 @@ export const MoorhenCentreOnLigandMenuItem = (props) => {
                                     reducedValue.sumXyz.map(coord => -coord / reducedValue.count)
                                     , true)
                             }
-
                         }
                     }}
                 >

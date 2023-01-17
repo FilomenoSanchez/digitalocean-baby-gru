@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react"
-import { residueCodesOneToThree, nucleotideCodesOneToThree } from '../utils/MoorhenUtils'
 import ProtvistaManager from "protvista-manager";
 import ProtvistaSequence from "protvista-sequence";
 import ProtvistaNavigation from "protvista-navigation";
@@ -160,7 +159,7 @@ export const MoorhenSequenceViewer = (props) => {
      */
     const handleChange = useCallback((evt) => {
         if (evt.detail.eventtype === "click") {
-            let residue = sequence.sequence.find(residue => residue.resNum == evt.detail.feature.start)
+            let residue = sequence.sequence.find(residue => residue.resNum === evt.detail.feature.start)
             if (!residue) {
                 return
             } else if (evt.detail.feature !== null && !(evt.detail.highlight.includes(','))) {
@@ -181,7 +180,7 @@ export const MoorhenSequenceViewer = (props) => {
             }
         } else if (evt.detail.eventtype === "mouseover") {
             if (evt.detail.feature !== null) {
-                let hoveredResidue = sequence.sequence.find(residue => residue.resNum == evt.detail.feature.start)
+                let hoveredResidue = sequence.sequence.find(residue => residue.resNum === evt.detail.feature.start)
                 if (hoveredResidue) {
                     let cid = hoveredResidue.cid
                     setHoveredAtom({ molecule: molecule, cid: cid })
@@ -239,7 +238,7 @@ export const MoorhenSequenceViewer = (props) => {
      * Hook used to clear the current selection if user selects residue from different chain
      */
     useEffect(() => {       
-        if (clickedResidue && clickedResidue.chain != sequence.chain) {
+        if (clickedResidue && clickedResidue.chain !== sequence.chain) {
             clearSelection()
         } else if (clickedResidue && !selectedResidues) {
             setSelection(clickedResidue.seqNum, null)
