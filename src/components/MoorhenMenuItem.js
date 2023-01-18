@@ -25,18 +25,19 @@ export const MoorhenMenuItem = (props) => {
             placement={props.popoverPlacement}
             trigger="click"
 
-            onEntering={() => {
-                props.onEntering()
+            onToggle={(doShow) => {
+                if (doShow) {
+                    new Promise((resolve, reject) => {
+                        resolveOrRejectRef.current = { resolve, reject }
+                    }).then(result => {
+                        props.onCompleted("Resolve")
+                        document.body.click()
+                    })
+                }
             }}
 
-            onEnter={() => {
-                console.log('onENter')
-                new Promise((resolve, reject) => {
-                    resolveOrRejectRef.current = { resolve, reject }
-                }).then(result => {
-                    props.onCompleted("Resolve")
-                    document.body.click()
-                })
+            onEntering={() => {
+                props.onEntering()
             }}
 
             onEntered={() => {
@@ -53,6 +54,7 @@ export const MoorhenMenuItem = (props) => {
 
             overlay={
                 <Popover style={{ maxWidth: "40rem" }}>
+
                     <PopoverHeader as="h3">{props.menuItemTitle}</PopoverHeader>
                     <PopoverBody>
                         {props.popoverContent}
@@ -103,7 +105,7 @@ export const MoorhenLoadTutorialDataMenuItem = (props) => {
     </>
 
     const onCompleted = (onCompletedArg) => {
-        console.log({onCompletedArg})
+        console.log({ onCompletedArg })
         const tutorialNumber = tutorialNumberSelectorRef.current.value
         console.log(`Loading data for tutorial number ${tutorialNumber}`)
         const newMolecule = new MoorhenMolecule(props.commandCentre, props.urlPrefix)
