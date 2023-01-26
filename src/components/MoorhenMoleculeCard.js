@@ -221,6 +221,7 @@ export const MoorhenMoleculeCard = (props) => {
                                     {Object.keys(props.molecule.displayObjects)
                                         .filter(key => !['hover', 'transformation'].includes(key))
                                         .map(key => {
+                                            if(!key.startsWith("contact_dots")&&!key.startsWith("chemical_features")){
                                             return <Form.Check
                                                 key={key}
                                                 inline
@@ -245,6 +246,7 @@ export const MoorhenMoleculeCard = (props) => {
                                                         setShowState(changedState)
                                                     }
                                                 }} />
+                                        }
                                         })
                                     }
                                 </div>
@@ -270,6 +272,7 @@ export const MoorhenMoleculeCard = (props) => {
                                                     )
                                                 }
                                                 return (<MoorhenSequenceViewer
+                                                    key={`${props.molecule.molNo}-${sequence.chain}`}
                                                     sequence={sequence}
                                                     molecule={props.molecule}
                                                     glRef={props.glRef}

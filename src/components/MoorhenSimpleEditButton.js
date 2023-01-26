@@ -37,7 +37,6 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
             console.log('Testing molecule ', molecule.molNo)
             try {
                 if (molecule.buffersInclude(event.detail.buffer)) {
-                    //console.log('Succeeded')
                     props.setCursorStyle("default")
                     const chosenAtom = cidToSpec(event.detail.atom.label)
                     let formattedArgs = props.formatArgs(molecule, chosenAtom, localParameters)
@@ -49,6 +48,9 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
                             commandArgs: formattedArgs,
                             changesMolecules: props.changesMolecule ? [molecule.molNo] : []
                         }, true)
+                        if (props.onCompleted) {
+                            props.onCompleted(molecule, chosenAtom)
+                        }
                         if (props.refineAfterMod && props.activeMap) {
                             console.log('Triggering post-modification triple refinement...')
                             try {
@@ -100,21 +102,23 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
     }, [props.selectedButtonIndex])
 
     return <>
-        <Tooltip title={props.toolTip}>
-            <Button value={props.buttonIndex}
-                id={props.id}
-                size="sm"
-                ref={buttonRef ? buttonRef : target}
-                active={props.buttonIndex === props.selectedButtonIndex}
-                variant='light'
-                style={{ borderColor: props.buttonIndex === props.selectedButtonIndex ? 'red' : '' }}
-                disabled={props.needsMapData && !props.activeMap ||
-                    (props.needsAtomData && props.molecules.length === 0)}
-                onClick={(evt) => {
-                    props.setSelectedButtonIndex(props.buttonIndex !== props.selectedButtonIndex ? props.buttonIndex : null)
-                }}>
-                {props.icon}
-            </Button>
+        <Tooltip title={(props.needsMapData && !props.activeMap) || (props.needsAtomData && props.molecules.length === 0) ? '' : props.toolTip}>
+            <div>
+                <Button value={props.buttonIndex}
+                    id={props.id}
+                    size="sm"
+                    ref={buttonRef ? buttonRef : target}
+                    active={props.buttonIndex === props.selectedButtonIndex}
+                    variant='light'
+                    style={{ borderColor: props.buttonIndex === props.selectedButtonIndex ? 'red' : '' }}
+                    disabled={props.needsMapData && !props.activeMap ||
+                        (props.needsAtomData && props.molecules.length === 0)}
+                    onClick={(evt) => {
+                        props.setSelectedButtonIndex(props.buttonIndex !== props.selectedButtonIndex ? props.buttonIndex : null)
+                    }}>
+                    {props.icon}
+                </Button>
+            </div>
         </Tooltip>
 
         {
@@ -139,10 +143,10 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
     </>
 })
 MoorhenSimpleEditButton.defaultProps = {
-    id: '',
-    toolTip: "", setCursorStyle: () => { },
-    needsAtomData: true, setSelectedButtonIndex: () => { }, selectedButtonIndex: 0, prompt: null,
-    awaitAtomClick: true, changesMolecule: true, refineAfterMod: false
+    id: '', toolTip: "", setCursorStyle: () => { }, 
+    needsAtomData: true, setSelectedButtonIndex: () => { }, 
+    selectedButtonIndex: 0, prompt: null, awaitAtomClick: true,
+    changesMolecule: true, refineAfterMod: false, onCompleted: null
 }
 
 
@@ -154,7 +158,7 @@ export const MoorhenAutofitRotamerButton = (props) => {
         selectedButtonIndex={props.selectedButtonIndex}
         setSelectedButtonIndex={props.setSelectedButtonIndex}
         needsMapData={true}
-        cootCommand="auto_fit_rotamer"
+        cootCommand="fill_partial_residue"
         prompt="Click atom in residue to fit rotamer"
         icon={<img className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/auto-fit-rotamer.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
@@ -162,9 +166,8 @@ export const MoorhenAutofitRotamerButton = (props) => {
                 molecule.molNo,
                 chosenAtom.chain_id,
                 chosenAtom.res_no,
-                chosenAtom.ins_code,
-                chosenAtom.alt_conf,
-                props.activeMap.molNo]
+                chosenAtom.ins_code
+                ]
         }} />
 }
 
@@ -239,7 +242,7 @@ export const MoorhenRefineResiduesUsingAtomCidButton = (props) => {
                             props.setPanelParameters(newParameters)
                         }}>
                         {refinementModes.map(optionName => {
-                            return <option value={optionName}>{optionName}</option>
+                            return <option key={optionName} value={optionName}>{optionName}</option>
                         })}
                     </FormSelect>
                 </FormGroup>
@@ -264,17 +267,34 @@ export const MoorhenRefineResiduesUsingAtomCidButton = (props) => {
 }
 
 export const MoorhenAddSideChainButton = (props) => {
+
     return <MoorhenSimpleEditButton {...props}
         toolTip="Add a side chain"
         buttonIndex={props.buttonIndex}
         selectedButtonIndex={props.selectedButtonIndex}
         setSelectedButtonIndex={props.setSelectedButtonIndex}
-        needsMapData={false}
-        cootCommand="fill_side_chain"
+        needsMapData={true}
+        cootCommand="fill_partial_residue"
         prompt="Click atom in residue to add a side chain"
-        icon={<img className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-sidechain.svg`} />}
+        icon={<img className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-side-chain.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, chosenAtom.chain_id, chosenAtom.res_no, chosenAtom.ins_code]
+        }} />
+}
+
+export const MoorhenAddAltConfButton = (props) => {
+
+    return <MoorhenSimpleEditButton {...props}
+        toolTip="Add alternative conformation"
+        buttonIndex={props.buttonIndex}
+        selectedButtonIndex={props.selectedButtonIndex}
+        setSelectedButtonIndex={props.setSelectedButtonIndex}
+        needsMapData={false}
+        cootCommand="add_alternative_conformation"
+        prompt="Click atom in residue to add alternative conformation"
+        icon={<img className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-alt-conf.svg`} />}
+        formatArgs={(molecule, chosenAtom) => {
+            return [molecule.molNo, `/1/${chosenAtom.chain_id}/${chosenAtom.res_no}/*${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`]
         }} />
 }
 
@@ -298,7 +318,7 @@ export const MoorhenDeleteUsingCidButton = (props) => {
                             props.setPanelParameters(newParameters)
                         }}>
                         {deleteModes.map(optionName => {
-                            return <option value={optionName}>{optionName}</option>
+                            return <option key={optionName} value={optionName}>{optionName}</option>
                         })}
                     </FormSelect>
                 </FormGroup>
@@ -334,11 +354,31 @@ export const MoorhenDeleteUsingCidButton = (props) => {
 }
 
 export const MoorhenMutateButton = (props) => {
+
+    const autoFitRotamer = useCallback(async (molecule, chosenAtom) => {
+        console.log('Post-mutation autofit rotamer...')
+        const formattedArgs = [
+            molecule.molNo,
+            chosenAtom.chain_id,
+            chosenAtom.res_no,
+            chosenAtom.ins_code,
+            chosenAtom.alt_conf,
+            props.activeMap.molNo
+        ]
+        await props.commandCentre.current.cootCommand({
+            returnType: "status",
+            command: "auto_fit_rotamer",
+            commandArgs: formattedArgs,
+            changesMolecules: [molecule.molNo]
+        }, true)
+    }, [props.activeMap, props.commandCentre])
+
     const [panelParameters, setPanelParameters] = useState({
         refine: { mode: 'TRIPLE' },
         delete: { mode: 'ATOM' },
         mutate: { toType: "ALA" }
     })
+
     const MoorhenMutatePanel = (props) => {
         const toTypes = ['ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE',
             'LYS', 'LEU', 'MET', 'ASN', 'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR']
@@ -354,26 +394,29 @@ export const MoorhenMutateButton = (props) => {
                             props.setPanelParameters(newParameters)
                         }}>
                         {toTypes.map(optionName => {
-                            return <option value={optionName}>{optionName}</option>
+                            return <option key={optionName} value={optionName}>{optionName}</option>
                         })}
                     </FormSelect>
                 </FormGroup>
             </Row>
         </Container>
     }
+    
     const mutateFormatArgs = (molecule, chosenAtom, pp) => {
         return [
             molecule.molNo,
             `//${chosenAtom.chain_id}/${chosenAtom.res_no}`,
             pp.mutate.toType]
     }
+    
     return <MoorhenSimpleEditButton {...props}
         id='mutate-residue-edit-button'
         toolTip="Simple Mutate"
         buttonIndex={props.buttonIndex}
         selectedButtonIndex={props.selectedButtonIndex}
         setSelectedButtonIndex={props.setSelectedButtonIndex}
-        needsMapData={false}
+        needsMapData={true}
+        onCompleted={autoFitRotamer}
         cootCommand="mutate"
         panelParameters={panelParameters}
         prompt={<MoorhenMutatePanel
@@ -389,7 +432,7 @@ export const MoorhenAddTerminalResidueDirectlyUsingCidButton = (props) => {
         buttonIndex={props.buttonIndex}
         selectedButtonIndex={props.selectedButtonIndex}
         setSelectedButtonIndex={props.setSelectedButtonIndex}
-        needsMapData={false}
+        needsMapData={true}
         cootCommand="add_terminal_residue_directly_using_cid"
         prompt="Click atom in residue to add a residue to that residue"
         icon={<img className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/add-peptide-1.svg`} />}
