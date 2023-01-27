@@ -1,5 +1,6 @@
+import { BubbleChartOutlined } from "@mui/icons-material";
 import React, { useEffect, useState } from "react";
-import { Card, Form, Row, Col, Button } from "react-bootstrap";
+import { Card, Form, Row, Col, Button, DropdownButton } from "react-bootstrap";
 
 export const MoorhenLigandList = (props) => {
     const [ligandList, setLigandList] = useState([])
@@ -60,69 +61,69 @@ export const MoorhenLigandList = (props) => {
                 <>
                     <Row style={{ height: '100%' }}>
                         <Col>
-                            {ligandList.map(ligand => {
+                            {ligandList.map((ligand, index) => {
                                 const keycd = `contact_dots-${ligand.chainName}/${ligand.resNum}(${ligand.resName})`
                                 const keycf = `chemical_features-${ligand.chainName}/${ligand.resNum}(${ligand.resName})`
-                                return <Card style={{margin: '0.5rem'}}>
+                                return <Card key={index} style={{margin: '0.5rem'}}>
                                             <Card.Body>
                                                 <Row style={{display:'flex', justifyContent:'between'}}>
                                                     <Col style={{alignItems:'center', justifyContent:'left', display:'flex'}}>
                                                         {`${ligand.chainName}/${ligand.resNum}(${ligand.resName})`}
                                                     </Col>
                                                     <Col className='col-3' style={{justifyContent: 'right', display:'flex'}}>
+                                                        <DropdownButton
+                                                            key="dropDownButton"
+                                                            title={<BubbleChartOutlined/>}
+                                                            variant="outlined"
+                                                        >
+                                                            <div style={{maxHeight: '6rem', overflowY: 'auto', width:'15rem'}}>
+                                                            <Form.Check
+                                                                key={keycd}
+                                                                label={"Contact dots"}
+                                                                type="checkbox"
+                                                                variant="outline"
+                                                                style={{'margin': '0.5rem'}}
+                                                                checked={showState[keycd]}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        props.molecule.show(keycd, props.glRef)
+                                                                        const changedState = { ...showState }
+                                                                        changedState[keycd] = true
+                                                                        setShowState(changedState)
+                                                                    }
+                                                                    else {
+                                                                        props.molecule.hide(keycd, props.glRef)
+                                                                        const changedState = { ...showState }
+                                                                        changedState[keycd] = false
+                                                                        setShowState(changedState)
+                                                                    }
+                                                            }}/>
+                                                            <Form.Check
+                                                                key={keycf}
+                                                                label={"Chemical features"}
+                                                                type="checkbox"
+                                                                variant="outline"
+                                                                checked={showState[keycf]}
+                                                                style={{'margin': '0.5rem'}}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        props.molecule.show(keycf, props.glRef)
+                                                                        const changedState = { ...showState }
+                                                                        changedState[keycf] = true
+                                                                        setShowState(changedState)
+                                                                    }
+                                                                    else {
+                                                                        props.molecule.hide(keycf, props.glRef)
+                                                                        const changedState = { ...showState }
+                                                                        changedState[keycf] = false
+                                                                        setShowState(changedState)
+                                                                    }
+                                                            }}/>
+                                                            </div>
+                                                        </DropdownButton>
                                                         <Button onClick={() => {props.molecule.centreOn(props.glRef, `/*/${ligand.chainName}/${ligand.resNum}-${ligand.resNum}/*`)}}>
                                                             View
                                                         </Button>
-                                                    </Col>
-                                                </Row>
-                                                <Row>
-                                                    <Col style={{justifyContent: 'left', display:'flex'}}>
-                                                        <Form.Check
-                                                            key={keycd}
-                                                            inline
-                                                            label={"Contact dots"}
-                                                            type="checkbox"
-                                                            variant="outline"
-                                                            checked={showState[keycd]}
-                                                            onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        props.molecule.show(keycd, props.glRef)
-                                                        const changedState = { ...showState }
-                                                        changedState[keycd] = true
-                                                        setShowState(changedState)
-                                                    }
-                                                    else {
-                                                        props.molecule.hide(keycd, props.glRef)
-                                                        const changedState = { ...showState }
-                                                        changedState[keycd] = false
-                                                        setShowState(changedState)
-                                                    }
-                                                }}
-                                                        />
-                                                    </Col>
-                                                    <Col style={{justifyContent: 'left', display:'flex'}}>
-                                                        <Form.Check
-                                                            key={keycf}
-                                                            inline
-                                                            label={"Chemical features"}
-                                                            type="checkbox"
-                                                            variant="outline"
-                                                            checked={showState[keycf]}
-                                                            onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        props.molecule.show(keycf, props.glRef)
-                                                        const changedState = { ...showState }
-                                                        changedState[keycf] = true
-                                                        setShowState(changedState)
-                                                    }
-                                                    else {
-                                                        props.molecule.hide(keycf, props.glRef)
-                                                        const changedState = { ...showState }
-                                                        changedState[keycf] = false
-                                                        setShowState(changedState)
-                                                    }
-                                                }}
-                                                        />
                                                     </Col>
                                                 </Row>
                                             </Card.Body>
