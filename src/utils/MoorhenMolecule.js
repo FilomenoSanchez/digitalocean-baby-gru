@@ -1,13 +1,13 @@
 import 'pako';
-import { EnerLib, Model, parseMMCIF, parsePDB, atomsToHierarchy } from '../WebGL/mgMiniMol';
-import { CalcSecStructure } from '../WebGL/mgSecStr';
-import { ColourScheme } from '../WebGL/mgWebGLAtomsToPrimitives';
-import { GetSplinesColoured } from '../WebGL/mgSecStr';
-import { atomsToSpheresInfo } from '../WebGL/mgWebGLAtomsToPrimitives';
-import { contactsToCylindersInfo, contactsToLinesInfo } from '../WebGL/mgWebGLAtomsToPrimitives';
-import { singletonsToLinesInfo } from '../WebGL/mgWebGLAtomsToPrimitives';
+import { EnerLib, Model, parseMMCIF, parsePDB, atomsToHierarchy } from '../WebGLgComponents/mgMiniMol';
+import { CalcSecStructure } from '../WebGLgComponents/mgSecStr';
+import { ColourScheme } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
+import { GetSplinesColoured } from '../WebGLgComponents/mgSecStr';
+import { atomsToSpheresInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
+import { contactsToCylindersInfo, contactsToLinesInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
+import { singletonsToLinesInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
 import { readTextFile, readGemmiStructure, cidToSpec, residueCodesThreeToOne, centreOnGemmiAtoms, getBufferAtoms, nucleotideCodesThreeToOne } from './MoorhenUtils'
-import { quatToMat4 } from '../WebGL/quatToMat4.js';
+import { quatToMat4 } from '../WebGLgComponents/quatToMat4.js';
 import * as vec3 from 'gl-matrix/vec3';
 
 export function MoorhenMolecule(commandCentre, urlPrefix) {
@@ -137,6 +137,7 @@ MoorhenMolecule.prototype.copyMolecule = async function (glRef) {
     let moleculeAtoms = await this.getAtoms()
     let newMolecule = new MoorhenMolecule(this.commandCentre, this.urlPrefix)
     newMolecule.name = `${this.name}-placeholder`
+    newMolecule.cootBondsOptions = this.cootBondsOptions
 
     let response = await this.commandCentre.current.cootCommand({
         returnType: "status",
@@ -160,6 +161,7 @@ MoorhenMolecule.prototype.copyFragment = async function (chainId, res_no_start, 
     const newMolecule = new MoorhenMolecule($this.commandCentre, $this.urlPrefix)
     newMolecule.name = `${$this.name} fragment`
     newMolecule.molNo = response.data.result
+    newMolecule.cootBondsOptions = $this.cootBondsOptions
     await newMolecule.fetchIfDirtyAndDraw('CBs', glRef)
     if (doRecentre) await newMolecule.centreOn(glRef)
 
@@ -1082,6 +1084,7 @@ MoorhenMolecule.prototype.addLigandOfType = async function (resType, at, glRef) 
                 newMolecule.setAtomsDirty(true)
                 newMolecule.molNo = result.data.result.result
                 newMolecule.name = resType.toUpperCase()
+                newMolecule.cootBondsOptions = $this.cootBondsOptions
                 const _ = await $this.mergeMolecules([newMolecule], glRef, true);
                 return newMolecule.delete(glRef);
             }

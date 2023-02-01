@@ -1,5 +1,17 @@
-import React, { createContext, useState, useEffect, useMemo } from "react";
+import React, { createContext, useState, useEffect, useMemo, useReducer } from "react";
 import localforage from 'localforage';
+
+const itemReducer = (oldList, change) => {
+    if (change.action === 'Add') {
+        return [...oldList, change.item]
+    }
+    else if (change.action === 'Remove') {
+        return oldList.filter(item => item !== change.item)
+    }
+    else if (change.action === 'Overwrite') {
+        return [...change.items]
+    }
+}
 
 const updateStoredPreferences = async (key, value) => {
     console.log(`Storing ${key}: ${value} preferences in local storage...`)
@@ -12,11 +24,11 @@ const updateStoredPreferences = async (key, value) => {
 
 const getDefaultValues = () => {
     return {
-        version: '0.0.7',
+        version: '0.0.9',
         darkMode: false, 
         atomLabelDepthMode: true, 
         defaultExpandDisplayCards: true,
-        defaultLitLines: false,
+        defaultMapLitLines: false,
         refineAfterMod: true,
         drawCrosshairs: true,
         drawMissingLoops: true,
@@ -24,6 +36,10 @@ const getDefaultValues = () => {
         mapLineWidth: 1.0,
         makeBackups: true,
         showShortcutToast: true,
+        defaultMapSurface: false,
+        defaultBondSmoothness: 1,
+        showScoresToast: true,
+        defaultUpdatingScores: ['Rfree', 'Rfactor', 'Moorhen Points'],
         shortCuts: {
             "sphere_refine": {
                 modifiers: ["shiftKey"],
@@ -137,7 +153,7 @@ const PreferencesContextProvider = ({ children }) => {
     const [atomLabelDepthMode, setAtomLabelDepthMode] = useState(null)
     const [defaultExpandDisplayCards, setDefaultExpandDisplayCards] = useState(null)
     const [shortCuts, setShortCuts] = useState(null)
-    const [defaultLitLines, setDefaultLitLines] = useState(null)
+    const [defaultMapLitLines, setDefaultMapLitLines] = useState(null)
     const [refineAfterMod, setRefineAfterMod] = useState(null)
     const [mouseSensitivity, setMouseSensitivity] = useState(null)
     const [drawCrosshairs, setDrawCrosshairs] = useState(null)
@@ -145,6 +161,10 @@ const PreferencesContextProvider = ({ children }) => {
     const [mapLineWidth, setMapLineWidth] = useState(null)
     const [makeBackups, setMakeBackups] = useState(null)
     const [showShortcutToast, setShowShortcutToast] = useState(null)
+    const [defaultMapSurface, setDefaultMapSurface] = useState(null)
+    const [defaultBondSmoothness, setDefaultBondSmoothness] = useState(null)
+    const [showScoresToast, setShowScoresToast] = useState(null)
+    const [defaultUpdatingScores, setDefaultUpdatingScores] = useReducer(itemReducer, [])
 
     const restoreDefaults = (defaultValues)=> {
         updateStoredPreferences('version', defaultValues.version)
@@ -152,7 +172,7 @@ const PreferencesContextProvider = ({ children }) => {
         setDefaultExpandDisplayCards(defaultValues.defaultExpandDisplayCards)            
         setShortCuts(JSON.stringify(defaultValues.shortCuts))            
         setAtomLabelDepthMode(defaultValues.atomLabelDepthMode)
-        setDefaultLitLines(defaultValues.defaultLitLines)
+        setDefaultMapLitLines(defaultValues.defaultMapLitLines)
         setRefineAfterMod(defaultValues.refineAfterMod)
         setMouseSensitivity(defaultValues.mouseSensitivity)
         setDrawCrosshairs(defaultValues.drawCrosshairs)
@@ -160,6 +180,10 @@ const PreferencesContextProvider = ({ children }) => {
         setMapLineWidth(defaultValues.mapLineWidth)
         setMakeBackups(defaultValues.makeBackups)
         setShowShortcutToast(defaultValues.showShortcutToast)
+        setDefaultMapSurface(defaultValues.defaultMapSurface)
+        setDefaultBondSmoothness(defaultValues.defaultBondSmoothness)
+        setShowScoresToast(defaultValues.showScoresToast)
+        setDefaultUpdatingScores({action: 'Overwrite', items: defaultValues.defaultUpdatingScores})
     }
 
     /**
@@ -177,14 +201,18 @@ const PreferencesContextProvider = ({ children }) => {
                     localforage.getItem('defaultExpandDisplayCards'),
                     localforage.getItem('shortCuts'),
                     localforage.getItem('atomLabelDepthMode'),
-                    localforage.getItem('defaultLitLines'),
+                    localforage.getItem('defaultMapLitLines'),
                     localforage.getItem('refineAfterMod'),
                     localforage.getItem('mouseSensitivity'),
                     localforage.getItem('drawCrosshairs'),
                     localforage.getItem('drawMissingLoops'),
                     localforage.getItem('mapLineWidth'),
                     localforage.getItem('makeBackups'),
-                    localforage.getItem('showShortcutToast')
+                    localforage.getItem('showShortcutToast'),
+                    localforage.getItem('defaultMapSurface'),
+                    localforage.getItem('defaultBondSmoothness'),
+                    localforage.getItem('showScoresToast'),
+                    localforage.getItem('defaultUpdatingScores')
                     ])
                 
                 console.log('Retrieved the following preferences from local storage: ', response)
@@ -202,7 +230,7 @@ const PreferencesContextProvider = ({ children }) => {
                     setDefaultExpandDisplayCards(response[2])
                     setShortCuts(response[3])
                     setAtomLabelDepthMode(response[4])
-                    setDefaultLitLines(response[5])
+                    setDefaultMapLitLines(response[5])
                     setRefineAfterMod(response[6])
                     setMouseSensitivity(response[7])
                     setDrawCrosshairs(response[8])
@@ -210,6 +238,10 @@ const PreferencesContextProvider = ({ children }) => {
                     setMapLineWidth(response[10])
                     setMakeBackups(response[11])
                     setShowShortcutToast(response[12])
+                    setDefaultMapSurface(response[13])
+                    setDefaultBondSmoothness(response[14])
+                    setShowScoresToast(response[15])
+                    setDefaultUpdatingScores({action: 'Overwrite', items: response[16]})
                 }                
                 
             } catch (err) {
@@ -235,6 +267,42 @@ const PreferencesContextProvider = ({ children }) => {
        
         updateStoredPreferences('showShortcutToast', showShortcutToast);
     }, [showShortcutToast]);
+    
+    useMemo(() => {
+
+        if (showScoresToast === null) {
+            return
+        }
+       
+        updateStoredPreferences('showScoresToast', showScoresToast);
+    }, [showScoresToast]);
+    
+    useMemo(() => {
+
+        if (defaultUpdatingScores === null || defaultUpdatingScores.length === 0) {
+            return
+        }
+       
+        updateStoredPreferences('defaultUpdatingScores', defaultUpdatingScores);
+    }, [defaultUpdatingScores]);
+    
+    useMemo(() => {
+
+        if (defaultBondSmoothness === null) {
+            return
+        }
+       
+        updateStoredPreferences('defaultBondSmoothness', defaultBondSmoothness);
+    }, [defaultBondSmoothness]);
+
+    useMemo(() => {
+
+        if (defaultMapSurface === null) {
+            return
+        }
+       
+        updateStoredPreferences('defaultMapSurface', defaultMapSurface);
+    }, [defaultMapSurface]);
 
     useMemo(() => {
 
@@ -328,19 +396,21 @@ const PreferencesContextProvider = ({ children }) => {
 
     useMemo(() => {
 
-        if (defaultLitLines === null) {
+        if (defaultMapLitLines === null) {
             return
         }
        
-        updateStoredPreferences('defaultLitLines', defaultLitLines);
-    }, [defaultLitLines]);
+        updateStoredPreferences('defaultMapLitLines', defaultMapLitLines);
+    }, [defaultMapLitLines]);
 
     const collectedContextValues = {
         darkMode, setDarkMode, atomLabelDepthMode, setAtomLabelDepthMode, defaultExpandDisplayCards,
-        setDefaultExpandDisplayCards, shortCuts, setShortCuts, defaultLitLines, setDefaultLitLines,
+        setDefaultExpandDisplayCards, shortCuts, setShortCuts, defaultMapLitLines, setDefaultMapLitLines,
         refineAfterMod, setRefineAfterMod, mouseSensitivity, setMouseSensitivity, drawCrosshairs, 
         setDrawCrosshairs, drawMissingLoops, setDrawMissingLoops, mapLineWidth, setMapLineWidth,
-        makeBackups, setMakeBackups, showShortcutToast, setShowShortcutToast
+        makeBackups, setMakeBackups, showShortcutToast, setShowShortcutToast, defaultMapSurface,
+        setDefaultMapSurface, defaultBondSmoothness, setDefaultBondSmoothness, showScoresToast, 
+        setShowScoresToast, defaultUpdatingScores, setDefaultUpdatingScores
     }
 
     return (

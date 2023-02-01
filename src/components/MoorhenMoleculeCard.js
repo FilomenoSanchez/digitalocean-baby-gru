@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Form, Row, Col, Accordion } from "react-bootstrap";
 import { doDownload, sequenceIsValid } from '../utils/MoorhenUtils';
-import { isDarkBackground } from '../WebGL/mgWebGL'
+import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
 import { MoorhenSequenceViewer } from "./MoorhenSequenceViewer";
 import { MoorhenMoleculeCardButtonBar } from "./MoorhenMoleculeCardButtonBar"
 import { MoorhenLigandList } from "./MoorhenLigandList"
@@ -14,7 +14,7 @@ export const MoorhenMoleculeCard = (props) => {
     const [isVisible, setIsVisible] = useState(true)
     const [bondWidth, setBondWidth] = useState(0.1)
     const [atomRadiusBondRatio, setAtomRadiusBondRatio] = useState(1.5)
-    const [bondSmoothness, setBondSmoothness] = useState(1)
+    const [bondSmoothness, setBondSmoothness] = useState(props.defaultBondSmoothness)
 
     const bondSettingsProps = {
         bondWidth, setBondWidth, atomRadiusBondRatio,
@@ -54,10 +54,12 @@ export const MoorhenMoleculeCard = (props) => {
             return
         }
 
-        props.molecule.cootBondsOptions.smoothness = bondSmoothness
-        if (isVisible && showState['CBs']) {
+        if (isVisible && showState['CBs'] && props.molecule.cootBondsOptions.smoothness !== bondSmoothness) {
+            props.molecule.cootBondsOptions.smoothness = bondSmoothness
             props.molecule.setAtomsDirty(true)
             props.molecule.redraw(props.glRef)
+        } else {
+            props.molecule.cootBondsOptions.smoothness = bondSmoothness
         }
 
     }, [bondSmoothness]);
@@ -67,10 +69,12 @@ export const MoorhenMoleculeCard = (props) => {
             return
         }
 
-        props.molecule.cootBondsOptions.width = bondWidth
-        if (isVisible && showState['CBs']) {
+        if (isVisible && showState['CBs'] && props.molecule.cootBondsOptions.width !== bondWidth) {
+            props.molecule.cootBondsOptions.width = bondWidth
             props.molecule.setAtomsDirty(true)
             props.molecule.redraw(props.glRef)
+        } else {
+            props.molecule.cootBondsOptions.width = bondWidth
         }
 
     }, [bondWidth]);
@@ -80,10 +84,12 @@ export const MoorhenMoleculeCard = (props) => {
             return
         }
 
-        props.molecule.cootBondsOptions.atomRadiusBondRatio = atomRadiusBondRatio
-        if (isVisible && showState['CBs']) {
+        if (isVisible && showState['CBs'] && props.molecule.cootBondsOptions.atomRadiusBondRatio !== atomRadiusBondRatio) {
+            props.molecule.cootBondsOptions.atomRadiusBondRatio = atomRadiusBondRatio
             props.molecule.setAtomsDirty(true)
             props.molecule.redraw(props.glRef)
+        } else {
+            props.molecule.cootBondsOptions.atomRadiusBondRatio = atomRadiusBondRatio
         }
 
     }, [atomRadiusBondRatio]);
@@ -219,9 +225,8 @@ export const MoorhenMoleculeCard = (props) => {
                             <Col>
                                 <div>
                                     {Object.keys(props.molecule.displayObjects)
-                                        .filter(key => !['hover', 'transformation'].includes(key))
+                                        .filter(key => !['hover', 'transformation', 'contact_dots', 'chemical_features'].includes(key))
                                         .map(key => {
-                                            if(!key.startsWith("contact_dots")&&!key.startsWith("chemical_features")){
                                             return <Form.Check
                                                 key={key}
                                                 inline
@@ -245,8 +250,8 @@ export const MoorhenMoleculeCard = (props) => {
                                                         changedState[key] = false
                                                         setShowState(changedState)
                                                     }
-                                                }} />
-                                        }
+                                                }} 
+                                            />
                                         })
                                     }
                                 </div>

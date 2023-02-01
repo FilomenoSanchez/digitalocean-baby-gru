@@ -1,22 +1,29 @@
-import { useEffect, useState, createRef, useCallback, useMemo, Fragment } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, Fragment } from "react";
 import { Card, Form, Button, Row, Col, DropdownButton } from "react-bootstrap";
 import { doDownload } from '../utils/MoorhenUtils';
 import { VisibilityOffOutlined, VisibilityOutlined, ExpandMoreOutlined, ExpandLessOutlined, DownloadOutlined, Settings } from '@mui/icons-material';
 import MoorhenSlider from "./MoorhenSlider";
 import { MoorhenDeleteDisplayObjectMenuItem, MoorhenRenameDisplayObjectMenuItem } from "./MoorhenMenuItem";
 import { MenuItem } from "@mui/material";
+import { MoorhenMapSettingsMenuItem } from "./MoorhenMenuItem";
 
 export const MoorhenMapCard = (props) => {
     const [cootContour, setCootContour] = useState(true)
     const [mapRadius, setMapRadius] = useState(props.initialRadius)
     const [mapContourLevel, setMapContourLevel] = useState(props.initialContour)
-    const [mapLitLines, setMapLitLines] = useState(props.defaultLitLines)
-    const [mapSolid, setMapSolid] = useState(false)
+    const [mapLitLines, setMapLitLines] = useState(props.defaultMapLitLines)
+    const [mapSolid, setMapSolid] = useState(props.defaultMapSurface)
+    const [mapOpacity, setMapOpacity] = useState(1.0)
     const [isCollapsed, setIsCollapsed] = useState(!props.defaultExpandDisplayCards);
     const [currentName, setCurrentName] = useState(props.map.name);
-    const nextOrigin = createRef([])
-    const busyContouring = createRef(false)
     const [popoverIsShown, setPopoverIsShown] = useState(false)
+    const nextOrigin = useRef([])
+    const busyContouring = useRef(false)
+    const isDirty = useRef(false)
+
+    const mapSettingsProps = {
+        mapOpacity, setMapOpacity, mapSolid, setMapSolid
+    }
 
     const handleDownload = async () => {
         let response = await props.map.getMap()
@@ -26,7 +33,8 @@ export const MoorhenMapCard = (props) => {
 
     const handleVisibility = () => {
         if (!cootContour) {
-            props.map.makeCootLive(props.glRef, mapRadius)
+            props.map.mapRadius = mapRadius
+            props.map.makeCootLive(props.glRef)
             setCootContour(true)
         } else {
             props.map.makeCootUnlive(props.glRef)
@@ -71,8 +79,8 @@ export const MoorhenMapCard = (props) => {
             expanded: null
         },
         5: {
-            label: mapSolid ? "Chickenwire" : "Solid",
-            compressed: () => {return (<MenuItem key='solid-or-chickenwire' variant="success" disabled={!cootContour}  onClick={handleSolid}>{mapSolid ? "Chickenwire" : "Solid"}</MenuItem>)},
+            label: "Map draw settings",
+            compressed: () => {return (<MoorhenMapSettingsMenuItem key={5} disabled={!cootContour} setPopoverIsShown={setPopoverIsShown} map={props.map} {...mapSettingsProps} />)},
             expanded: null
         }
     }
@@ -126,26 +134,33 @@ export const MoorhenMapCard = (props) => {
                         {isCollapsed ? < ExpandMoreOutlined/> : <ExpandLessOutlined />}
                     </Button>
                 </Fragment>
-
     }
 
-    const handleOriginCallback = useCallback(e => {
-        nextOrigin.current = [...e.detail.map(coord => -coord)]
+    const reContourIfDirty = () => {
+        if (isDirty.current) {
+            busyContouring.current = true
+            isDirty.current = false
+            props.map.doCootContour(props.glRef,
+                ...nextOrigin.current,
+                props.map.mapRadius,
+                props.map.contourLevel)
+                .then(result => {
+                    busyContouring.current = false
+                    reContourIfDirty()
+                })
+        }
+    }
+
+    const handleUpdateMapCallback = useCallback(e => {
+        nextOrigin.current = [...e.detail.origin.map(coord => -coord)]
+        props.map.contourLevel = mapContourLevel
+        props.map.mapRadius = mapRadius
+        isDirty.current = true
         if (props.map.cootContour) {
             if (busyContouring.current) {
-                console.log('Skipping originChanged ', nextOrigin.current)
-            }
-            else {
-                props.map.contourLevel = mapContourLevel
-                busyContouring.current = true
-                props.commandCentre.current.extendConsoleMessage("Because contourLevel or mapRadius changed useCallback")
-                props.map.doCootContour(props.glRef,
-                    ...nextOrigin.current,
-                    mapRadius,
-                    props.map.contourLevel)
-                    .then(result => {
-                        busyContouring.current = false
-                    })
+                console.log('Skipping map update because already busy ')
+            } else {
+                reContourIfDirty()
             }
         }
     }, [mapContourLevel, mapRadius])
@@ -169,27 +184,6 @@ export const MoorhenMapCard = (props) => {
         }
     }, [props.map.molNo])
 
-    const handleContourLevelCallback = useCallback(e => {
-        props.map.contourLevel = mapContourLevel
-        nextOrigin.current = [...e.detail.map(coord => -coord)]
-        if (props.map.cootContour) {
-            if (busyContouring.current) {
-                console.log('Skipping originChanged ', nextOrigin.current)
-            }
-            else {
-                props.map.contourLevel = mapContourLevel
-                busyContouring.current = true
-                props.map.doCootContour(props.glRef,
-                    ...nextOrigin.current,
-                    mapRadius,
-                    props.map.contourLevel)
-                    .then(result => {
-                        busyContouring.current = false
-                    })
-            }
-        }
-    }, [mapContourLevel, mapRadius])
-
     useMemo(() => {
         if (currentName === "") {
             return
@@ -199,42 +193,34 @@ export const MoorhenMapCard = (props) => {
     }, [currentName]);
 
     useEffect(() => {
-        document.addEventListener("originChanged", handleOriginCallback);
-        document.addEventListener("contourLevelChanged", handleContourLevelCallback);
+        document.addEventListener("mapUpdate", handleUpdateMapCallback);
         document.addEventListener("wheelContourLevelChanged", handleWheelContourLevelCallback);
         document.addEventListener("contourOnSessionLoad", handleContourOnSessionLoad);
         return () => {
-            document.removeEventListener("originChanged", handleOriginCallback);
-            document.removeEventListener("contourLevelChanged", handleContourLevelCallback);
+            document.removeEventListener("mapUpdate", handleUpdateMapCallback);
             document.removeEventListener("wheelContourLevelChanged", handleWheelContourLevelCallback);
             document.removeEventListener("contourOnSessionLoad", handleContourOnSessionLoad);
         };
-    }, [handleOriginCallback, props.activeMap?.molNo]);
+    }, [handleUpdateMapCallback, props.activeMap?.molNo]);
+
+    useEffect(() => {
+        props.map.setAlpha(mapOpacity,props.glRef)
+    }, [mapOpacity])
 
     useEffect(() => {
         setCootContour(props.map.cootContour)
-        setMapContourLevel(props.initialContour)
-        setMapLitLines(props.defaultLitLines)
-        setMapRadius(props.initialRadius)
-    }, [])
-
-    useEffect(() => {
-        setCootContour(props.map.cootContour)
+        nextOrigin.current = props.glRef.current.origin.map(coord => -coord)
+        props.map.litLines = mapLitLines
+        props.map.solid = mapSolid
+        props.map.contourLevel = mapContourLevel
+        props.map.mapRadius = mapRadius
+        isDirty.current = true
         if (props.map.cootContour && !busyContouring.current) {
-            busyContouring.current = true
-            console.log(props.commandCentre.current)
-            props.commandCentre.current.extendConsoleMessage('Because I can')
-            props.map.litLines = mapLitLines
-            props.map.solid = mapSolid
-            props.map.contourLevel = mapContourLevel
-            props.map.doCootContour(props.glRef,
-                ...props.glRef.current.origin.map(coord => -coord),
-                mapRadius,
-                props.map.contourLevel)
-                .then(result => {
-                    busyContouring.current = false
-                })
+            reContourIfDirty()
+        } else {
+            console.log('Skipping map re-contour because already busy ')
         }
+
     }, [mapRadius, mapContourLevel, mapLitLines, mapSolid])
 
     return <Card className="px-0"  style={{marginBottom:'0.5rem', padding:'0'}} key={props.map.molNo}>
@@ -275,12 +261,12 @@ export const MoorhenMapCard = (props) => {
                 </Col>
                 <Col>
                     <Form.Group controlId="contouringLevel" className="mb-3">
-                            <MoorhenSlider minVal={0.01} maxVal={5} logScale={true} sliderTitle="Level" isDisabled={!cootContour} intialValue={props.initialContour} externalValue={mapContourLevel} setExternalValue={setMapContourLevel}/>
+                        <MoorhenSlider minVal={0.01} maxVal={5} logScale={true} sliderTitle="Level" isDisabled={!cootContour} intialValue={props.initialContour} externalValue={mapContourLevel} setExternalValue={setMapContourLevel}/>
                     </Form.Group>
                 </Col>
                 <Col>
                     <Form.Group controlId="contouringRadius" className="mb-3">
-                            <MoorhenSlider minVal={0.01} maxVal={100} logScale={false} sliderTitle="Radius" isDisabled={!cootContour} intialValue={props.initialRadius} externalValue={mapRadius} setExternalValue={setMapRadius}/>
+                        <MoorhenSlider minVal={0.01} maxVal={100} logScale={false} sliderTitle="Radius" isDisabled={!cootContour} intialValue={props.initialRadius} externalValue={mapRadius} setExternalValue={setMapRadius}/>
                     </Form.Group>
                 </Col>
             </Row>

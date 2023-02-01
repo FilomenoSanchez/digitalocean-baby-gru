@@ -31,12 +31,12 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
 
     const handleModelChange = (evt) => {
         console.log(`Selected model ${evt.target.value}`)
-        setSelectedModel(evt.target.value)
+        setSelectedModel(parseInt(evt.target.value))
     }
 
     const handleMapChange = (evt) => {
         console.log(`Selected map ${evt.target.value}`)
-        setSelectedMap(evt.target.value)
+        setSelectedMap(parseInt(evt.target.value))
     }
 
     const handleFlip = (...args) => {
@@ -61,10 +61,8 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
             const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedModel)
             selectedMolecule.setAtomsDirty(true)
             selectedMolecule.redraw(props.glRef)
-            //Here use originChanged event to force recontour (relevant for live updating maps)
-            const originChangedEvent = new CustomEvent("originChanged",
-                { "detail": props.glRef.current.origin });
-            document.dispatchEvent(originChangedEvent);
+            const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: selectedMolecule.molNo} })
+            document.dispatchEvent(mapUpdateEvent)
         }
 
         if (args.every(arg => arg !== null)) {
@@ -137,9 +135,9 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
 
         let newCardList = []
 
-        pepflips.forEach(flip => {
+        pepflips.forEach((flip, index) => {
             newCardList.push(
-                <Card style={{margin: '0.5rem'}}>
+                <Card key={index} style={{margin: '0.5rem'}}>
                     <Card.Body>
                         <Row style={{display:'flex', justifyContent:'between'}}>
                             <Col style={{alignItems:'center', justifyContent:'left', display:'flex'}}>

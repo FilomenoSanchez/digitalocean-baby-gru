@@ -1,5 +1,5 @@
 import { readDataFile } from "./MoorhenUtils"
-import { readMapFromArrayBuffer, mapToMapGrid } from '../WebGL/mgWebGLReadMap';
+import { readMapFromArrayBuffer, mapToMapGrid } from '../WebGLgComponents/mgWebGLReadMap';
 
 export function MoorhenMap(commandCentre) {
     this.type = 'map'
@@ -13,6 +13,7 @@ export function MoorhenMap(commandCentre) {
     this.displayObjects = { Coot: [] }
     this.litLines = true
     this.solid = false
+    this.alpha = 1.0
     this.isDifference = false
     this.hasReflectionData = false
 }
@@ -175,9 +176,8 @@ MoorhenMap.prototype.makeWebMGUnlive = function (glRef) {
     glRef.current.drawScene()
 }
 
-MoorhenMap.prototype.makeCootLive = function (glRef, mapRadius) {
+MoorhenMap.prototype.makeCootLive = function (glRef) {
     const $this = this
-    $this.mapRadius = mapRadius
     $this.cootContour = true
     $this.doCootContour(glRef,
         -glRef.current.origin[0],
@@ -235,14 +235,14 @@ MoorhenMap.prototype.clearBuffersOfStyle = function (glRef, style) {
 MoorhenMap.prototype.doCootContour = function (glRef, x, y, z, radius, contourLevel) {
 
     const $this = this
-    $this.mapRadius = radius
 
-    let returnType =  "lines_mesh"
-    if(this.litLines)
-        returnType =  "lit_lines_mesh"
-
-    if(this.solid){
-        returnType =  "mesh"
+    let returnType
+    if (this.litLines) {
+        returnType = "lit_lines_mesh"
+    } else if(this.solid){
+        returnType = "mesh"
+    } else {
+        returnType = "lines_mesh"
     }
 
     return new Promise((resolve, reject) => {
@@ -255,6 +255,14 @@ MoorhenMap.prototype.doCootContour = function (glRef, x, y, z, radius, contourLe
             $this.clearBuffersOfStyle(glRef, "Coot")
             //$this.displayObjects['Coot'] = [...$this.displayObjects['Coot'], ...objects.map(object=>gl.appendOtherData(object, true))]
             objects.forEach(object => {
+                //I could inject alpha here ... ?
+                object.col_tri.forEach(cols => {
+                        cols.forEach(col => {
+                                for(let idx=3;idx<col.length;idx+=4){
+                                    col[idx] = $this.alpha
+                                }
+                        })
+                })
                 var a = glRef.current.appendOtherData(object, true);
                 $this.displayObjects['Coot'] = $this.displayObjects['Coot'].concat(a)
             })
@@ -264,6 +272,26 @@ MoorhenMap.prototype.doCootContour = function (glRef, x, y, z, radius, contourLe
         })
     })
 
+}
+
+MoorhenMap.prototype.setAlpha = async function (alpha,glRef) {
+    this.alpha = alpha
+    this.displayObjects['Coot'].forEach(buffer => {
+        buffer.triangleColours.forEach(colbuffer => {
+            for(let idx=3;idx<colbuffer.length;idx+=4){
+                colbuffer[idx] = alpha
+            }
+        })
+        buffer.isDirty = true
+        buffer.alphaChanged = true
+        if(alpha<0.99) {
+            buffer.transparent = true
+        } else {
+            buffer.transparent = false
+        }
+    })
+    glRef.current.buildBuffers();
+    glRef.current.drawScene();
 }
 
 MoorhenMap.prototype.associateToReflectionData = async function (selectedColumns, reflectionData) {

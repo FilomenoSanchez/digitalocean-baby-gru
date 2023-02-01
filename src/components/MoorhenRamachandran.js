@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react"
 import { Col, Row, Form } from 'react-bootstrap';
-import { RamaPlot } from "../WebGL/Ramachandran"
+import { RamaPlot } from "../WebGLgComponents/Ramachandran"
 import { convertRemToPx } from '../utils/MoorhenUtils';
 import { MoorhenChainSelect } from './MoorhenChainSelect'
 import { MoorhenMoleculeSelect } from './MoorhenMoleculeSelect'
@@ -48,9 +48,9 @@ export const MoorhenRamachandran = (props) => {
                 setRamaPlotData(null)
                 return
             }
-            const inputData = {message:'coot_command', command:'ramachandran_validation', returnType:'ramachandran_data', commandArgs:[parseInt(moleculeSelectRef.current.value)]}
+            const inputData = {message:'coot_command', command:'ramachandran_validation', returnType:'ramachandran_data', commandArgs:[parseInt(moleculeSelectRef.current.value)], chainID: chainSelectRef.current.value}
             let response = await props.commandCentre.current.cootCommand(inputData)
-            setRamaPlotData(response.data.result.result.filter(resInfo => resInfo.chainId === chainSelectRef.current.value))
+            setRamaPlotData(response.data.result.result)
         }
 
         fetchRamaData()
@@ -96,9 +96,9 @@ export const MoorhenRamachandran = (props) => {
                 setRamaPlotData(null)
                 return
             }
-            const inputData = {message:'coot_command', command:'ramachandran_validation', returnType:'ramachandran_data', commandArgs:[moleculeSelectRef.current.value]}
+            const inputData = {message:'coot_command', command:'ramachandran_validation', returnType:'ramachandran_data', commandArgs:[parseInt(moleculeSelectRef.current.value)], chainID: chainSelectRef.current.value}
             let response = await props.commandCentre.current.cootCommand(inputData)
-            setRamaPlotData(response.data.result.result.filter(resInfo => resInfo.chainId === chainSelectRef.current.value))
+            setRamaPlotData(response.data.result.result)
         }
         
         fetchRamaData()
@@ -122,7 +122,7 @@ export const MoorhenRamachandran = (props) => {
 
     const handleModelChange = (evt) => {
         console.log(`Ramachandran selected model ${evt.target.value}`)
-        setSelectedModel(evt.target.value)
+        setSelectedModel(parseInt(evt.target.value))
         setSelectedChain(chainSelectRef.current.value)
     }
 

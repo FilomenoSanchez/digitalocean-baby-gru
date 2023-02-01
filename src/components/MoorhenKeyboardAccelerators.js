@@ -2,15 +2,15 @@ import { List, ListItem } from "@mui/material"
 import { cidToSpec } from "../utils/MoorhenUtils"
 import * as vec3 from 'gl-matrix/vec3';
 import * as quat4 from 'gl-matrix/quat';
-import { quatToMat4, quat4Inverse } from '../WebGL/quatToMat4.js';
-import { getDeviceScale, vec3Create } from '../WebGL/mgWebGL';
+import { quatToMat4, quat4Inverse } from '../WebGLgComponents/quatToMat4.js';
+import { getDeviceScale, vec3Create } from '../WebGLgComponents/mgWebGL';
 
 const apresEdit = (molecule, glRef, setHoveredAtom) => {
     molecule.setAtomsDirty(true)
     molecule.redraw(glRef)
     setHoveredAtom({ molecule: null, cid: null })
-    const originChangedEvent = new CustomEvent("originChanged", { "detail": glRef.current.origin })
-    document.dispatchEvent(originChangedEvent)
+    const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: { origin: glRef.current.origin,  modifiedMolecule: molecule.molNo} })
+    document.dispatchEvent(mapUpdateEvent)
 }
 
 export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
