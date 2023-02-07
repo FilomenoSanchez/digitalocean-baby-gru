@@ -1,9 +1,9 @@
 import { MenuItem } from "@mui/material";
 import { CheckOutlined, CloseOutlined } from "@mui/icons-material";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { OverlayTrigger, Popover, PopoverBody, PopoverHeader, Form, InputGroup, Button, FormSelect, Row, Col, SplitButton, Dropdown, Toast, ToastContainer } from "react-bootstrap";
+import { OverlayTrigger, Popover, PopoverBody, PopoverHeader, Form, InputGroup, Button, FormSelect, Row, Col, SplitButton, Dropdown } from "react-bootstrap";
 import { SketchPicker } from "react-color";
-import { MoorhenMtzWrapper, readTextFile } from "../utils/MoorhenUtils";
+import { MoorhenMtzWrapper, readTextFile, readDataFile } from "../utils/MoorhenUtils";
 import { MoorhenMap } from "../utils/MoorhenMap";
 import { MoorhenMolecule } from "../utils/MoorhenMolecule";
 import { MoorhenMoleculeSelect } from "./MoorhenMoleculeSelect";
@@ -199,7 +199,7 @@ export const MoorhenGetMonomerMenuItem = (props) => {
                 if (result.data.result.status === "Completed" && result.data.result.result !== -1) {
                     const newMolecule = new MoorhenMolecule(props.commandCentre, props.urlPrefix)
                     newMolecule.molNo = result.data.result.result
-                    newMolecule.name = tlcRef.current.value
+                    newMolecule.name = newTlc
                     newMolecule.cootBondsOptions.smoothness = props.defaultBondSmoothness
                     return newMolecule.fetchIfDirtyAndDraw('CBs', props.glRef).then(_ => {
                         props.changeMolecules({ action: "Add", item: newMolecule })
@@ -412,6 +412,48 @@ export const MoorhenDefaultBondSmoothnessPreferencesMenuItem = (props) => {
         menuItemText={"Default smoothness of molecule bonds"}
         setPopoverIsShown={props.setPopoverIsShown}
         onCompleted={onCompleted}
+    />
+
+}
+
+export const MoorhenAddRemoveHydrogenAtomsMenuItem = (props) => {
+    const moleculeSelectRef = useRef(null)
+
+    const handleClick = useCallback(async (cootCommand) => {
+        if (moleculeSelectRef.current !== null) {
+            const selectedMolNo = parseInt(moleculeSelectRef.current.value)
+            await props.commandCentre.current.cootCommand({
+                message: 'coot_command', 
+                command: cootCommand, 
+                returnType: 'status', 
+                commandArgs: [selectedMolNo], 
+            })
+            const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedMolNo)
+            selectedMolecule.setAtomsDirty(true)
+            selectedMolecule.redraw(props.glRef)
+            document.body.click()
+            document.body.click()
+        }
+    }, [moleculeSelectRef, props.molecules, props.glRef, props.commandCentre])
+
+    const panelContent = <Form.Group>
+                            <MoorhenMoleculeSelect {...props} label="Molecule" allowAny={false} ref={moleculeSelectRef} />
+                            <Button className="mx-2" variant='primary' onClick={() => handleClick('add_hydrogen_atoms')}>
+                                Add
+                            </Button>
+                            <Button className="mx-2" variant='danger' onClick={() => handleClick('delete_hydrogen_atoms')}>
+                                Remove
+                            </Button>
+                        </Form.Group>
+
+
+    return <MoorhenMenuItem
+        id='add-hydrogens-menu-item'
+        popoverPlacement={props.popoverPlacement}
+        popoverContent={panelContent}
+        menuItemText="Add/Remove hydrogen atoms"
+        setPopoverIsShown={props.setPopoverIsShown}
+        showOkButton={false}
     />
 
 }
@@ -1141,6 +1183,63 @@ export const MoorhenImportMapMenuItem = (props) => {
     />
 }
 
+export const MoorhenAutoOpenMtzMenuItem = (props) => {
+    const filesRef = useRef(null)
+
+    const panelContent = <>
+        <Row>
+            <Form.Group style={{ width: '30rem', margin: '0.5rem', padding: '0rem' }} controlId="uploadCCP4Map" className="mb-3">
+                <Form.Label>Auto open MTZ file</Form.Label>
+                <Form.Control ref={filesRef} type="file" multiple={false} accept={[".mtz"]} />
+            </Form.Group>
+        </Row>
+    </>
+
+    const onCompleted = useCallback(async (e) => {
+        const file = filesRef.current.files[0]
+        console.log('file is', file)
+
+        const reflectionData = await readDataFile(file)
+        const mtzData = new Uint8Array(reflectionData)
+    
+        const response = await props.commandCentre.current.cootCommand({
+            returnType: "int_array",
+            command: "shim_auto_open_mtz",
+            commandArgs: [mtzData]
+        })
+
+        let promises = []
+        response.data.result.result.forEach(mapMolNo => {
+            promises.push(
+                props.commandCentre.current.cootCommand({
+                    returnType: "status",
+                    command: "is_a_difference_map",
+                    commandArgs: [mapMolNo]
+                })    
+            )
+        })
+        const isDiffMapResponses = await Promise.all(promises)
+        
+        response.data.result.result.forEach((mapMolNo, index) => {
+            const newMap = new MoorhenMap(props.commandCentre)
+            newMap.molNo = mapMolNo
+            newMap.name = `${file.name.replace('mtz', '')}-map-${index}`
+            newMap.isDifference = isDiffMapResponses[index]
+            props.changeMaps({ action: 'Add', item: newMap })
+            if(index === 0) props.setActiveMap(newMap)
+        })
+
+    }, [filesRef.current, props.changeMaps, props.commandCentre])
+
+    return <MoorhenMenuItem
+        id='auto-open-mtz-menu-item'
+        popoverContent={panelContent}
+        menuItemText="Auto open MTZ..."
+        onCompleted={onCompleted}
+        setPopoverIsShown={props.setPopoverIsShown}
+    />
+}
+
 export const MoorhenAboutMenuItem = (props) => {
     const onCompleted = () => { props.setPopoverIsShown(false) }
 
@@ -1246,7 +1345,6 @@ export const MoorhenClipFogMenuItem = (props) => {
 export const MoorhenMergeMoleculesMenuItem = (props) => {
     const toRef = useRef(null)
     const fromRef = useRef(null)
-    const [selectedMolecules, setSelectedMolecules] = useState([])
 
     const panelContent = <>
         <MoorhenMoleculeSelect {...props} label="Into molecule" allowAny={false} ref={toRef} />
@@ -1266,7 +1364,7 @@ export const MoorhenMergeMoleculesMenuItem = (props) => {
         let banan = await toMolecule.mergeMolecules(otherMolecules, props.glRef, true)
         console.log({ banan })
         props.setPopoverIsShown(false)
-    }, [toRef.current, fromRef.current, props.molecules])
+    }, [toRef.current, fromRef.current, props.molecules, props.fromMolNo, props.glRef])
 
     return <MoorhenMenuItem
         id='merge-molecules-menu-item'
@@ -1290,7 +1388,7 @@ export const MoorhenGoToMenuItem = (props) => {
 
     const panelContent = <>
         <Form.Group style={{ width: '20rem', margin: '0.5rem' }} controlId="cid" className="mb-3">
-            <Form.Label>Residue cid...</Form.Label>
+            <Form.Label>Residue CID</Form.Label>
             <Form.Control ref={cidRef} type="text" value={cid} onChange={(e) => {
                 setCid(e.target.value)
             }} />
