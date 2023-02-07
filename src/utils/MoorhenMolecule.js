@@ -20,6 +20,12 @@ export function MoorhenMolecule(commandCentre, urlPrefix) {
     this.molNo = null
     this.gemmiStructure = null
     this.sequences = []
+    this.gaussianSurfaceSettings = {
+        sigma: 4.4,
+        countourLevel: 4.0, 
+        boxRadius: 5.0, 
+        gridScale: 0.7
+    }
     this.cootBondsOptions = {
         isDarkBackground: false,
         smoothness: 1,
@@ -506,7 +512,10 @@ MoorhenMolecule.prototype.drawCootGaussianSurface = async function (glRef) {
         returnType: "mesh",
         command: "get_gaussian_surface",
         commandArgs: [
-            $this.molNo
+            $this.molNo, $this.gaussianSurfaceSettings.sigma, 
+            $this.gaussianSurfaceSettings.countourLevel, 
+            $this.gaussianSurfaceSettings.boxRadius, 
+            $this.gaussianSurfaceSettings.gridScale
         ]
     }).then(response => {
         const objects = [response.data.result.result]
@@ -545,11 +554,11 @@ MoorhenMolecule.prototype.drawCootRepresentation = async function (glRef, style)
             break;
         case "MolecularSurface":
             m2tStyle = "MolecularSurface"
-            m2tSelection = "(ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
+            m2tSelection = "(ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,MSE,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
             break;
         case "VdWSurface":
             m2tStyle = "VdWSurface"
-            m2tSelection = "(ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
+            m2tSelection = "(ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,MSE,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
             break;
         case "DishyBases":
             m2tStyle = "DishyBases"
@@ -557,11 +566,11 @@ MoorhenMolecule.prototype.drawCootRepresentation = async function (glRef, style)
             break;
         case "Calpha":
             m2tStyle = "Calpha"
-            m2tSelection = "(ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
+            m2tSelection = "(ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,MSE,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
             break;
         case "ligands":
             m2tStyle = "Cylinders"
-            m2tSelection = "(!ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR)"
+            m2tSelection = "(!ALA,CYS,ASP,GLU,PHE,GLY,HIS,ILE,LYS,LEU,MET,MSE,ASN,PRO,GLN,ARG,SER,THR,VAL,TRP,TYR,HOH)"
             break;
         default:
             m2tStyle = "Ribbon"
@@ -959,7 +968,8 @@ MoorhenMolecule.prototype.redraw = function (glRef) {
             },
             Promise.resolve()
         )
-    }).catch(_ => {
+    }).catch(err => {
+        console.log(err)
         console.log('Error updating atoms when redrawing')
     })
 }
