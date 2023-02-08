@@ -348,7 +348,7 @@ export const MoorhenValidation = (props) => {
                 maintainAspectRatio: false,
                 barThickness: 'flex',
                 scales: scales
-            }            
+            }
         });
 
     }, [plotData, props.darkMode, props.toolAccordionBodyHeight, props.sideBarWidth, props.showSideBar])
