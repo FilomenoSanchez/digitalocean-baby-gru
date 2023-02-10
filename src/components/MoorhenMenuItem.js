@@ -120,7 +120,7 @@ export const MoorhenLoadTutorialDataMenuItem = (props) => {
                 props.changeMolecules({ action: "Add", item: newMolecule })
                 Promise.resolve(newMolecule)
             }).then(_ => {
-                newMolecule.centreOn(props.glRef)
+                newMolecule.centreOn(props.glRef, null, false)
             }).then(_ => {
                 return newMap.loadToCootFromMtzURL(`${props.urlPrefix}/baby-gru/tutorials/moorhen-tutorial-map-number-${tutorialNumber}.mtz`, `moorhen-tutorial-${tutorialNumber}`,
                     {
@@ -165,24 +165,35 @@ export const MoorhenGetMonomerMenuItem = (props) => {
         const newTlc = tlcRef.current.value
         const newMolecule = new MoorhenMolecule(props.commandCentre, props.urlPrefix)
         let monomerLoadedPromise;
-
-        const getMonomer = () => {
-            return props.commandCentre.current.cootCommand({
-                returnType: 'status',
-                command: 'get_monomer_and_position_at',
-                commandArgs: [newTlc, fromMolNo,
-                    ...props.glRef.current.origin.map(coord => -coord)
-                ]
-            }, true)
+        if (fromMolNo === -999999) {
+            //Here if we should raid monomer library followed by EBI
+            monomerLoadedPromise = newMolecule.loadMissingMonomer(newTlc, fromMolNo)
         }
+        else {
+            monomerLoadedPromise = props.commandCentre.current.cootCommand({
+                returnType: "string_array",
+                command: 'get_residue_names_with_no_dictionary',
+                commandArgs: [fromMolNo],
+            }, false)
+                .then(knownMonomers => {
+                    if (knownMonomers.includes(newTlc)) {
+                        return Promise.resolve(true)
+                    }
+                    else {
+                        return newMolecule.loadMissingMonomer(newTlc, -999999)
+                    }
+                })
+        }
+        monomerLoadedPromise
+            .then(_ => {
+                return props.commandCentre.current.cootCommand({
+                    returnType: 'status',
+                    command: 'get_monomer_and_position_at',
+                    commandArgs: [newTlc, fromMolNo,
+                        ...props.glRef.current.origin.map(coord => -coord)
+                    ]
 
-        getMonomer()
-            .then(result => {
-                if (result.data.result.result === -1) {
-                    return newMolecule.loadMissingMonomer(newTlc, fromMolNo)
-                        .then(() => { return getMonomer() })
-                }
-                return Promise.resolve(result)
+                }, true)
             })
             .then(result => {
                 if (result.data.result.status === "Completed" && result.data.result.result !== -1) {
@@ -199,6 +210,7 @@ export const MoorhenGetMonomerMenuItem = (props) => {
                     props.commandCentre.current.extendConsoleMessage('Error getting monomer... Missing dictionary?')
                 }
             })
+
     }
 
     return <MoorhenMenuItem
@@ -341,6 +353,8 @@ export const MoorhenRotateTranslateMoleculeMenuItem = (props) => {
         props.changeMolecules({ action: 'Remove', item: ghostMolecule.current })
         ghostMolecule.current.delete(props.glRef)
         document.body.click()
+        const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: props.molecule.molNo} })
+        document.dispatchEvent(mapUpdateEvent)
     }
 
     const rejectTransform = () => {
@@ -411,10 +425,10 @@ export const MoorhenAddRemoveHydrogenAtomsMenuItem = (props) => {
         if (moleculeSelectRef.current !== null) {
             const selectedMolNo = parseInt(moleculeSelectRef.current.value)
             await props.commandCentre.current.cootCommand({
-                message: 'coot_command',
-                command: cootCommand,
-                returnType: 'status',
-                commandArgs: [selectedMolNo],
+                message: 'coot_command', 
+                command: cootCommand, 
+                returnType: 'status', 
+                commandArgs: [selectedMolNo], 
             })
             const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedMolNo)
             selectedMolecule.setAtomsDirty(true)
@@ -425,14 +439,14 @@ export const MoorhenAddRemoveHydrogenAtomsMenuItem = (props) => {
     }, [moleculeSelectRef, props.molecules, props.glRef, props.commandCentre])
 
     const panelContent = <Form.Group>
-        <MoorhenMoleculeSelect {...props} label="Molecule" allowAny={false} ref={moleculeSelectRef} />
-        <Button className="mx-2" variant='primary' onClick={() => handleClick('add_hydrogen_atoms')}>
-            Add
-        </Button>
-        <Button className="mx-2" variant='danger' onClick={() => handleClick('delete_hydrogen_atoms')}>
-            Remove
-        </Button>
-    </Form.Group>
+                            <MoorhenMoleculeSelect {...props} label="Molecule" allowAny={false} ref={moleculeSelectRef} />
+                            <Button className="mx-2" variant='primary' onClick={() => handleClick('add_hydrogen_atoms')}>
+                                Add
+                            </Button>
+                            <Button className="mx-2" variant='danger' onClick={() => handleClick('delete_hydrogen_atoms')}>
+                                Remove
+                            </Button>
+                        </Form.Group>
 
 
     return <MoorhenMenuItem
@@ -828,6 +842,8 @@ export const MoorhenImportDictionaryMenuItem = (props) => {
                             const otherMolecules = [newMolecule]
                             return toMolecule.mergeMolecules(otherMolecules, props.glRef, true)
                                 .then(_ => {
+                                    const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: toMolecule.molNo} })
+                                    document.dispatchEvent(mapUpdateEvent)
                                     return toMolecule.redraw(props.glRef)
                                 })
                         } else {
@@ -1050,7 +1066,7 @@ export const MoorhenBackupsMenuItem = (props) => {
 
     return <MoorhenMenuItem
         popoverContent={panelContent}
-        menuItemText="Recover previous session..."
+        menuItemText="Recover molecule backup..."
         onCompleted={onCompleted}
         setPopoverIsShown={props.setPopoverIsShown}
         storageKeysDirty={props.storageKeysDirty}
@@ -1092,7 +1108,12 @@ export const MoorhenImportFSigFMenuItem = (props) => {
                 returnType: 'status'
             }, true)
 
-            const connectedMapsEvent = new CustomEvent("connectedMaps")
+            const connectedMapsEvent = new CustomEvent("connectMaps", {
+                "detail": {
+                    molecule: connectMapsArgs[0],
+                    maps: [...new Set(connectMapsArgs.slice(1))]
+                }
+            })
             document.dispatchEvent(connectedMapsEvent)
         }
     }
@@ -1189,7 +1210,7 @@ export const MoorhenAutoOpenMtzMenuItem = (props) => {
 
         const reflectionData = await readDataFile(file)
         const mtzData = new Uint8Array(reflectionData)
-
+    
         const response = await props.commandCentre.current.cootCommand({
             returnType: "int_array",
             command: "shim_auto_open_mtz",
@@ -1203,18 +1224,18 @@ export const MoorhenAutoOpenMtzMenuItem = (props) => {
                     returnType: "status",
                     command: "is_a_difference_map",
                     commandArgs: [mapMolNo]
-                })
+                })    
             )
         })
         const isDiffMapResponses = await Promise.all(promises)
-
+        
         response.data.result.result.forEach((mapMolNo, index) => {
             const newMap = new MoorhenMap(props.commandCentre)
             newMap.molNo = mapMolNo
             newMap.name = `${file.name.replace('mtz', '')}-map-${index}`
             newMap.isDifference = isDiffMapResponses[index]
             props.changeMaps({ action: 'Add', item: newMap })
-            if (index === 0) props.setActiveMap(newMap)
+            if(index === 0) props.setActiveMap(newMap)
         })
 
     }, [filesRef.current, props.changeMaps, props.commandCentre])
@@ -1352,6 +1373,8 @@ export const MoorhenMergeMoleculesMenuItem = (props) => {
         let banan = await toMolecule.mergeMolecules(otherMolecules, props.glRef, true)
         console.log({ banan })
         props.setPopoverIsShown(false)
+        const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: toMolecule.molNo} })
+        document.dispatchEvent(mapUpdateEvent)
     }, [toRef.current, fromRef.current, props.molecules, props.fromMolNo, props.glRef])
 
     return <MoorhenMenuItem
