@@ -1,9 +1,9 @@
 import { CheckOutlined, CloseOutlined } from "@mui/icons-material";
 import { MenuItem, MenuList, Tooltip } from "@mui/material";
-import { createRef, forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { Button, Overlay, Container, Row, FormSelect, FormGroup, FormLabel, Card } from "react-bootstrap"
 import { MoorhenMoleculeSelect } from "./MoorhenMoleculeSelect";
-import { cidToSpec, getTooltipShortcutLabel } from "../utils/MoorhenUtils";
+import { cidToSpec, getTooltipShortcutLabel, residueCodesThreeToOne } from "../utils/MoorhenUtils";
 
 const refinementFormatArgs = (molecule, chosenAtom, pp) => {
     return [
@@ -451,7 +451,7 @@ export const MoorhenMutateButton = (props) => {
                             props.setPanelParameters(newParameters)
                         }}>
                         {toTypes.map(optionName => {
-                            return <option key={optionName} value={optionName}>{optionName}</option>
+                            return <option key={optionName} value={optionName}>{`${optionName} (${residueCodesThreeToOne[optionName]})`}</option>
                         })}
                     </FormSelect>
                 </FormGroup>
@@ -564,10 +564,25 @@ export const MoorhenJedFlipTrueButton = (props) => {
 
 export const MoorhenRotateTranslateZoneButton = (props) => {
     const [showAccept, setShowAccept] = useState(false)
+    const [tips, setTips] = useState(null)
     const theButton = useRef(null)
     const { changeMolecules, molecules, backgroundColor, glRef } = props
     const fragmentMolecule = useRef(null)
     const chosenMolecule = useRef(null)
+
+    useEffect(() => {
+        if (props.shortCuts) {
+            const shortCut = JSON.parse(props.shortCuts).residue_camera_wiggle
+            setTips( <>
+                        <em>{"Hold <Shift><Alt> to translate"}</em>
+                        <br></br>
+                        <em>{`Hold ${getTooltipShortcutLabel(shortCut)} to move view`}</em>
+                        <br></br>
+                        <br></br>
+                    </>
+            )
+        }     
+    }, [props.shortCuts])
 
     const acceptTransform = useCallback(async (e) => {
         glRef.current.setActiveMolecule(null)
@@ -576,6 +591,8 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
         changeMolecules({ action: 'Remove', item: fragmentMolecule.current })
         const response = fragmentMolecule.current.delete(glRef)
         setShowAccept(false)
+        const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: glRef.current.origin,  modifiedMolecule: chosenMolecule.current.molNo} })
+        document.dispatchEvent(mapUpdateEvent)
     }, [fragmentMolecule.current, chosenMolecule.current, molecules, changeMolecules])
 
     const rejectTransform = useCallback(async (e) => {
@@ -622,7 +639,8 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
                 >
                     <Card className="mx-2">
                         <Card.Header >Accept rotate/translate ?</Card.Header>
-                        <Card.Body className="">
+                        <Card.Body style={{alignItems: 'center', alignContent:'center', justifyContent:'center'}}>
+                            {tips}
                             <Button onClick={acceptTransform}><CheckOutlined /></Button>
                             <Button className="mx-2" onClick={rejectTransform}><CloseOutlined /></Button>
                         </Card.Body>
@@ -636,7 +654,6 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
 
 
 export const MoorhenAddSimpleButton = (props) => {
-    const molType = createRef("HOH")
     const selectRef = useRef()
 
     const [panelParameters, setPanelParameters] = useState({
@@ -658,15 +675,15 @@ export const MoorhenAddSimpleButton = (props) => {
     }
 
     const typeSelected = useCallback(value => {
-        props.molecules
-            .filter(molecule => molecule.molNo === parseInt(selectRef.current.value))
-            .forEach(molecule => {
-                console.log({ molecule })
-                molecule.addLigandOfType(value,
-                    props.glRef.current.origin.map(coord => -coord),
-                    props.glRef)
-            })
-    })
+        const selectedMolecule = props.molecules.find(molecule => molecule.molNo === parseInt(selectRef.current.value))
+        if (selectedMolecule) {
+            console.log({ selectedMolecule })
+            selectedMolecule.addLigandOfType(value,
+                props.glRef.current.origin.map(coord => -coord),
+                props.glRef)
+            props.setSelectedButtonIndex(null)
+        }
+    }, [props.molecules, props.glRef])
 
     return <MoorhenSimpleEditButton {...props}
         toolTip="Add simple"
@@ -684,6 +701,6 @@ export const MoorhenAddSimpleButton = (props) => {
             selectRef={selectRef}
             awaitAtomClick={false}
         />}
-        icon={<img className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/atom-at-pointer.svg`} />}
+        icon={<img className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/atom-at-pointer.svg`} alt='add...'/>}
     />
 }

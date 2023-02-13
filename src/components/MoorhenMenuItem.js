@@ -92,7 +92,12 @@ MoorhenMenuItem.defaultProps = {
 
 export const MoorhenLoadTutorialDataMenuItem = (props) => {
     const tutorialNumberSelectorRef = useRef(null);
-    const allTutorialNumbers = ['1', '2']
+    const allTutorialNumbers = ['1', '2', '3']
+    const tutorialMtzColumnNames = {
+        1: {F: "FWT", PHI: "PHWT", Fobs: 'F', SigFobs: 'SIGF', FreeR:'FREER'},
+        2: {F: "FWT", PHI: "PHWT", Fobs: 'FP', SigFobs: 'SIGFP', FreeR:'FREE'},
+        3: {F: "FWT", PHI: "PHWT", Fobs: 'F', SigFobs: 'SIGF', FreeR:'FREER'}
+    }
 
     const panelContent = <>
         <Form.Group style={{ width: '20rem', margin: '0.5rem' }} controlId="loadTutorialData" className="mb-3">
@@ -120,12 +125,11 @@ export const MoorhenLoadTutorialDataMenuItem = (props) => {
                 props.changeMolecules({ action: "Add", item: newMolecule })
                 Promise.resolve(newMolecule)
             }).then(_ => {
-                newMolecule.centreOn(props.glRef)
+                newMolecule.centreOn(props.glRef, null, false)
             }).then(_ => {
                 return newMap.loadToCootFromMtzURL(`${props.urlPrefix}/baby-gru/tutorials/moorhen-tutorial-map-number-${tutorialNumber}.mtz`, `moorhen-tutorial-${tutorialNumber}`,
                     {
-                        F: "FWT", PHI: "PHWT", Fobs: tutorialNumber === '1' ? 'F' : 'FP', SigFobs: tutorialNumber === '1' ? 'SIGF' : 'SIGFP', FreeR: tutorialNumber === '1' ? 'FREER' : 'FREE',
-                        isDifference: false, useWeight: false, calcStructFact: true
+                        isDifference: false, useWeight: false, calcStructFact: true, ...tutorialMtzColumnNames[tutorialNumber]
                     })
             }).then(_ => {
                 return newDiffMap.loadToCootFromMtzURL(`${props.urlPrefix}/baby-gru/tutorials/moorhen-tutorial-map-number-${tutorialNumber}.mtz`, `moorhen-tutorial-${tutorialNumber}`,
@@ -341,6 +345,8 @@ export const MoorhenRotateTranslateMoleculeMenuItem = (props) => {
         props.changeMolecules({ action: 'Remove', item: ghostMolecule.current })
         ghostMolecule.current.delete(props.glRef)
         document.body.click()
+        const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: props.molecule.molNo} })
+        document.dispatchEvent(mapUpdateEvent)
     }
 
     const rejectTransform = () => {
@@ -828,6 +834,8 @@ export const MoorhenImportDictionaryMenuItem = (props) => {
                             const otherMolecules = [newMolecule]
                             return toMolecule.mergeMolecules(otherMolecules, props.glRef, true)
                                 .then(_ => {
+                                    const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: toMolecule.molNo} })
+                                    document.dispatchEvent(mapUpdateEvent)
                                     return toMolecule.redraw(props.glRef)
                                 })
                         } else {
@@ -1050,7 +1058,7 @@ export const MoorhenBackupsMenuItem = (props) => {
 
     return <MoorhenMenuItem
         popoverContent={panelContent}
-        menuItemText="Recover previous session..."
+        menuItemText="Recover molecule backup..."
         onCompleted={onCompleted}
         setPopoverIsShown={props.setPopoverIsShown}
         storageKeysDirty={props.storageKeysDirty}
@@ -1092,7 +1100,12 @@ export const MoorhenImportFSigFMenuItem = (props) => {
                 returnType: 'status'
             }, true)
 
-            const connectedMapsEvent = new CustomEvent("connectedMaps")
+            const connectedMapsEvent = new CustomEvent("connectMaps", {
+                "detail": {
+                    molecule: connectMapsArgs[0],
+                    maps: [...new Set(connectMapsArgs.slice(1))]
+                }
+            })
             document.dispatchEvent(connectedMapsEvent)
         }
     }
@@ -1352,6 +1365,8 @@ export const MoorhenMergeMoleculesMenuItem = (props) => {
         let banan = await toMolecule.mergeMolecules(otherMolecules, props.glRef, true)
         console.log({ banan })
         props.setPopoverIsShown(false)
+        const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: toMolecule.molNo} })
+        document.dispatchEvent(mapUpdateEvent)
     }, [toRef.current, fromRef.current, props.molecules, props.fromMolNo, props.glRef])
 
     return <MoorhenMenuItem

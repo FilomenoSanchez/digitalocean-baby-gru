@@ -8,7 +8,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     const scores = useRef({})
     const windowResizedBinding = createRef(null)
     const [mapLineWidth, setMapLineWidth] = useState(1.0)
-    const [connectedMaps, setConnectedMaps] = useState(false)
+    const [connectedMolNo, setConnectedMolNo] = useState(null)
     const [scoresToastContents, setScoreToastContents] = useState(null)
 
     const setClipFogByZoom = () => {
@@ -51,7 +51,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }, [props.hoveredAtom, glRef])
 
     const handleScoreUpdates = useCallback(async (e) => {
-        if (e.detail?.modifiedMolecule !== null && connectedMaps) {
+        if (e.detail?.modifiedMolecule !== null && connectedMolNo && connectedMolNo.molecule === e.detail.modifiedMolecule) {
             
             const currentScores = await props.commandCentre.current.cootCommand({
                 returnType: "r_factor_stats",
@@ -59,23 +59,23 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
                 commandArgs: [],
             }, true)
 
-            const newToastContents =   <Toast.Body>
-                                                {props.preferences.defaultUpdatingScores.includes('Rfactor') && 
-                                                    <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
-                                                        Clipper R-Factor {parseFloat(currentScores.data.result.result.r_factor).toFixed(3)}
-                                                    </p>
-                                                }
-                                                {props.preferences.defaultUpdatingScores.includes('Rfree') && 
-                                                    <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
-                                                        Clipper R-Free {parseFloat(currentScores.data.result.result.free_r_factor).toFixed(3)}
-                                                    </p>
-                                                }
-                                                {props.preferences.defaultUpdatingScores.includes('Moorhen Points') && 
-                                                    <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
-                                                        Moorhen Points {currentScores.data.result.result.rail_points_total}
-                                                    </p>
-                                                }
-                                            </Toast.Body>
+            const newToastContents =    <Toast.Body style={{width: '100%'}}>
+                                            {props.preferences.defaultUpdatingScores.includes('Rfactor') && 
+                                                <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
+                                                    Clipper R-Factor {parseFloat(currentScores.data.result.result.r_factor).toFixed(3)}
+                                                </p>
+                                            }
+                                            {props.preferences.defaultUpdatingScores.includes('Rfree') && 
+                                                <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
+                                                    Clipper R-Free {parseFloat(currentScores.data.result.result.free_r_factor).toFixed(3)}
+                                                </p>
+                                            }
+                                            {props.preferences.defaultUpdatingScores.includes('Moorhen Points') && 
+                                                <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
+                                                    Moorhen Points {currentScores.data.result.result.rail_points_total}
+                                                </p>
+                                            }
+                                        </Toast.Body>
             
             if (scores !== null) {
                 const moorhenPointsDiff = currentScores.data.result.result.rail_points_total - scores.current.moorhenPoints
@@ -83,7 +83,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
                 const rFreeDiff = currentScores.data.result.result.free_r_factor - scores.current.rFree
 
                 setScoreToastContents(
-                        <Toast.Body>
+                        <Toast.Body style={{width: '100%'}}>
                             {props.preferences.defaultUpdatingScores.includes('Rfactor') && 
                                 <p style={{paddingLeft: '0.5rem', marginBottom:'0rem', color: rFactorDiff < 0 ? 'green' : 'red'}}>
                                     Clipper R-Factor {parseFloat(scores.current.rFactor).toFixed(3)} {`${rFactorDiff < 0 ? '' : '+'}${parseFloat(rFactorDiff).toFixed(3)}`}
@@ -109,7 +109,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
             } else {
                 setScoreToastContents(newToastContents)
             }
-                        
+
             scores.current = {
                 moorhenPoints: currentScores.data.result.result.rail_points_total,
                 rFactor: currentScores.data.result.result.r_factor,
@@ -117,9 +117,15 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
             }
         } 
 
-    }, [props.commandCentre, connectedMaps, scores, props.preferences.defaultUpdatingScores])
+    }, [props.commandCentre, connectedMolNo, scores, props.preferences.defaultUpdatingScores])
 
-    const handleConnectedMaps = useCallback(async () => {
+    const handleDisconnectMaps = () => {
+        scores.current = {}
+        setConnectedMolNo(null)
+        setScoreToastContents(null)
+    }
+    
+    const handleConnectMaps = useCallback(async (evt) => {
         
         const currentScores = await props.commandCentre.current.cootCommand({
             returnType: "r_factor_stats",
@@ -128,7 +134,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
         }, true)
 
         setScoreToastContents(
-                <Toast.Body>
+                <Toast.Body style={{width: '100%'}}>
                     {props.preferences.defaultUpdatingScores.includes('Rfactor') && 
                         <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
                             Clipper R-Factor {parseFloat(currentScores.data.result.result.r_factor).toFixed(3)}
@@ -153,13 +159,13 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
             rFree: currentScores.data.result.result.free_r_factor
         }
 
-        setConnectedMaps(true)
+        setConnectedMolNo(evt.detail)
     }, [props.commandCentre, props.preferences.defaultUpdatingScores])
 
     useEffect(() => {
-        if (scores.current !== null && props.preferences.defaultUpdatingScores !== null && props.preferences.showScoresToast && connectedMaps) {
+        if (scores.current !== null && props.preferences.defaultUpdatingScores !== null && props.preferences.showScoresToast && connectedMolNo) {
             setScoreToastContents(
-                <Toast.Body>
+                <Toast.Body style={{width: '100%'}}>
                     {props.preferences.defaultUpdatingScores.includes('Rfactor') && 
                         <p style={{paddingLeft: '0.5rem', marginBottom:'0rem'}}>
                             Clipper R-Factor {parseFloat(scores.current.rFactor).toFixed(3)}
@@ -182,12 +188,12 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }, [props.preferences.defaultUpdatingScores, props.preferences.showScoresToast]);
 
     useEffect(() => {
-        document.addEventListener("connectedMaps", handleConnectedMaps);
+        document.addEventListener("connectMaps", handleConnectMaps);
         return () => {
-            document.removeEventListener("connectedMaps", handleConnectedMaps);
+            document.removeEventListener("connectMaps", handleConnectMaps);
         };
 
-    }, [handleConnectedMaps]);
+    }, [handleConnectMaps]);
 
     useEffect(() => {
         document.addEventListener("mapUpdate", handleScoreUpdates);
@@ -264,12 +270,19 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }, [props.preferences])
 
     useEffect(() => {
-        props.molecules.forEach(molecule => {
-            //molecule.fetchIfDirtyAndDraw('bonds', glRef)
-        })
-    }, [props.molecules, props.molecules.length])
+        if (connectedMolNo && props.molecules.lenght === 0){
+            handleDisconnectMaps()
+        } else if (connectedMolNo && !props.molecules.map(molecule => molecule.molNo).includes(connectedMolNo.molecule)){
+            handleDisconnectMaps()
+        }
+    }, [props.molecules])
 
     useEffect(() => {
+        if (connectedMolNo && props.maps.lenght === 0){
+            handleDisconnectMaps()
+        } else if (connectedMolNo && !connectedMolNo.maps.every(mapMolNo => props.maps.includes(mapMolNo))){
+            handleDisconnectMaps()
+        }
         props.maps.forEach(map => {
             console.log('in map changed useEffect')
             if (map.webMGContour) {
@@ -284,9 +297,9 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }
 
     return  <>
-                <ToastContainer style={{ zIndex: '0', marginTop: "5rem", marginLeft: '0.5rem', textAlign:'left', alignItems: 'left'}} position='top-start' >
+                <ToastContainer style={{ zIndex: '0', marginTop: "5rem", marginLeft: '0.5rem', textAlign:'left', alignItems: 'left', maxWidth: convertViewtoPx(40, props.windowWidth)}} position='top-start' >
                     {scoresToastContents !== null && props.preferences.showScoresToast &&
-                        <Toast bg='light' onClose={() => {}} autohide={false} show={true} style={{maxWidth: convertViewtoPx(15, props.windowWidth)}}>
+                        <Toast bg='light' onClose={() => {}} autohide={false} show={true} style={{width: '100%'}}>
                             {scoresToastContents}
                         </Toast>
                     }
@@ -301,6 +314,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
                     onKeyPress={props.onKeyPress}
                     messageChanged={() => { }}
                     mouseSensitivityFactor={props.preferences.mouseSensitivity}
+                    wheelSensitivityFactor={props.preferences.wheelSensitivityFactor}
                     keyboardAccelerators={JSON.parse(props.preferences.shortCuts)}
                     showCrosshairs={props.preferences.drawCrosshairs}
                     showFPS={props.preferences.drawFPS}
