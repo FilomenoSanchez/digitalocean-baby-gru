@@ -11,8 +11,6 @@ import { quatToMat4 } from '../WebGLgComponents/quatToMat4.js';
 import * as vec3 from 'gl-matrix/vec3';
 import * as mat3 from 'gl-matrix/mat3';
 import * as quat4 from 'gl-matrix/quat';
-import * as mat3 from 'gl-matrix/mat3';
-import * as quat4 from 'gl-matrix/quat';
 
 export function MoorhenMolecule(commandCentre, urlPrefix) {
     this.type = 'molecule'
@@ -318,7 +316,7 @@ MoorhenMolecule.prototype.fetchIfDirtyAndDraw = async function (style, glRef) {
     })
 }
 
-MoorhenMolecule.prototype.centreAndAlignViewAndAlignViewOn = function (glRef, selectionCid, animate = true) {
+MoorhenMolecule.prototype.centreAndAlignViewOn = function (glRef, selectionCid, animate = true) {
 
     let promise
     if (this.atomsDirty) {
@@ -408,7 +406,7 @@ MoorhenMolecule.prototype.centreAndAlignViewAndAlignViewOn = function (glRef, se
 
 }
 
-MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = true, animate=true) {
+MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = true) {
 
     let promise
     if (this.atomsDirty) {
@@ -423,8 +421,8 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
         let selectionAtomsAlign = []
         let selectionAtomsCentre = []
         if (selectionCid) {
-            selectionAtomsAlign = await this.gemmiAtomsForCid(selectionCid+"*")
-            selectionAtomsCentre = await this.gemmiAtomsForCid(selectionCid+"CA")
+            selectionAtomsAlign = await this.gemmiAtomsForCid(selectionCid + "*")
+            selectionAtomsCentre = await this.gemmiAtomsForCid(selectionCid + "CA")
 
         } else {
             selectionAtomsAlign = await this.gemmiAtomsForCid('/*/*/*/*')
@@ -436,14 +434,14 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
         let O = null
 
         selectionAtomsAlign.forEach(atom => {
-            if(atom.name === "CA"){
-                CA = [atom.x,atom.y,atom.z]
+            if (atom.name === "CA") {
+                CA = [atom.x, atom.y, atom.z]
             }
-            if(atom.name === "C"){
-                C = [atom.x,atom.y,atom.z]
+            if (atom.name === "C") {
+                C = [atom.x, atom.y, atom.z]
             }
-            if(atom.name === "O"){
-                O = [atom.x,atom.y,atom.z]
+            if (atom.name === "O") {
+                O = [atom.x, atom.y, atom.z]
             }
         })
 
@@ -453,24 +451,24 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
 
         let newQuat = null
 
-        if(C&&CA&&O){
+        if (C && CA && O) {
             let right = vec3.create()
-            vec3.set(right,C[0]-CA[0],C[1]-CA[1],C[2]-CA[2])
+            vec3.set(right, C[0] - CA[0], C[1] - CA[1], C[2] - CA[2])
             let rightNorm = vec3.create()
             vec3.normalize(rightNorm, right);
 
             let upInit = vec3.create()
-            vec3.set(upInit,O[0]-C[0],O[1]-C[1],O[2]-C[2])
+            vec3.set(upInit, O[0] - C[0], O[1] - C[1], O[2] - C[2])
             let upInitNorm = vec3.create()
             vec3.normalize(upInitNorm, upInit);
 
             let forward = vec3.create()
-            vec3.cross(forward,right,upInitNorm)
+            vec3.cross(forward, right, upInitNorm)
             let forwardNorm = vec3.create()
             vec3.normalize(forwardNorm, forward);
 
             let up = vec3.create()
-            vec3.cross(up,forwardNorm,rightNorm)
+            vec3.cross(up, forwardNorm, rightNorm)
             let upNorm = vec3.create()
             vec3.normalize(upNorm, up);
 
@@ -479,18 +477,18 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
             console.log(forwardNorm)
             newQuat = quat4.create()
             let mat = mat3.create()
-            const [right_x,right_y,right_z]             = [rightNorm[0],rightNorm[1],rightNorm[2]]
-            const [up_x,up_y,up_z]                      = [upNorm[0],upNorm[1],upNorm[2]]
-            const [formaward_x,formaward_y,formaward_z] = [forwardNorm[0],forwardNorm[1],forwardNorm[2]]
-            mat3.set(mat,right_x,right_y,right_z, up_x,up_y,up_z, formaward_x,formaward_y,formaward_z)
-            quat4.fromMat3(newQuat,mat)
+            const [right_x, right_y, right_z] = [rightNorm[0], rightNorm[1], rightNorm[2]]
+            const [up_x, up_y, up_z] = [upNorm[0], upNorm[1], upNorm[2]]
+            const [formaward_x, formaward_y, formaward_z] = [forwardNorm[0], forwardNorm[1], forwardNorm[2]]
+            mat3.set(mat, right_x, right_y, right_z, up_x, up_y, up_z, formaward_x, formaward_y, formaward_z)
+            quat4.fromMat3(newQuat, mat)
             console.log(newQuat)
         }
 
         let selectionCentre = centreOnGemmiAtoms(selectionAtomsCentre)
         return new Promise((resolve, reject) => {
-            if(newQuat){
-                glRef.current.setOriginOrientationAndZoomAnimated(selectionCentre,newQuat,0.20);
+            if (newQuat) {
+                glRef.current.setOriginOrientationAndZoomAnimated(selectionCentre, newQuat, 0.20);
             }
             resolve(true);
         })
@@ -498,7 +496,7 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
 
 }
 
-MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate=true) {
+MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = true) {
     //Note add selection to permit centringh on subset
     let promise
     if (this.atomsDirty) {
@@ -522,11 +520,7 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate=true
 
         return new Promise((resolve, reject) => {
             if (animate) {
-                if (animate) {
                 glRef.current.setOriginAnimated(selectionCentre);
-            } else {
-                glRef.current.setOrigin(selectionCentre);
-            }
             } else {
                 glRef.current.setOrigin(selectionCentre);
             }
@@ -1448,7 +1442,6 @@ MoorhenMolecule.prototype.gemmiAtomsForCid = async function (cid) {
                                 const atomName = atom.name
                                 const atomAltLoc = atom.altloc
                                 const atomHasAltLoc = atom.has_altloc()
-                                const atomName = atom.name
                                 const atomInfo = {
                                     pos: [atomPosX, atomPosY, atomPosZ],
                                     x: atomPosX,
@@ -1491,4 +1484,3 @@ MoorhenMolecule.prototype.hasVisibleBuffers = function (excludeBuffers = ['hover
     const visibleDisplayBuffers = displayBuffers.filter(displayBuffer => displayBuffer.some(buffer => buffer.visible))
     return visibleDisplayBuffers.length !== 0
 }
-
