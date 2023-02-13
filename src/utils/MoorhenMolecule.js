@@ -186,7 +186,13 @@ MoorhenMolecule.prototype.copyFragment = async function (chainId, res_no_start, 
 MoorhenMolecule.prototype.loadToCootFromURL = function (url, molName) {
     const $this = this
     return fetch(url)
-        .then(response => response.text())
+        .then(response => {
+            if (response.ok) {
+                return response.text()
+            } else {
+                return Promise.reject(`Error fetching data from url ${url}`)
+            }
+        })
         .then(coordData => $this.loadToCootFromString(coordData, molName))
         .catch(err => Promise.reject(err))
 }
@@ -676,44 +682,70 @@ MoorhenMolecule.prototype.drawCootLigands = async function (glRef) {
 }
 
 MoorhenMolecule.prototype.drawCootBonds = async function (glRef) {
+    const $this = this
     const name = "CBs"
-    const allAtomCID = "/*/*"
-    return $this.drawCootSelectionBonds(glRef, name, allAtomCID)
+    return $this.drawCootSelectionBonds(glRef, name, false)
 }
 
-MoorhenMolecule.prototype.drawCootSelectionBonds = async function(glRef, name, cid) {
-    return this.commandCentre.current.cootCommand({
-        returnType: "instanced_mesh",
-        command: "get_bonds_mesh_for_selection_instanced",
-        commandArgs: [
-            $this.molNo,
-            cid,
-            "COLOUR-BY-CHAIN-AND-DICTIONARY",
-            $this.cootBondsOptions.isDarkBackground,
-            $this.cootBondsOptions.width * 1.5, $this.cootBondsOptions.atomRadiusBondRatio * 1.5,
-            $this.cootBondsOptions.smoothness
-        ]
-    }).then(async response => {
-        const objects = [response.data.result.result]
-        if (objects.length > 0 && !this.gemmiStructure.isDeleted()) {
-            //Empty existing buffers of this type
-            this.clearBuffersOfStyle(name, glRef)
-            this.addBuffersOfStyle(glRef, objects, name)
-            let bufferAtoms = await this.gemmiAtomsForCid(ligandsCID)
-            if (bufferAtoms.length > 0) {
-                this.displayObjects[name][0].atoms = bufferAtoms.map(atom => {
-                    const { pos, x, y, z, charge, label } = atom
-                    const tempFactor = atom.b_iso
-                    const symbol = atom.element
-                    return { pos, x, y, z, charge, tempFactor, symbol, label }
-                })
+MoorhenMolecule.prototype.drawCootSelectionBonds = async function (glRef, name, cid) {
+    const $this = this
+    let meshCommand
+
+    if (cid) {
+        meshCommand = $this.commandCentre.current.cootCommand({
+            returnType: "instanced_mesh",
+            command: "get_bonds_mesh_for_selection_instanced",
+            commandArgs: [
+                $this.molNo,
+                cid,
+                "COLOUR-BY-CHAIN-AND-DICTIONARY",
+                $this.cootBondsOptions.isDarkBackground,
+                $this.cootBondsOptions.width * 1.5,
+                $this.cootBondsOptions.atomRadiusBondRatio * 1.5,
+                $this.cootBondsOptions.smoothness
+            ]
+        })
+    }
+
+    else {
+        cid = "/*/*/*/*"
+        meshCommand = $this.commandCentre.current.cootCommand({
+            returnType: "instanced_mesh",
+            //command: "get_bonds_mesh_for_selection_instanced",
+            command: "get_bonds_mesh_instanced",
+            commandArgs: [
+                $this.molNo,
+                //cid,
+                "COLOUR-BY-CHAIN-AND-DICTIONARY",
+                $this.cootBondsOptions.isDarkBackground,
+                $this.cootBondsOptions.width,
+                $this.cootBondsOptions.atomRadiusBondRatio,
+                $this.cootBondsOptions.smoothness
+            ]
+        })
+    }
+
+    return meshCommand
+        .then(async response => {
+            const objects = [response.data.result.result]
+            if (objects.length > 0 && !this.gemmiStructure.isDeleted()) {
+                //Empty existing buffers of this type
+                this.clearBuffersOfStyle(name, glRef)
+                this.addBuffersOfStyle(glRef, objects, name)
+                let bufferAtoms = await this.gemmiAtomsForCid(cid)
+                if (bufferAtoms.length > 0) {
+                    this.displayObjects[name][0].atoms = bufferAtoms.map(atom => {
+                        const { pos, x, y, z, charge, label, symbol } = atom
+                        const tempFactor = atom.b_iso
+                        return { pos, x, y, z, charge, tempFactor, symbol, label }
+                    })
+                }
             }
-        }
-        else {
-            this.clearBuffersOfStyle(name, glRef)
-        }
-        return Promise.resolve(true)
-    })
+            else {
+                this.clearBuffersOfStyle(name, glRef)
+            }
+            return Promise.resolve(true)
+        })
 }
 
 MoorhenMolecule.prototype.drawCootGaussianSurface = async function (glRef) {
@@ -1431,6 +1463,7 @@ MoorhenMolecule.prototype.gemmiAtomsForCid = async function (cid) {
                                     z: atomPosZ,
                                     charge: atomCharge,
                                     element: atomElement,
+                                    symbol: window.CCP4Module.getElementNameAsString(atomElement),
                                     b_iso: atomTempFactor,
                                     serial: atomSerial,
                                     name: atomName,

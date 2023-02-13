@@ -209,7 +209,7 @@ export const MoorhenMapCard = (props) => {
     }, [mapRadius, mapContourLevel, mapLitLines, mapSolid])
 
     return <Card className="px-0"  style={{marginBottom:'0.5rem', padding:'0'}} key={props.map.molNo}>
-        <Card.Header>
+        <Card.Header style={{padding: '0.5rem'}}>
             <Row className='align-items-center'>
             <Col className='align-items-center' style={{display:'flex', justifyContent:'left'}}>
                     {`#${props.map.molNo} Map ${props.map.name}`}
@@ -246,12 +246,12 @@ export const MoorhenMapCard = (props) => {
                 </Col>
                 <Col>
                     <Form.Group controlId="contouringLevel" className="mb-3">
-                        <MoorhenSlider minVal={0.01} maxVal={5} logScale={true} sliderTitle="Level" isDisabled={!cootContour} intialValue={props.initialContour} externalValue={mapContourLevel} setExternalValue={setMapContourLevel}/>
+                        <MoorhenSlider minVal={0.01} maxVal={5} logScale={true} sliderTitle="Level" isDisabled={!cootContour} initialValue={props.initialContour} externalValue={mapContourLevel} setExternalValue={setMapContourLevel}/>
                     </Form.Group>
                 </Col>
                 <Col>
                     <Form.Group controlId="contouringRadius" className="mb-3">
-                        <MoorhenSlider minVal={0.01} maxVal={100} logScale={false} sliderTitle="Radius" isDisabled={!cootContour} intialValue={props.initialRadius} externalValue={mapRadius} setExternalValue={setMapRadius}/>
+                        <MoorhenSlider minVal={0.01} maxVal={100} logScale={false} sliderTitle="Radius" isDisabled={!cootContour} initialValue={props.initialRadius} externalValue={mapRadius} setExternalValue={setMapRadius}/>
                     </Form.Group>
                 </Col>
             </Row>
