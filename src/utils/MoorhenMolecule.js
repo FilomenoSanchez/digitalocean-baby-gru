@@ -25,6 +25,7 @@ export function MoorhenMolecule(commandCentre, urlPrefix) {
     this.gemmiStructure = null
     this.sequences = []
     this.colourRules = null
+    this.ligands = null
     this.gaussianSurfaceSettings = {
         sigma: 4.4,
         countourLevel: 4.0,
@@ -66,6 +67,7 @@ MoorhenMolecule.prototype.updateGemmiStructure = async function () {
     this.gemmiStructure = readGemmiStructure(response.data.result.pdbData, this.name)
     window.CCP4Module.gemmi_setup_entities(this.gemmiStructure)
     this.parseSequences()
+    this.updateLigands()
     return Promise.resolve()
 }
 
@@ -200,7 +202,6 @@ MoorhenMolecule.prototype.copyFragmentUsingCid = async function (cid, background
         newMolecule.molNo = response.data.result.result
         newMolecule.setBackgroundColour(backgroundColor)
         newMolecule.cootBondsOptions.smoothness = defaultBondSmoothness
-        await newMolecule.fetchIfDirtyAndDraw('CBs', glRef)
         return Promise.resolve(newMolecule)
     })
 }
@@ -239,6 +240,7 @@ MoorhenMolecule.prototype.loadToCootFromString = async function (coordData, name
     $this.gemmiStructure = readGemmiStructure(coordData, $this.name)
     window.CCP4Module.gemmi_setup_entities($this.gemmiStructure)
     $this.parseSequences()
+    $this.updateLigands()
     $this.atomsDirty = false
 
     return this.commandCentre.current.cootCommand({
@@ -313,7 +315,7 @@ MoorhenMolecule.prototype.getAtoms = function () {
     })
 }
 
-MoorhenMolecule.prototype.updateAtoms = function () {
+MoorhenMolecule.prototype.updateAtoms = async function () {
     const $this = this;
     if ($this.gemmiStructure && !$this.gemmiStructure.isDeleted()) {
         $this.gemmiStructure.delete()
@@ -324,6 +326,7 @@ MoorhenMolecule.prototype.updateAtoms = function () {
                 $this.gemmiStructure = readGemmiStructure(result.data.result.pdbData, $this.name)
                 window.CCP4Module.gemmi_setup_entities($this.gemmiStructure)
                 $this.parseSequences()
+                $this.updateLigands()
             }
             catch (err) {
                 console.log('Issue parsing coordinates into Gemmi structure', result.data.result.pdbData)
@@ -1433,6 +1436,38 @@ MoorhenMolecule.prototype.redo = async function (glRef) {
     })
     $this.setAtomsDirty(true)
     return $this.redraw(glRef)
+}
+
+MoorhenMolecule.prototype.updateLigands = async function () {
+    let ligandList = []
+    const model = this.gemmiStructure.first_model()
+    
+    try{
+        const chains = model.chains
+        const chainsSize = chains.size()
+        for (let i = 0; i < chainsSize; i++) {
+            const chain = chains.get(i)
+            const chainName = chain.name
+            const ligands = chain.get_ligands_const()
+            const ligandsSize = ligands.size()
+            for (let j = 0; j < ligandsSize; j++) {
+                let ligand = ligands.at(j)
+                const resName = ligand.name
+                const ligandSeqId = ligand.seqid
+                const resNum = ligandSeqId.str()
+                ligandList.push({resName: resName, chainName: chainName, resNum: resNum})
+                ligand.delete()
+                ligandSeqId.delete()
+            }
+            chain.delete()
+            ligands.delete()
+        }
+        chains.delete()
+    } finally {
+        model.delete()
+    }
+
+    this.ligands = ligandList
 }
 
 MoorhenMolecule.prototype.gemmiAtomsForCid = async function (cid) {
