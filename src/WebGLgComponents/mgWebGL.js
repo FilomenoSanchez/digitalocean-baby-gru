@@ -7383,8 +7383,19 @@ class MGWebGL extends Component {
 
                 if (bufferTypes[j] === "TRIANGLES" || bufferTypes[j] === "CYLINDERS" || bufferTypes[j] === "CAPCYLINDERS" || this.displayBuffers[idx].bufferTypes[j] === "TORUSES") {
                     if (this.displayBuffers[idx].transformMatrix) {
+                            console.log("Interacive -2")
                         this.drawTransformMatrix(this.displayBuffers[idx].transformMatrix, this.displayBuffers[idx], theShader, this.gl.TRIANGLES, j);
                     } else if (this.displayBuffers[idx].transformMatrixInteractive) {
+                        //And this is based on time...
+                        const t = Date.now()
+                        const tdiff = (Math.round(t/1000) - t/1000)
+                        let sfrac;
+                        if(tdiff<0){
+                            sfrac = Math.sin(Math.PI+tdiff*Math.PI)
+                        } else {
+                            sfrac = Math.sin(tdiff*Math.PI)
+                        }
+                        this.gl.uniform4fv(theShader.light_colours_ambient, [sfrac,sfrac,sfrac,1.0]);
                         this.drawTransformMatrixInteractive(this.displayBuffers[idx].transformMatrixInteractive, this.displayBuffers[idx].transformOriginInteractive, this.displayBuffers[idx], theShader, this.gl.TRIANGLES, j);
                     } else {
                         this.drawBuffer(this.displayBuffers[idx],theShader,j,this.gl.TRIANGLES);
@@ -9272,12 +9283,22 @@ class MGWebGL extends Component {
                 axesNormals[axesNormals.length - 1 - 1] *= size / d;
                 axesNormals[axesNormals.length - 1] *= size / d;
             }
+            let axesIdx_old = axesIdx_new;
+            axesIndexs_new.push(axesIdx_old);
+            axesIndexs_new.push(axesIdx_old+2);
+            axesIndexs_new.push(axesIdx_old+1);
+            axesIndexs_new.push(axesIdx_old+3);
+            axesIndexs_new.push(axesIdx_old+4);
+            axesIndexs_new.push(axesIdx_old+5);
+            axesIdx_new += 6;
+            /*
             axesIndexs_new.push(axesIdx_new++);
             axesIndexs_new.push(axesIdx_new++);
             axesIndexs_new.push(axesIdx_new++);
             axesIndexs_new.push(axesIdx_new++);
             axesIndexs_new.push(axesIdx_new++);
             axesIndexs_new.push(axesIdx_new++);
+            */
         }
 
         let ret = {};
@@ -10274,7 +10295,27 @@ class MGWebGL extends Component {
     }
 
     drawSceneIfDirty() {
-        if (this.doRedraw) {
+        const activeMoleculeMotion = (this.activeMolecule != null) && (Object.keys(this.activeMolecule.displayObjects).length > 0) ;
+        if(this.activeMolecule){
+            if(this.activeMolecule.displayObjects){
+                for (const [key, value] of Object.entries(this.activeMolecule.displayObjects)) {
+                    for (let ibuf = 0; ibuf < value.length; ibuf++) {
+                        if(!value[ibuf].transformMatrixInteractive){
+                           value[ibuf].transformMatrixInteractive = [
+                           1.0, 0.0, 0.0, 0.0,
+                           0.0, 1.0, 0.0, 0.0,
+                           0.0, 0.0, 1.0, 0.0,
+                           0.0, 0.0, 0.0, 1.0,
+                           ];
+                        }
+                        if(!value[ibuf].transformOriginInteractive){
+                           value[ibuf].transformOriginInteractive = [0.0,0.0,0.0];
+                        }
+                    }
+                }
+            }
+        }
+        if (this.doRedraw||activeMoleculeMotion) {
             this.doRedraw = false;
             this.drawScene();
         }
