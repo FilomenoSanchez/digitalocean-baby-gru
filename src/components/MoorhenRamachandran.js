@@ -36,7 +36,7 @@ export const MoorhenRamachandran = (props) => {
             }
         }, 50);
 
-    }, [props.toolAccordionBodyHeight, props.windowHeight, props.windowWidth])
+    }, [props.windowHeight, props.windowWidth])
 
     useEffect(() => {
         ramachandranRef.current?.setState({ ramaPlotDimensions: ramaPlotDimensions })
@@ -86,7 +86,6 @@ export const MoorhenRamachandran = (props) => {
     })
 
     useEffect(() => {
-        console.log('cachedGemmiStructure changed')
         if (ramaPlotData === null || selectedModel === null || chainSelectRef.current.value === null || props.molecules.length === 0) {
             return;
         }
@@ -121,13 +120,11 @@ export const MoorhenRamachandran = (props) => {
     }, [clickedResidue])
 
     const handleModelChange = (evt) => {
-        console.log(`Ramachandran selected model ${evt.target.value}`)
         setSelectedModel(parseInt(evt.target.value))
         setSelectedChain(chainSelectRef.current.value)
     }
 
     const handleChainChange = (evt) => {
-        console.log(`Ramachandran selected chain ${evt.target.value}`)
         setSelectedChain(evt.target.value)
     }
 
@@ -180,7 +177,7 @@ export const MoorhenRamachandran = (props) => {
             </Form.Group>
         </Form>
         <div ref={ramaPlotDivRef} id="ramaPlotDiv" className="rama-plot-div" style={{height: '100%', padding:'0rem', margin:'0rem'}}>
-            <RamaPlot ref={ramachandranRef}
+            <RamaPlot ref={ramachandranRef} urlPrefix={props.urlPrefix}
                 onClick={(result) => setClickedResidue(result)}
                 setHoveredAtom={handleHoveredAtom} />
         </div>

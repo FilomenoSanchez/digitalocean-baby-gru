@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useReducer } from "react";
-import { Card, Row, Col, Accordion } from "react-bootstrap";
-import { doDownload, sequenceIsValid } from '../utils/MoorhenUtils';
+import { Card, Row, Col, Accordion, Stack } from "react-bootstrap";
+import { doDownload, sequenceIsValid, getNameLabel} from '../utils/MoorhenUtils';
 import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
 import { MoorhenSequenceViewer } from "./MoorhenSequenceViewer";
 import { MoorhenMoleculeCardButtonBar } from "./MoorhenMoleculeCardButtonBar"
@@ -89,8 +89,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.cootBondsOptions.smoothness = bondSmoothness
@@ -108,8 +106,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.cootBondsOptions.width = bondWidth
@@ -127,8 +123,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.cootBondsOptions.atomRadiusBondRatio = atomRadiusBondRatio
@@ -147,8 +141,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.gaussianSurfaceSettings.sigma = surfaceSigma
@@ -166,8 +158,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.gaussianSurfaceSettings.countourLevel = surfaceLevel
@@ -185,8 +175,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.gaussianSurfaceSettings.boxRadius = surfaceRadius
@@ -204,8 +192,6 @@ export const MoorhenMoleculeCard = (props) => {
             isDirty.current = true
             if (!busyRedrawing.current) {
                 redrawIfDirty()
-            } else {
-                console.log('Skipping molecule re-draw because already busy ')
             }
         } else {
             props.molecule.gaussianSurfaceSettings.gridScale = surfaceGridScale
@@ -221,11 +207,9 @@ export const MoorhenMoleculeCard = (props) => {
 
     useEffect(() => {
         Object.keys(props.molecule.displayObjects).forEach(key => {
-            const a = props.molecule.displayObjects[key].length
-            console.log({ key: key, len: a, vis: a > 0 ? props.molecule.displayObjects[key][0].visible : "ND" })
+            const displayObjects = props.molecule.displayObjects[key]
             changeShowState({
-                key: key, state: props.molecule.displayObjects[key].length > 0
-                    && props.molecule.displayObjects[key][0].visible
+                key: key, state: displayObjects.length > 0 && displayObjects[0].visible
             })
         })
     }, [
@@ -335,7 +319,7 @@ export const MoorhenMoleculeCard = (props) => {
             labelPlacement="top"
             sx={{
                 '& .MuiCheckbox-root': {
-                    color: props.darkMode ? 'white' : '',
+                    color: props.isDark ? 'white' : '',
                   },
             }}
             control={<RepresentationCheckbox
@@ -347,7 +331,7 @@ export const MoorhenMoleculeCard = (props) => {
                 isVisible={isVisible}
                 showState={showState}
             />}
-            label={<Typography style={{ transform: 'rotate(-45deg)' }}>
+            label={<Typography style={{ color: props.isDark ? 'white' : 'black', transform: 'rotate(-45deg)' }}>
                 {Object.keys(labelMapping).includes(key) ? labelMapping[key] : key}
             </Typography>
             } />
@@ -356,10 +340,10 @@ export const MoorhenMoleculeCard = (props) => {
     const handleProps = { handleCentering, handleCopyFragment, handleDownload, handleRedo, handleUndo, handleResidueRangeRefinement, handleVisibility }
 
     return <Card className="px-0" style={{ marginBottom: '0.5rem', padding: '0' }} key={props.molecule.molNo}>
-        <Card.Header style={{ padding: '0.5rem' }}>
-            <Row className='align-items-center'>
+        <Card.Header style={{ padding: '0.1rem' }}>
+            <Stack gap={2} direction='horizontal'>
                 <Col className='align-items-center' style={{ display: 'flex', justifyContent: 'left' }}>
-                    {`#${props.molecule.molNo} Mol. ${props.molecule.name}`}
+                    {getNameLabel(props.molecule)}
                 </Col>
                 <Col style={{ display: 'flex', justifyContent: 'right' }}>
                     <MoorhenMoleculeCardButtonBar
@@ -382,21 +366,20 @@ export const MoorhenMoleculeCard = (props) => {
                         {...handleProps}
                     />
                 </Col>
-            </Row>
+            </Stack>
         </Card.Header>
-        <Card.Body style={{ display: isCollapsed ? 'none' : '', padding: '0.25rem' }}>
-            <Row style={{ height: '100%' }}>
-                <Col>
+        <Card.Body style={{ display: isCollapsed ? 'none' : '', padding: '0.25rem', justifyContent:'center' }}>
+            <Stack gap={2} direction='vertical'>
+                <Col  style={{ width:'100%', height: '100%' }}>
                     <div style={{margin: '1px', paddingTop: '0.5rem', paddingBottom: '0.25rem',  border: '1px solid', borderRadius:'0.33rem', borderColor:
                 "#CCC"}}>
                         <FormGroup style={{ margin: "0px", padding: "0px" }} row>
                             {Object.keys(props.molecule.displayObjects)
-                                .filter(key => !['hover', 'transformation', 'contact_dots', 'chemical_features', 'VdWSurface'].some(style => key.includes(style)))
+                                .filter(key => !['hover', 'originNeighbours', 'selection', 'transformation', 'contact_dots', 'chemical_features', 'VdWSurface'].some(style => key.includes(style)))
                                 .map(key => getCheckBox(key))}
                         </FormGroup>
                     </div>
                 </Col>
-            </Row>
             <Accordion alwaysOpen={true} defaultActiveKey={['sequences']}>
                 <Accordion.Item eventKey="sequences" style={{ padding: '0', margin: '0' }} >
                     <Accordion.Header style={{ padding: '0', margin: '0' }}>Sequences</Accordion.Header>
@@ -443,10 +426,11 @@ export const MoorhenMoleculeCard = (props) => {
                 <Accordion.Item eventKey="ligands" style={{ padding: '0', margin: '0' }} >
                     <Accordion.Header style={{ padding: '0', margin: '0' }}>Ligands</Accordion.Header>
                     <Accordion.Body style={{ padding: '0.5rem' }}>
-                        <MoorhenLigandList commandCentre={props.commandCentre} molecule={props.molecule} glRef={props.glRef} darkMode={props.darkMode} />
+                        <MoorhenLigandList commandCentre={props.commandCentre} molecule={props.molecule} glRef={props.glRef} isDark={props.isDark}/>
                     </Accordion.Body>
                 </Accordion.Item>
             </Accordion>
+            </Stack>
         </Card.Body>
     </Card >
 }

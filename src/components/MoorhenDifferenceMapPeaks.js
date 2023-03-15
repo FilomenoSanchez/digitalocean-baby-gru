@@ -5,6 +5,7 @@ import { MoorhenMapSelect } from './MoorhenMapSelect'
 import { MoorhenMoleculeSelect } from './MoorhenMoleculeSelect'
 import MoorhenSlider from './MoorhenSlider' 
 import annotationPlugin from 'chartjs-plugin-annotation'
+import { convertViewtoPx} from '../utils/MoorhenUtils';
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
@@ -72,12 +73,10 @@ export const MoorhenDifferenceMapPeaks = (props) => {
     }
 
     const handleModelChange = (evt) => {
-        console.log(`Selected model ${evt.target.value}`)
         setSelectedModel(parseInt(evt.target.value))
     }
 
     const handleMapChange = (evt) => {
-        console.log(`Selected map ${evt.target.value}`)
         setSelectedMap(parseInt(evt.target.value))
     }
 
@@ -103,6 +102,7 @@ export const MoorhenDifferenceMapPeaks = (props) => {
         
         const peakIndex = args[0].dataIndex
         return [
+            `# ${peakIndex + 1}`,
             `Position (${plotData[peakIndex].coordX.toFixed(2)}, ${plotData[peakIndex].coordY.toFixed(2)}, ${plotData[peakIndex].coordZ.toFixed(2)})`,
             `Height ${(plotData[peakIndex].featureValue / mapRmsd).toFixed(2)}`
         ]
@@ -180,7 +180,7 @@ export const MoorhenDifferenceMapPeaks = (props) => {
             chartRef.current.destroy()
         }
 
-        if (selectedMap === null || selectedModel === null || selectedRmsd === null || plotData === null || mapRmsd === null || !props.toolAccordionBodyHeight || !props.showSideBar) {
+        if (selectedMap === null || selectedModel === null || selectedRmsd === null || plotData === null || mapRmsd === null || props.dropdownId !== props.accordionDropdownId || !props.showSideBar) {
             return;
         }
        
@@ -188,7 +188,7 @@ export const MoorhenDifferenceMapPeaks = (props) => {
        
         const barWidth = props.sideBarWidth / 40
         const tooltipFontSize = 12
-        const axisLabelsFontSize = props.toolAccordionBodyHeight / 60
+        const axisLabelsFontSize = convertViewtoPx(70, props.windowHeight) / 60
         
         const containerBody = document.getElementById('myContainerBody')
         containerBody.style.width = (labels.length*barWidth)+ "px";
@@ -199,7 +199,7 @@ export const MoorhenDifferenceMapPeaks = (props) => {
                 stacked: false,
                 beginAtZero: true,
                 display: true,
-                ticks: {color: props.darkMode ? 'white' : 'black',
+                ticks: {color: props.isDark ? 'white' : 'black',
                         font:{size:barWidth, family:'Helvetica'},
                         maxRotation: 0, 
                         minRotation: 0,
@@ -219,7 +219,7 @@ export const MoorhenDifferenceMapPeaks = (props) => {
                     display: true,
                     font:{size:axisLabelsFontSize, family:'Helvetica', weight:800},
                     text: 'Difference Map Peaks',
-                    color: props.darkMode ? 'white' : 'black'
+                    color: props.isDark ? 'white' : 'black'
                 },
                 grid: {
                     display:false,
@@ -293,7 +293,7 @@ export const MoorhenDifferenceMapPeaks = (props) => {
             }            
         });
 
-    }, [plotData, props.darkMode, props.toolAccordionBodyHeight, props.sideBarWidth, props.showSideBar])
+    }, [plotData, props.backgroundColor, props.sideBarWidth, props.showSideBar])
 
     return <Fragment>
                 <Form style={{ padding:'0', margin: '0' }}>

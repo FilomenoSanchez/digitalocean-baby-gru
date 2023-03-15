@@ -1,23 +1,16 @@
 import { useRef, useState, useEffect, useReducer, useCallback, useContext } from 'react';
-import { Navbar, Container, Nav, Accordion, Button, Col, Row, Spinner, Form, Toast, ToastContainer } from 'react-bootstrap';
-import { MoorhenDisplayObjects } from './MoorhenDisplayObjects';
+import { Container, Col, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap';
 import { MoorhenWebMG } from './MoorhenWebMG';
 import { MoorhenCommandCentre, convertRemToPx, convertViewtoPx } from '../utils/MoorhenUtils';
 import { MoorhenTimeCapsule } from '../utils/MoorhenTimeCapsule';
 import { MoorhenButtonBar } from './MoorhenButtonBar';
-import { MoorhenFileMenu } from './MoorhenFileMenu';
-import { MoorhenCloudMenu } from './MoorhenCloudMenu';
-import { MoorhenPreferencesMenu } from './MoorhenPreferencesMenu';
-import { ArrowBackIosOutlined, ArrowForwardIosOutlined, SaveOutlined } from '@mui/icons-material';
-import { Backdrop } from '@mui/material';
-import { MoorhenHistoryMenu, historyReducer, initialHistoryState } from './MoorhenHistoryMenu';
-import { MoorhenViewMenu } from './MoorhenViewMenu';
-import { MoorhenLigandMenu } from './MoorhenLigandMenu';
-import { MoorhenToolsAccordion } from './MoorhenToolsAccordion'
+import { Backdrop } from "@mui/material";
+import { historyReducer, initialHistoryState } from './MoorhenHistoryMenu';
 import { PreferencesContext } from "../utils/MoorhenPreferences";
 import { babyGruKeyPress } from './MoorhenKeyboardAccelerators';
-import { MoorhenEditMenu } from './MoorhenEditMenu';
-import { MoorhenHelpMenu } from './MoorhenHelpMenu'
+import { MoorhenSideBar } from './MoorhenSideBar';
+import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
+import { MoorhenNavBar } from "./MoorhenNavBar"
 import './MoorhenContainer.css'
 
 const initialMoleculesState = []
@@ -43,10 +36,13 @@ export const MoorhenContainer = (props) => {
     const glRef = useRef(null)
     const timeCapsuleRef = useRef(null)
     const commandCentre = useRef(null)
-    const navBarRef = useRef()
-    const consoleDivRef = useRef()
-    const [selectedToolKey, setSelectedToolKey] = useState(null)
-    const [showSideBar, setShowSideBar] = useState(false)
+    const moleculesRef = useRef(null)
+    const mapsRef = useRef(null)
+    const activeMapRef = useRef(null)
+    const consoleDivRef = useRef(null)
+    const lastHoveredAtom = useRef(null)
+    const prevActiveMoleculeRef = useRef(null)
+    const preferences = useContext(PreferencesContext);
     const [activeMap, setActiveMap] = useState(null)
     const [activeMolecule, setActiveMolecule] = useState(null)
     const [hoveredAtom, setHoveredAtom] = useState({ molecule: null, cid: null })
@@ -55,27 +51,22 @@ export const MoorhenContainer = (props) => {
     const [busy, setBusy] = useState(false)
     const [windowWidth, setWindowWidth] = useState(window.innerWidth)
     const [windowHeight, setWindowHeight] = useState(window.innerHeight)
-    const [displayObjectsAccordionBodyHeight, setDisplayObjectsAccordionBodyHeight] = useState(convertViewtoPx(0, windowHeight))
-    const [toolAccordionBodyHeight, setToolAccordionBodyHeight] = useState(convertViewtoPx(0, windowHeight))
-    const [sequenceViewerBodyHeight, setSequenceViewerBodyHeight] = useState(convertViewtoPx(0, windowHeight))
-    const [consoleBodyHeight, setConsoleBodyHeight] = useState(convertViewtoPx(0, windowHeight))
-    const [accordionHeight, setAccordionHeight] = useState(convertViewtoPx(90, windowHeight))
     const [commandHistory, dispatchHistoryReducer] = useReducer(historyReducer, initialHistoryState)
     const [molecules, changeMolecules] = useReducer(itemReducer, initialMoleculesState)
     const [maps, changeMaps] = useReducer(itemReducer, initialMapsState)
-    const [backgroundColor, setBackgroundColor] = useState([0., 0., 0., 1.])
+    const [backgroundColor, setBackgroundColor] = useState([1, 1, 1, 1])
     const [currentDropdownId, setCurrentDropdownId] = useState(-1)
     const [appTitle, setAppTitle] = useState('Moorhen')
     const [cootInitialized, setCootInitialized] = useState(false)
     const [theme, setTheme] = useState("flatly")
-    const lastHoveredAtom = useRef(null)
     const [showToast, setShowToast] = useState(false)
-    const preferences = useContext(PreferencesContext);
     const [toastContent, setToastContent] = useState("")
-    const [showAdvancedDisplayOptions, setShowAdvancedDisplayOptions] = useState(false)
-
-    const sideBarWidth = convertViewtoPx(30, windowWidth)
-    const innerWindowMarginHeight = convertRemToPx(2.1)
+    const [showColourRulesToast, setShowColourRulesToast] = useState(false)
+    
+    moleculesRef.current = molecules
+    mapsRef.current = maps
+    activeMapRef.current = activeMap
+    const innerWindowMarginHeight = convertRemToPx(0.5)
     const innerWindowMarginWidth = convertRemToPx(1)
 
     const setWindowDimensions = () => {
@@ -88,24 +79,38 @@ export const MoorhenContainer = (props) => {
     useEffect(() => {
         if (cootInitialized && props.forwardControls) {
             props.forwardControls(collectedProps)
-            timeCapsuleRef.current = new MoorhenTimeCapsule()
+            timeCapsuleRef.current = new MoorhenTimeCapsule(moleculesRef, mapsRef, activeMapRef, glRef, preferences)
+            timeCapsuleRef.current.maxBackupCount = preferences.maxBackupCount
+            timeCapsuleRef.current.modificationCountBackupThreshold = preferences.modificationCountBackupThreshold
         }
     }, [cootInitialized, props.forwardControls])
+    
+    useEffect(() => {
+        if (preferences.isMounted && preferences.defaultBackgroundColor !== backgroundColor) {
+            setBackgroundColor(preferences.defaultBackgroundColor)
+        }
+        
+    }, [preferences.isMounted])
 
     useEffect(() => {
+        if (!preferences.isMounted) {
+            return
+        }
+        
         let head = document.head;
         let style = document.createElement("link");
+        const isDark = isDarkBackground(...backgroundColor)
 
-        if (preferences.darkMode === null) {
-            return
-        } else if (preferences.darkMode) {
+        if (isDark) {
             style.href = `${props.urlPrefix}/baby-gru/darkly.css`
             setTheme("darkly")
-            setBackgroundColor([0., 0., 0., 1.])
         } else {
             style.href = `${props.urlPrefix}/baby-gru/flatly.css`
             setTheme("flatly")
-            setBackgroundColor([1., 1., 1., 1.])
+        }
+        
+        if (preferences.defaultBackgroundColor !== backgroundColor) {
+            preferences.setDefaultBackgroundColor(backgroundColor)
         }
 
         style.rel = "stylesheet";
@@ -115,7 +120,8 @@ export const MoorhenContainer = (props) => {
         head.appendChild(style);
         return () => { head.removeChild(style); }
 
-    }, [preferences.darkMode])
+
+    }, [backgroundColor])
 
     useEffect(() => {
         async function setMakeBackupsAPI() {
@@ -159,7 +165,6 @@ export const MoorhenContainer = (props) => {
                 dispatchHistoryReducer({ action: "add", command: newCommand })
             },
             onCootInitialized: () => {
-                //console.log('Being notified of coot initialized')
                 setCootInitialized(true)
             },
             urlPrefix: props.urlPrefix
@@ -224,18 +229,8 @@ export const MoorhenContainer = (props) => {
 
     useEffect(() => {
         glResize()
-        setAccordionHeight(getAccordionHeight())
-        displayObjectsAccordionBodyHeight !== 0 ? setDisplayObjectsAccordionBodyHeight(convertViewtoPx(60, windowHeight)) : setDisplayObjectsAccordionBodyHeight(convertViewtoPx(0, windowHeight))
-        toolAccordionBodyHeight !== 0 ? setToolAccordionBodyHeight(convertViewtoPx(70, windowHeight)) : setToolAccordionBodyHeight(convertViewtoPx(0, windowHeight))
-        sequenceViewerBodyHeight !== 0 ? setSequenceViewerBodyHeight(convertViewtoPx(30, windowHeight)) : setSequenceViewerBodyHeight(convertViewtoPx(0, windowHeight))
-        consoleBodyHeight !== 0 ? setConsoleBodyHeight(convertViewtoPx(30, windowHeight)) : setConsoleBodyHeight(convertViewtoPx(0, windowHeight))
-        consoleDivRef.current.scrollTop = consoleDivRef.current.scrollHeight;
-    }, [showSideBar, windowHeight, windowWidth])
-    /*
-        useEffect(() => {
-            console.log('backgroundColor changed', backgroundColor)
-        }, [backgroundColor])
-    */
+    }, [windowHeight, windowWidth])
+
     useEffect(() => {
         if (activeMap && commandCentre.current) {
             commandCentre.current.cootCommand({
@@ -246,7 +241,6 @@ export const MoorhenContainer = (props) => {
         }
     }, [activeMap])
 
-    const prevActiveMoleculeRef = useRef();
     useEffect(() => {
         function resetActiveGL() {
             prevActiveMoleculeRef.current = activeMolecule;
@@ -256,14 +250,11 @@ export const MoorhenContainer = (props) => {
                 glRef.current.setActiveMolecule(null)
         }
         if (prevActiveMoleculeRef.current) {
-            let movedResidues = [];
             prevActiveMoleculeRef.current.applyTransform(glRef)
                 .then(response => {
-                    //console.log("Setting/unsetting active molecule (promise)")
                     resetActiveGL()
                 })
         } else {
-            //console.log("Setting/unsetting active molecule")
             resetActiveGL()
         }
     }, [activeMolecule])
@@ -274,79 +265,33 @@ export const MoorhenContainer = (props) => {
     }
 
     const webGLWidth = () => {
-        const result = windowWidth - (innerWindowMarginWidth + (showSideBar ? sideBarWidth : 0))
-        return result
+        return windowWidth
     }
 
     const webGLHeight = () => {
-        let buttonBarHeight
-        let navBarHeight
-        const buttonBarDomElement = document.getElementById('button-bar-baby-gru')
-        const navBarDomElement = document.getElementById('navbar-baby-gru')
-
-        if (buttonBarDomElement && navBarDomElement) {
-            navBarHeight = parseFloat(window.getComputedStyle(navBarDomElement).height)
-            buttonBarHeight = parseFloat(window.getComputedStyle(buttonBarDomElement).height)
-        } else {
-            navBarHeight = convertRemToPx(3);
-            buttonBarHeight = convertRemToPx(4);
-        }
-
-        return windowHeight - (navBarHeight + buttonBarHeight + innerWindowMarginHeight)
+        return windowHeight - (convertRemToPx(2.2))
     }
 
-    const getAccordionHeight = () => {
-        let navBarHeight = parseFloat(window.getComputedStyle(document.getElementById('navbar-baby-gru')).height);
-        return windowHeight - (navBarHeight + innerWindowMarginHeight)
-    }
+    const isDark = isDarkBackground(...backgroundColor)
 
     const collectedProps = {
         molecules, changeMolecules, appTitle, setAppTitle, maps, changeMaps, glRef, activeMolecule, setActiveMolecule,
-        activeMap, setActiveMap, commandHistory, commandCentre, backgroundColor, setBackgroundColor, sideBarWidth,
-        navBarRef, currentDropdownId, setCurrentDropdownId, hoveredAtom, setHoveredAtom, toastContent, setToastContent, 
-        showToast, setShowToast, windowWidth, windowHeight, showSideBar, innerWindowMarginWidth, toolAccordionBodyHeight,
-        urlPrefix: props.urlPrefix, showAdvancedDisplayOptions, setShowAdvancedDisplayOptions, timeCapsuleRef, ...preferences
+        activeMap, setActiveMap, commandHistory, commandCentre, backgroundColor, setBackgroundColor, toastContent, 
+        setToastContent, currentDropdownId, setCurrentDropdownId, hoveredAtom, setHoveredAtom, showToast, setShowToast,
+        windowWidth, windowHeight, innerWindowMarginWidth, showColourRulesToast, timeCapsuleRef, setShowColourRulesToast, 
+        isDark, exportCallback: props.exportCallback, disableFileUploads: props.disableFileUploads, urlPrefix: props.urlPrefix, 
+        extraMenus:props.extraMenus, monomerLibraryPath: props.monomerLibraryPath, moleculesRef, mapsRef, ...preferences
     }
 
-    const accordionToolsItemProps = {
-        molecules, commandCentre, glRef, toolAccordionBodyHeight, setToolAccordionBodyHeight, sideBarWidth, windowHeight, 
-        windowWidth, maps, showSideBar, hoveredAtom, setHoveredAtom, selectedToolKey, setSelectedToolKey, ...preferences
-    }
-
-    return <> <div className={`border ${theme}`}>
+    return <> <div>
 
         <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={!cootInitialized}>
             <Spinner animation="border" style={{ marginRight: '0.5rem' }}/>
             <span>Starting moorhen...</span>
         </Backdrop>
-
-        <Navbar ref={navBarRef} id='navbar-baby-gru' className={preferences.darkMode ? "navbar-dark" : "navbar-light"} style={{ height: '3rem', justifyContent: 'between', margin: '0.5rem', padding: '0.5rem' }}>
-            <Navbar.Brand href="#home">
-                <img src={`${props.urlPrefix}/baby-gru/pixmaps/MoorhenLogo.png`} alt={appTitle} style={{height: '2.5rem'}}/>
-            </Navbar.Brand>
-            <Navbar.Toggle aria-controls="basic-navbar-nav" />
-            <Navbar.Collapse id="basic-navbar-nav">
-                <Nav className="justify-content-left">
-                    <MoorhenFileMenu dropdownId="File" {...collectedProps} />
-                    <MoorhenEditMenu dropdownId="Edit" {...collectedProps} />
-                    <MoorhenLigandMenu dropdownId="Ligand" {...collectedProps} />
-                    <MoorhenViewMenu dropdownId="View" {...collectedProps} />
-                    <MoorhenHistoryMenu dropdownId="History" {...collectedProps} />
-                    <MoorhenPreferencesMenu dropdownId="Preferences" {...collectedProps} />
-                    <MoorhenHelpMenu dropdownId="Help" setSelectedToolKey={setSelectedToolKey} consoleBodyHeight={consoleBodyHeight} {...collectedProps}/>
-                    {props.exportToCloudCallback && <MoorhenCloudMenu dropdownId="CloudExport" exportToCloudCallback={props.exportToCloudCallback} {...collectedProps}/>}
-                    {props.extraMenus && props.extraMenus.map(menu=>menu)}
-                </Nav>
-            </Navbar.Collapse>
-            <Nav className="justify-content-right">
-                {hoveredAtom.cid && <Form.Control style={{ width: "20rem" }} type="text" readOnly={true} value={`${hoveredAtom.molecule.name}:${hoveredAtom.cid}`} />}
-                {busy && <Spinner animation="border" style={{ marginRight: '0.5rem' }} />}
-                {timeCapsuleRef.current?.busy && <div style={{display:'flex', alignItems:'center', alignContent:'center'}}><SaveOutlined/></div>}
-                <Button id='show-sidebar-button' className="baby-gru-sidebar-button" style={{ height: '100%', backgroundColor: preferences.darkMode ? '#222' : 'white', border: 0 }} onClick={() => { setShowSideBar(!showSideBar) }}>
-                    {showSideBar ? <ArrowForwardIosOutlined style={{ color: preferences.darkMode ? 'white' : 'black' }} /> : <ArrowBackIosOutlined style={{ color: preferences.darkMode ? 'white' : 'black' }} />}
-                </Button>
-            </Nav>
-        </Navbar>
+        
+        <MoorhenNavBar {...collectedProps} busy={busy}/>
+        
     </div>
         <Container fluid className={`baby-gru ${theme}`}>
             <Row>
@@ -358,96 +303,37 @@ export const MoorhenContainer = (props) => {
                                 ${255 * backgroundColor[1]},
                                 ${255 * backgroundColor[2]}, 
                                 ${backgroundColor[3]})`,
-                            cursor: cursorStyle
+                            cursor: cursorStyle, margin: 0, padding: 0, height: Math.floor(webGLHeight()),
                         }}>
                         <MoorhenWebMG
-                            molecules={molecules}
                             ref={glRef}
-                            maps={maps}
+                            timeCapsuleRef={timeCapsuleRef}
                             commandCentre={commandCentre}
+                            molecules={molecules}
+                            changeMolecules={changeMolecules}
+                            maps={maps}
+                            changeMaps={changeMaps}
                             width={webGLWidth}
                             height={webGLHeight}
                             backgroundColor={backgroundColor}
+                            isDark={isDark}
                             atomLabelDepthMode={preferences.atomLabelDepthMode}
                             onAtomHovered={onAtomHovered}
                             onKeyPress={onKeyPress}
                             hoveredAtom={hoveredAtom}
                             preferences={preferences}
-                            setShowAdvancedDisplayOptions={setShowAdvancedDisplayOptions}
-                            showAdvancedDisplayOptions={showAdvancedDisplayOptions}
+                            setShowColourRulesToast={setShowColourRulesToast}
+                            showColourRulesToast={showColourRulesToast}
                             windowHeight={windowHeight}
                             windowWidth={windowWidth}
                             urlPrefix={props.urlPrefix}
+                            activeMap={activeMap}
+                            drawInteractions={preferences.drawInteractions}
                         />
                     </div>
-                    <div id='button-bar-baby-gru'
-                        style={{
-                            height: '4rem',
-                            backgroundColor: `rgba(
-                                    ${255 * backgroundColor[0]},
-                                    ${255 * backgroundColor[1]},
-                                    ${255 * backgroundColor[2]}, 
-                                    ${backgroundColor[3]})`
-                        }}>
-                        <MoorhenButtonBar {...collectedProps} />
-                    </div>
+                    <MoorhenButtonBar {...collectedProps} />
                 </Col>
-                <Col className={`side-bar-column ${theme}`} style={{ padding: '0.5rem', margin: '0', display: showSideBar ? "block" : "none" }} >
-                    <Accordion className='side-bar-accordion scroller' style={{ height: accordionHeight, overflowY: 'scroll' }}
-                        alwaysOpen={true}
-                        defaultActiveKey={''}
-                        onSelect={(openPanels) => {
-                            setDisplayObjectsAccordionBodyHeight(convertViewtoPx(0, windowHeight))
-                            setToolAccordionBodyHeight(convertViewtoPx(0, windowHeight))
-                            setSequenceViewerBodyHeight(convertViewtoPx(0, windowHeight))
-                            setConsoleBodyHeight(convertViewtoPx(0, windowHeight))
-                            if (!openPanels) {
-                                return
-                            }
-                            if (openPanels.includes('showDisplayObjects')) {
-                                setDisplayObjectsAccordionBodyHeight(convertViewtoPx(60, windowHeight))
-                            }
-                            if (openPanels.includes('showTools')) {
-                                setToolAccordionBodyHeight(convertViewtoPx(70, windowHeight))
-                            }
-                            if (openPanels.includes('showSequenceViewer')) {
-                                setSequenceViewerBodyHeight(convertViewtoPx(30, windowHeight))
-                            }
-                            if (openPanels.includes('showConsole')) {
-                                setConsoleBodyHeight(convertViewtoPx(30, windowHeight))
-                            }
-                        }}>
-                        <Accordion.Item eventKey="showDisplayObjects" style={{ width: sideBarWidth, padding: '0', margin: '0' }} >
-                            <Accordion.Header style={{ padding: '0', margin: '0', height: '4rem' }}>Models and maps</Accordion.Header>
-                            <Accordion.Body className='side-bar-accordion-body scroller' style={{ overflowY: 'auto', height: displayObjectsAccordionBodyHeight, padding: '0.5rem' }}>
-                                {molecules.length === 0 && maps.length === 0 ? "No data files loaded" : <MoorhenDisplayObjects {...collectedProps} />}
-                            </Accordion.Body>
-                        </Accordion.Item>
-                        <Accordion.Item eventKey="showTools" style={{ width: sideBarWidth, padding: '0', margin: '0' }} >
-                                <Accordion.Button id='tools-accordion-button'>
-                                    Tools
-                                </Accordion.Button>
-                            <Accordion.Body style={{ height: toolAccordionBodyHeight, padding: '0', margin: '0', }}>
-                                <MoorhenToolsAccordion {...accordionToolsItemProps} />
-                            </Accordion.Body>
-                        </Accordion.Item>
-                        <Accordion.Item eventKey="showConsole" style={{ width: sideBarWidth, padding: '0', margin: '0' }} >
-                            <Accordion.Button id='console-accordion-button'>
-                                Console
-                            </Accordion.Button>
-                            <Accordion.Body style={{ height: consoleBodyHeight }}>
-                                <div ref={consoleDivRef} style={{
-                                    overflowY: "scroll",
-                                    height: '100%',
-                                    textAlign: "left"
-                                }}>
-                                    <pre>{consoleMessage}
-                                    </pre>
-                                </div>
-                            </Accordion.Body>
-                        </Accordion.Item>
-                    </Accordion>
-                </Col>
+                <MoorhenSideBar {...collectedProps} busy={busy} consoleMessage={consoleMessage} ref={consoleDivRef} />
             </Row>
             <ToastContainer style={{ marginTop: "5rem" }} position='top-center' >
                 <Toast bg='light' onClose={() => setShowToast(false)} autohide={true} delay={4000} show={showToast} style={{overflowY: 'scroll', maxHeight: convertViewtoPx(80, webGLHeight())}}>
@@ -462,5 +348,8 @@ export const MoorhenContainer = (props) => {
 
 MoorhenContainer.defaultProps = {
     urlPrefix: '.',
-    exportToCloudCallback: null
+    monomerLibraryPath: './baby-gru/monomers',
+    exportCallback: null,
+    disableFileUploads: false,
+    extraMenus:[]
 }

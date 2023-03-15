@@ -1,6 +1,7 @@
-
-
+import { OverlayTrigger } from "react-bootstrap";
+import { Tooltip } from "@mui/material";
 import { v4 as uuidv4 } from 'uuid';
+import { hexToRgb } from "@mui/material";
 
 export function guid(){
     var d = Date.now();
@@ -130,7 +131,6 @@ export const postCootMessage = (cootWorker, kwargs) => {
             if (reply.data.messageId === messageId) {
                 //I'm now 90% certain that this does not in fact remove the eventListener...
                 cootWorker.current.removeEventListener('message', messageListener)
-                console.log(`Completed in `, Date.now() - reply.data.myTimeStamp)
                 resolve(reply)
             }
         })
@@ -309,7 +309,6 @@ export const MoorhenMtzWrapper = class {
                     for (let ih = 0; ih < header_info.size(); ih += 2) {
                         newColumns[header_info.get(ih + 1)] = header_info.get(ih)
                     }
-                    console.log(newColumns)
                     resolve(newColumns)
                 })
         })
@@ -419,7 +418,7 @@ export const cidToSpec = (cid) => {
     const atom_name = cidTokens[4].split(":")[0]
     const ins_code = cidTokens[3].split(".").length > 1 ? cidTokens[3].split(".")[1] : ""
     const alt_conf = cidTokens[4].split(":").length > 1 ? cidTokens[4].split(":")[1] : ""
-    return { chain_id, res_no, atom_name, ins_code, alt_conf }
+    return { chain_id, res_no, atom_name, ins_code, alt_conf, cid }
 }
 
 export const getResidueInfo = (molecules, selectedMolNo, selectedChain, selectedResidueIndex) => {
@@ -546,21 +545,21 @@ const getPlddtColourRules = (plddtList) => {
     const getColour = (plddt) => {
         let r, g, b
         if(plddt <= 50) {
-            r = 255
-            g = 125
-            b = 69
+            r = 230
+            g = 113
+            b = 62
         } else if (plddt <= 70) {
-            r = 255
-            g = 219
-            b = 19
+            r = 230
+            g = 197
+            b = 17
         } else if (plddt < 90) {
-            r = 101
-            g = 203
-            b = 243
+            r = 91
+            g = 183
+            b = 219
         } else {
             r = 0
-            g = 83
-            b = 214
+            g = 75
+            b = 193
         }
         return rgbToHex(r, g, b)
     }
@@ -588,3 +587,60 @@ export const getMultiColourRuleArgs = (molecule, ruleType) => {
 
     return multiRulesArgs
 }
+
+export const getNameLabel = (item) => {
+    if (item.name.length > 9) {
+        return <OverlayTrigger
+                key={item.molNo}
+                id="name-label-trigger"
+                placement="top"
+                overlay={
+                    <Tooltip id="name-label-tooltip" 
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        padding: '2px 10px',
+                        color: 'white',
+                        borderRadius: 3,
+                    }}>
+                        <div>
+                            {item.name}
+                        </div>
+                    </Tooltip>
+                }
+                >
+                <div>
+                    {`#${item.molNo} Mol. ${item.name.slice(0,5)}...`}
+                </div>
+                </OverlayTrigger>
+    }
+    return `#${item.molNo} Mol. ${item.name}`
+}
+
+export const hexToHsl = (hex) => {
+    let [r, g, b] = hexToRgb(hex).replace('rgb(', '').replace(')', '').split(', ')
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+  
+    if (max === min) {
+      h = s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+        default: break;
+      }
+  
+      h /= 6;
+    }
+  
+    return [ h, s, l ];
+  }

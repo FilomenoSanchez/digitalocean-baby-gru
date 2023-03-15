@@ -5,7 +5,7 @@ import annotationPlugin from 'chartjs-plugin-annotation'
 import { MoorhenChainSelect } from './MoorhenChainSelect'
 import { MoorhenMapSelect } from './MoorhenMapSelect'
 import { MoorhenMoleculeSelect } from './MoorhenMoleculeSelect'
-import { residueCodesOneToThree, getResidueInfo } from '../utils/MoorhenUtils'
+import { residueCodesOneToThree, getResidueInfo, convertViewtoPx } from '../utils/MoorhenUtils'
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
@@ -36,18 +36,15 @@ export const MoorhenMMRRCCPlot = (props) => {
     }
 
     const handleModelChange = (evt) => {
-        console.log(`Selected model ${evt.target.value}`)
         setSelectedModel(parseInt(evt.target.value))
         setSelectedChain(chainSelectRef.current.value)
     }
 
     const handleMapChange = (evt) => {
-        console.log(`Selected map ${evt.target.value}`)
         setSelectedMap(parseInt(evt.target.value))
     }
 
     const handleChainChange = (evt) => {
-        console.log(`Selected chain ${evt.target.value}`)
         setSelectedChain(evt.target.value)
     }
 
@@ -136,7 +133,7 @@ export const MoorhenMMRRCCPlot = (props) => {
             chartRef.current.destroy()
         }
 
-        if (chainSelectRef.current.value === null || selectedModel === null || !props.toolAccordionBodyHeight || !props.showSideBar || plotData === null) {
+        if (chainSelectRef.current.value === null || selectedModel === null || props.dropdownId !== props.accordionDropdownId || !props.showSideBar || plotData === null) {
             return;
         }
 
@@ -156,7 +153,7 @@ export const MoorhenMMRRCCPlot = (props) => {
                
         const barWidth = props.sideBarWidth / 40
         const tooltipFontSize = 12
-        const axisLabelsFontSize = props.toolAccordionBodyHeight / 60
+        const axisLabelsFontSize = convertViewtoPx(70, props.windowHeight) / 60
         
         const containerBody = document.getElementById('myContainerBody')
         containerBody.style.width = (labels.length*barWidth)+ "px";
@@ -167,7 +164,7 @@ export const MoorhenMMRRCCPlot = (props) => {
                 stacked: true,
                 beginAtZero: true,
                 display:true,
-                ticks: {color: props.darkMode ? 'white' : 'black',
+                ticks: {color: props.isDark ? 'white' : 'black',
                         font:{size:barWidth, family:'Helvetica'},
                         maxRotation: 0, 
                         minRotation: 0,
@@ -187,7 +184,7 @@ export const MoorhenMMRRCCPlot = (props) => {
                     display: true,
                     font: {size:axisLabelsFontSize, family:'Helvetica', weight:800},
                     text: 'Correlation',
-                    color: props.darkMode ? 'white' : 'black'
+                    color: props.isDark ? 'white' : 'black'
                 },
                 grid: {
                     display: true,
@@ -276,7 +273,7 @@ export const MoorhenMMRRCCPlot = (props) => {
         });
 
 
-    }, [plotData, props.darkMode, props.toolAccordionBodyHeight, props.sideBarWidth, props.showSideBar])
+    }, [plotData, props.backgroundColor, props.sideBarWidth, props.showSideBar])
     
     return  <Fragment>
                 <Form style={{ padding:'0', margin: '0' }}>

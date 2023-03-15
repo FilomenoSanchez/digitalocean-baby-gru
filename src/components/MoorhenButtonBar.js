@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ButtonGroup, Carousel } from "react-bootstrap"
 import { MoorhenAutofitRotamerButton, MoorhenFlipPeptideButton, MoorhenSideChain180Button, MoorhenAddTerminalResidueDirectlyUsingCidButton,
         MoorhenEigenFlipLigandButton, MoorhenJedFlipFalseButton, MoorhenJedFlipTrueButton, MoorhenConvertCisTransButton, MoorhenAddSimpleButton,
         MoorhenRefineResiduesUsingAtomCidButton, MoorhenDeleteUsingCidButton, MoorhenMutateButton, MoorhenRotateTranslateZoneButton,
-        MoorhenAddAltConfButton } from "./MoorhenSimpleEditButton"
+        MoorhenAddAltConfButton, MoorhenRigidBodyFitButton } from "./MoorhenSimpleEditButton"
+import { IconButton, Drawer } from "@mui/material";
+import { ArrowDownwardOutlined, ArrowUpwardOutlined } from "@mui/icons-material";
+import { convertRemToPx, convertViewtoPx} from '../utils/MoorhenUtils';
 
 export const MoorhenButtonBar = (props) => {
     const [selectedButtonIndex, setSelectedButtonIndex] = useState(null);
+    const [showDrawer, setShowDrawer] = useState(false);
+    const [opacity, setOpacity] = useState(0.5);
+    const popoverIsShownRef = useRef(null)
 
     const editButtons = [
         (<MoorhenAutofitRotamerButton {...props} key='auto-fit-rotamer' selectedButtonIndex={selectedButtonIndex}
@@ -31,19 +37,22 @@ export const MoorhenButtonBar = (props) => {
             setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="6" />),
         
         (<MoorhenAddSimpleButton {...props} key='add-simple' selectedButtonIndex={selectedButtonIndex}
-            setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="11" />),
-
-        (<MoorhenEigenFlipLigandButton {...props} key='eigen-flip' selectedButtonIndex={selectedButtonIndex}
             setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="7" />),
 
-        (<MoorhenJedFlipFalseButton {...props} key='jed-flip-false' selectedButtonIndex={selectedButtonIndex}
+        (<MoorhenRigidBodyFitButton {...props} key='rigid-body-fit' selectedButtonIndex={selectedButtonIndex}
             setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="8" />),
 
-        (<MoorhenJedFlipTrueButton {...props} key='jed-flip-true' selectedButtonIndex={selectedButtonIndex}
+        (<MoorhenEigenFlipLigandButton {...props} key='eigen-flip' selectedButtonIndex={selectedButtonIndex}
             setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="9" />),
 
-        (<MoorhenRotateTranslateZoneButton {...props} key='rotate-translate-zone' selectedButtonIndex={selectedButtonIndex}
+        (<MoorhenJedFlipFalseButton {...props} key='jed-flip-false' selectedButtonIndex={selectedButtonIndex}
             setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="10" />),
+
+        (<MoorhenJedFlipTrueButton {...props} key='jed-flip-true' selectedButtonIndex={selectedButtonIndex}
+            setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="11" />),
+
+        (<MoorhenRotateTranslateZoneButton {...props} key='rotate-translate-zone' selectedButtonIndex={selectedButtonIndex}
+            setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="12" />),
         
         (<MoorhenAddAltConfButton {...props} key='add-alt-conf' selectedButtonIndex={selectedButtonIndex}
             setSelectedButtonIndex={setSelectedButtonIndex} buttonIndex="13" />),
@@ -53,8 +62,26 @@ export const MoorhenButtonBar = (props) => {
 
     ]
 
+    useEffect(() => {
+        if (!showDrawer && selectedButtonIndex !== null) {
+            setSelectedButtonIndex(null)
+            popoverIsShownRef.current = false
+        }
+
+    }, [showDrawer])
+
+    useEffect(() => {
+        if (showDrawer && selectedButtonIndex !== null) {
+            popoverIsShownRef.current = true
+        } else {
+            popoverIsShownRef.current = false
+        }
+
+    }, [selectedButtonIndex])
+
     const getCarouselItems = () => {
-        const maximumAllowedWidth = props.windowWidth - (props.innerWindowMarginWidth + (props.showSideBar ? props.sideBarWidth : 0))
+        const buttonWidth = Math.max(convertViewtoPx(5, props.windowHeight), 40)
+        const maximumAllowedWidth = props.windowWidth - buttonWidth * 4
 
         let currentlyUsedWidth = 0
         let carouselItems = []
@@ -62,7 +89,7 @@ export const MoorhenButtonBar = (props) => {
 
         editButtons.forEach(button => {
             currentItem.push(button)
-            currentlyUsedWidth += 90
+            currentlyUsedWidth += buttonWidth
             if (currentlyUsedWidth >= maximumAllowedWidth) {
                 carouselItems.push(currentItem)
                 currentItem = []
@@ -78,19 +105,107 @@ export const MoorhenButtonBar = (props) => {
     }
 
     const carouselItems = getCarouselItems()
-
-    return <div
-        style={{
-            overflow: "auto",
-            backgroundColor: `rgba(
-                ${255 * props.backgroundColor[0]},
-                ${255 * props.backgroundColor[1]},
-                ${255 * props.backgroundColor[2]}, 
-                ${props.backgroundColor[3]})`,
+    const toggleDrowerButtonHeight = convertViewtoPx(3, props.windowHeight)
+    // Add 0.1 rem for the bottom margin of carousel
+    const simpleEditButtonHeight = Math.max(convertViewtoPx(5, props.windowHeight), 40) + convertRemToPx(0.1)
+    
+    return  <> 
+    <Drawer anchor='bottom' open={true} variant='persistent'
+                sx={{
+                    width: '100%',
+                    flexShrink: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0)',
+                    '& .MuiDrawer-paper': {
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        backgroundColor: 'rgba(0, 0, 0, 0)',
+                        alignItems:'center',
+                        borderTop: 0, 
+                        margin: 0,
+                        padding: 0
+                    },
+            }}>
+            <IconButton onClick={() => {setShowDrawer(true)}} onMouseOver={() => setOpacity(1)} onMouseOut={() => {if(!popoverIsShownRef.current) setOpacity(0.5) }} sx={{
+                 width:'10%', 
+                 height: toggleDrowerButtonHeight,
+                 borderColor:'black', 
+                 borderTop: 1, 
+                 borderLeft: 1, 
+                 borderRight: 1,
+                 margin: 0,
+                 padding: 0,
+                 opacity: showDrawer ? '0.0' : opacity,
+                 borderRadius: 0,
+                 backgroundColor: props.isDark ? 'grey' : 'white',
+                 ':hover': {
+                    backgroundColor: props.isDark ? 'grey' : 'white',
+                }
+            }}>
+                <ArrowUpwardOutlined style={{color: props.isDark ? 'white' : 'black', height: '100%'}}/>
+            </IconButton>
+    </Drawer>
+    <Drawer variant="persistent" anchor="bottom" open={showDrawer}
+        onMouseOver={() => setOpacity(1)} 
+        onMouseOut={() => {if(!popoverIsShownRef.current) setOpacity(0.5)}}
+        sx={{
+            width: '100%',
+            flexShrink: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0)',
+            '& .MuiDrawer-paper': {
+                width: '100%',
+                height: simpleEditButtonHeight + toggleDrowerButtonHeight,
+                boxSizing: 'border-box',
+                alignItems:'center',
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                borderTop: 0,
+                borderBottom: 0,
+                borderLeft: 0,
+                margin: 0,
+                padding: 0,
+                border: 0,
+        },
         }}>
-            <Carousel 
+        <IconButton onClick={() => {setShowDrawer(false)}} sx={{
+             width:'10%', 
+             height: toggleDrowerButtonHeight,
+             borderColor:'black', 
+             borderTop: 1, 
+             borderLeft: 1, 
+             borderRight: 1, 
+             opacity: opacity, 
+             borderRadius: 0,
+             padding: 0,
+             margin: 0,
+             backgroundColor: props.isDark ? 'grey' : 'white',
+             ':hover': {
+                backgroundColor: props.isDark ? 'grey' : 'white',
+            }
+        }}>
+            <ArrowDownwardOutlined style={{height: '100%', color: props.isDark ? 'white' : 'black'}}/>
+        </IconButton>
+    </Drawer>
+    <Drawer variant="persistent" anchor="bottom" open={showDrawer}
+            sx={{
+                opacity: opacity,
+                width: '100%',
+                flexShrink: 0,
+                '& .MuiDrawer-paper': {
+                    width: '100%',
+                    height: simpleEditButtonHeight,
+                    boxSizing: 'border-box',
+                    backgroundColor: props.isDark ? 'grey' : 'white',
+                    '&::-webkit-scrollbar': {
+                        display: 'none'
+                    }
+                },
+            }}
+            onMouseOver={() => setOpacity(1)}
+            onMouseOut={() => {if(!popoverIsShownRef.current) setOpacity(0.5) }}
+            >
+        <Carousel 
+                style={{marginBottom: '0.1rem'}}
                 key={carouselItems.length}
-                variant={props.darkMode ? "light" : "dark"} 
+                variant={props.isDark ? "light" : "dark"} 
                 interval={null} 
                 keyboard={false} 
                 indicators={false} 
@@ -106,5 +221,7 @@ export const MoorhenButtonBar = (props) => {
                         )
                     })}
             </Carousel>   
-        </div>
+    </Drawer>   
+
+    </>
 }

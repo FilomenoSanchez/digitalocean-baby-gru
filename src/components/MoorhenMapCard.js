@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Fragment } from "react";
-import { Card, Form, Button, Row, Col, DropdownButton } from "react-bootstrap";
-import { doDownload } from '../utils/MoorhenUtils';
+import { Card, Form, Button, Row, Col, DropdownButton, Stack } from "react-bootstrap";
+import { doDownload, getNameLabel } from '../utils/MoorhenUtils';
 import { VisibilityOffOutlined, VisibilityOutlined, ExpandMoreOutlined, ExpandLessOutlined, DownloadOutlined, Settings } from '@mui/icons-material';
 import MoorhenSlider from "./MoorhenSlider";
 import { MoorhenDeleteDisplayObjectMenuItem, MoorhenRenameDisplayObjectMenuItem } from "./MoorhenMenuItem";
@@ -71,7 +71,7 @@ export const MoorhenMapCard = (props) => {
     }
 
     const getButtonBar = (sideBarWidth) => {
-        const maximumAllowedWidth = sideBarWidth * 0.35
+        const maximumAllowedWidth = sideBarWidth * 0.55
         let currentlyUsedWidth = 0
         let expandedButtons = []
         let compressedButtons = []
@@ -142,9 +142,7 @@ export const MoorhenMapCard = (props) => {
         props.map.mapRadius = mapRadius
         isDirty.current = true
         if (props.map.cootContour) {
-            if (busyContouring.current) {
-                console.log('Skipping map update because already busy ')
-            } else {
+            if (!busyContouring.current) {
                 doContourIfDirty()
             }
         }
@@ -160,7 +158,13 @@ export const MoorhenMapCard = (props) => {
         }
     }, [mapContourLevel, mapRadius, props.activeMap?.molNo, props.map.molNo, props.map.cootContour])
 
-    const handleContourOnSessionLoad = useCallback(e => {
+    const handleRadiusChangeCallback = useCallback(e => {
+        if (props.map.cootContour && props.map.molNo === props.activeMap.molNo) {
+            setMapRadius(mapRadius + parseInt(e.detail.factor))
+        }
+    }, [mapRadius, props.activeMap?.molNo, props.map.molNo, props.map.cootContour])
+
+    const handleNewMapContour = useCallback(e => {
         if (props.map.molNo === e.detail.molNo) {
             setCootContour(e.detail.cootContour)
             setMapContourLevel(e.detail.contourLevel)
@@ -180,11 +184,13 @@ export const MoorhenMapCard = (props) => {
     useEffect(() => {
         document.addEventListener("mapUpdate", handleUpdateMapCallback);
         document.addEventListener("wheelContourLevelChanged", handleWheelContourLevelCallback);
-        document.addEventListener("contourOnSessionLoad", handleContourOnSessionLoad);
+        document.addEventListener("newMapContour", handleNewMapContour);
+        document.addEventListener("mapRadiusChanged", handleRadiusChangeCallback);
         return () => {
             document.removeEventListener("mapUpdate", handleUpdateMapCallback);
             document.removeEventListener("wheelContourLevelChanged", handleWheelContourLevelCallback);
-            document.removeEventListener("contourOnSessionLoad", handleContourOnSessionLoad);
+            document.removeEventListener("newMapContour", handleNewMapContour);
+            document.removeEventListener("mapRadiusChanged", handleRadiusChangeCallback);
         };
     }, [handleUpdateMapCallback, props.activeMap?.molNo]);
 
@@ -202,28 +208,26 @@ export const MoorhenMapCard = (props) => {
         isDirty.current = true
         if (props.map.cootContour && !busyContouring.current) {
             doContourIfDirty()
-        } else {
-            console.log('Skipping map re-contour because already busy ')
         }
 
     }, [mapRadius, mapContourLevel, mapLitLines, mapSolid])
 
     return <Card className="px-0"  style={{marginBottom:'0.5rem', padding:'0'}} key={props.map.molNo}>
-        <Card.Header style={{padding: '0.5rem'}}>
-            <Row className='align-items-center'>
-            <Col className='align-items-center' style={{display:'flex', justifyContent:'left'}}>
-                    {`#${props.map.molNo} Map ${props.map.name}`}
-                    <img 
-                        className="baby-gru-map-icon"
-                        alt="..."
-                        style={{width: '20px', height: '20px', margin:'0.5rem', padding:'0'}}
-                        src={props.map.isDifference ? `${props.urlPrefix}/baby-gru/pixmaps/diff-map.png` : `${props.urlPrefix}/baby-gru/pixmaps/map.svg`}
-                    />
-            </Col>
-            <Col style={{display:'flex', justifyContent:'right'}}>
-                {getButtonBar(props.sideBarWidth)}
-            </Col>
-            </Row>
+        <Card.Header style={{padding: '0.1rem'}}>
+            <Stack gap={2} direction='horizontal'>
+                <Col className='align-items-center' style={{display:'flex', justifyContent:'left'}}>
+                        {getNameLabel(props.map)}
+                        <img 
+                            className="baby-gru-map-icon"
+                            alt="..."
+                            style={{width: '20px', height: '20px', margin:'0.5rem', padding:'0'}}
+                            src={props.map.isDifference ? `${props.urlPrefix}/baby-gru/pixmaps/diff-map.png` : `${props.urlPrefix}/baby-gru/pixmaps/map.svg`}
+                        />
+                </Col>
+                <Col style={{display:'flex', justifyContent:'right'}}>
+                    {getButtonBar(props.sideBarWidth)}
+                </Col>
+            </Stack>
         </Card.Header>
         <Card.Body style={{display: isCollapsed ? 'none' : ''}}>
             <Row className="align-items-center" style={{ height: '100%', justifyContent:'between', display:'flex'}}>

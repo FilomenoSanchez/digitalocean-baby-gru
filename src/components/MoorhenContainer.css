@@ -14,14 +14,16 @@
     height: calc(100%);
 }
 
-::-webkit-scrollbar {
-    width: 0px;
-    background: transparent; 
-    -webkit-padding-end: 16px;  
+.hide-scrolling::-webkit-scrollbar {
+  width: 0px;
+  background: transparent; 
+  -webkit-padding-end: 16px;  
 }
 
-.scroller {
+.stop-scrolling {
   scrollbar-width: none;
+  height: 100%;
+  overflow: hidden;
 } 
 
 .validation-plot-container::-webkit-scrollbar {
@@ -36,4 +38,18 @@
     background-color: darkgrey;
     outline: 1px solid slategrey;
   }
-  
+
+.nav-link {
+    padding-right: 0.3rem !important;
+    padding-left: 0.3rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0rem !important;
+}
+
+.nav-link::after {
+  display:none !important;
+}
+
+.nav-link::before {
+  display:none !important;
+}

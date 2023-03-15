@@ -5,17 +5,21 @@ import * as quat4 from 'gl-matrix/quat';
 import { quatToMat4, quat4Inverse } from '../WebGLgComponents/quatToMat4.js';
 import { getDeviceScale, vec3Create } from '../WebGLgComponents/mgWebGL';
 
-const apresEdit = (molecule, glRef, setHoveredAtom) => {
+const apresEdit = (molecule, glRef, timeCapsuleRef, setHoveredAtom) => {
     molecule.setAtomsDirty(true)
     molecule.redraw(glRef)
     setHoveredAtom({ molecule: null, cid: null })
     const mapUpdateEvent = new CustomEvent("mapUpdate", { detail: { origin: glRef.current.origin,  modifiedMolecule: molecule.molNo} })
     document.dispatchEvent(mapUpdateEvent)
+    timeCapsuleRef.current.addModification()
 }
 
 export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
     
-    const { setShowToast, setToastContent, hoveredAtom, setHoveredAtom, commandCentre, activeMap, glRef, molecules } = collectedProps;
+    const { 
+        setShowToast, setToastContent, hoveredAtom, setHoveredAtom, 
+        commandCentre, activeMap, glRef, molecules, timeCapsuleRef
+    } = collectedProps;
 
     const getCentreAtom = async () => {
         const visibleMolecules = molecules.filter(molecule => molecule.isVisible && molecule.hasVisibleBuffers())
@@ -57,7 +61,7 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
                 commandArgs: formatArgs(chosenMolecule, chosenAtom),
                 changesMolecules: [chosenMolecule.molNo]
             }, true).then(_ => {
-                apresEdit(chosenMolecule, glRef, setHoveredAtom)
+                apresEdit(chosenMolecule, glRef, timeCapsuleRef, setHoveredAtom)
             })
             .then(_ => false)
             .catch(err => {
@@ -68,7 +72,6 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
         return true
     }
     
-    console.log(event)
     let modifiers = []
     let eventModifiersCodes = []
 
@@ -95,8 +98,6 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
     if (!action) {
         return true
     }
-
-    console.log(`Shortcut for action ${action} detected...`)
 
     if (action === 'sphere_refine' && activeMap) {
         const formatArgs = (chosenMolecule, chosenAtom) => {
@@ -244,7 +245,8 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
     }
 
     else if (action === 'clear_labels') {
-        glRef.current.clickedAtoms = []
+        glRef.current.labelledAtoms = []
+        glRef.current.measuredAtoms = []
         glRef.current.drawScene()
         setToastContent(
             <h3>
@@ -320,8 +322,20 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
         glRef.current.myQuat = quat4.create()
         quat4.set(glRef.current.myQuat, 0, 0, 0, -1)
         glRef.current.setZoom(1.0)
-        glRef.current.clickedAtoms = []
+        glRef.current.labelledAtoms = []
+        glRef.current.measuredAtoms = []
         glRef.current.drawScene()
+    }
+
+    else if (action === 'increase_map_radius' || action === 'decrease_map_radius') {
+        if (activeMap) {
+            const mapRadiusChanged = new CustomEvent("mapRadiusChanged", {
+                "detail": {
+                    factor: action === 'increase_map_radius' ? 2 : -2,
+                }
+            })
+            document.dispatchEvent(mapRadiusChanged)
+        }
     }
 
     else if (action === 'take_screenshot') {
@@ -404,18 +418,29 @@ export const babyGruKeyPress = (event, collectedProps, shortCuts) => {
     }
 
     else if (action === 'show_shortcuts') {
-        setToastContent(<h4><List>
-            {Object.keys(shortCuts).map(key => {
+        if (!glRef.current.showShortCutHelp) {
+            glRef.current.showShortCutHelp = Object.keys(shortCuts).map(key => {
                 let modifiers = []
                 if (shortCuts[key].modifiers.includes('shiftKey')) modifiers.push("<Shift>")
                 if (shortCuts[key].modifiers.includes('ctrlKey')) modifiers.push("<Ctrl>")
                 if (shortCuts[key].modifiers.includes('metaKey')) modifiers.push("<Meta>")
                 if (shortCuts[key].modifiers.includes('altKey')) modifiers.push("<Alt>")
                 if (shortCuts[key].keyPress === " ") modifiers.push("<Space>")
-                return <ListItem>{`${modifiers.join("-")} ${shortCuts[key].keyPress} ${shortCuts[key].label}`}</ListItem>
-            })}
-        </List></h4>)
-        setShowToast(true)
+                return `${modifiers.join("-")} ${shortCuts[key].keyPress} ${shortCuts[key].label}`
+            })
+            glRef.current.drawScene()
+        } else  {
+            glRef.current.showShortCutHelp = null
+            glRef.current.drawScene()
+        }
+        setToastContent(
+            <h3>
+                <List>
+                    <ListItem style={{justifyContent: 'center'}}>{`${modifiers.join("-")} ${event.key} pushed`}</ListItem>
+                    <ListItem style={{justifyContent: 'center'}}>{glRef.current.showShortCutHelp ? 'Show help' : 'Hide help'}</ListItem>
+                </List>
+            </h3>
+        )
         return false
     }
 

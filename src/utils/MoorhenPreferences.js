@@ -14,7 +14,6 @@ const itemReducer = (oldList, change) => {
 }
 
 const updateStoredPreferences = async (key, value) => {
-    console.log(`Storing ${key}: ${value} preferences in local storage...`)
     try {
         await localforage.setItem(key, value)
     } catch (err) {
@@ -24,8 +23,8 @@ const updateStoredPreferences = async (key, value) => {
 
 const getDefaultValues = () => {
     return {
-        version: '0.0.14',
-        darkMode: false, 
+        version: '0.0.18',
+        defaultBackgroundColor: [1, 1, 1, 1], 
         atomLabelDepthMode: true, 
         defaultExpandDisplayCards: true,
         defaultMapLitLines: false,
@@ -33,6 +32,7 @@ const getDefaultValues = () => {
         drawCrosshairs: true,
         drawFPS: false,
         drawMissingLoops: true,
+        drawInteractions: false,
         mouseSensitivity: 2.0,
         wheelSensitivityFactor: 1.0,
         mapLineWidth: 1.0,
@@ -44,6 +44,8 @@ const getDefaultValues = () => {
         shortcutOnHoveredAtom: true,
         resetClippingFogging: true,
         defaultUpdatingScores: ['Rfree', 'Rfactor', 'Moorhen Points'],
+        maxBackupCount: 10,
+        modificationCountBackupThreshold: 5,
         shortCuts: {
             "sphere_refine": {
                 modifiers: ["shiftKey"],
@@ -82,7 +84,7 @@ const getDefaultValues = () => {
             },
             "show_shortcuts": {
                 modifiers: [],
-                keyPress: "escape",
+                keyPress: "h",
                 label: "Show shortcuts"
             },
             "restore_scene": {
@@ -130,9 +132,14 @@ const getDefaultValues = () => {
                 keyPress: "z",
                 label: "Wiggle camera while rotating a residue"
             },
-            "label_atom": {
+            "measure_distances": {
                 modifiers: [],
                 keyPress: "m",
+                label: "Measure distances between atoms on click"
+            },
+            "label_atom": {
+                modifiers: [],
+                keyPress: "l",
                 label: "Label an atom on click"
             },
             "center_atom": {
@@ -155,6 +162,16 @@ const getDefaultValues = () => {
                 keyPress: " ",
                 label: "Jump to the previous residue"
             },
+            "increase_map_radius": {
+                modifiers: [],
+                keyPress: "]",
+                label: "Increase map radius"
+            },
+            "decrease_map_radius": {
+                modifiers: [],
+                keyPress: "[",
+                label: "Decrease map radius"
+            },
         }
     }
 }
@@ -162,7 +179,8 @@ const getDefaultValues = () => {
 const PreferencesContext = createContext();
 
 const PreferencesContextProvider = ({ children }) => {
-    const [darkMode, setDarkMode] = useState(null)
+    const [isMounted, setIsMounted] = useState(false)
+    const [defaultBackgroundColor, setDefaultBackgroundColor] = useState(null)
     const [atomLabelDepthMode, setAtomLabelDepthMode] = useState(null)
     const [defaultExpandDisplayCards, setDefaultExpandDisplayCards] = useState(null)
     const [shortCuts, setShortCuts] = useState(null)
@@ -173,6 +191,7 @@ const PreferencesContextProvider = ({ children }) => {
     const [drawCrosshairs, setDrawCrosshairs] = useState(null)
     const [drawFPS, setDrawFPS] = useState(null)
     const [drawMissingLoops, setDrawMissingLoops] = useState(null)
+    const [drawInteractions, setDrawInteractions] = useState(null)
     const [mapLineWidth, setMapLineWidth] = useState(null)
     const [makeBackups, setMakeBackups] = useState(null)
     const [showShortcutToast, setShowShortcutToast] = useState(null)
@@ -181,10 +200,12 @@ const PreferencesContextProvider = ({ children }) => {
     const [showScoresToast, setShowScoresToast] = useState(null)
     const [shortcutOnHoveredAtom, setShortcutOnHoveredAtom] = useState(null)
     const [resetClippingFogging, setResetClippingFogging] = useState(null)
+    const [maxBackupCount, setMaxBackupCount] = useState(null)
+    const [modificationCountBackupThreshold, setModificationCountBackupThreshold] = useState(null)
     const [defaultUpdatingScores, setDefaultUpdatingScores] = useReducer(itemReducer, null)
 
     const preferencesMap = {
-        1: { label: "darkMode", value: darkMode, valueSetter: setDarkMode},
+        1: { label: "defaultBackgroundColor", value: defaultBackgroundColor, valueSetter: setDefaultBackgroundColor},
         2: { label: "atomLabelDepthMode", value: atomLabelDepthMode, valueSetter: setAtomLabelDepthMode},
         3: { label: "defaultExpandDisplayCards", value: defaultExpandDisplayCards, valueSetter: setDefaultExpandDisplayCards},
         4: { label: "shortCuts", value: shortCuts, valueSetter: setShortCuts},
@@ -204,6 +225,9 @@ const PreferencesContextProvider = ({ children }) => {
         18: { label: "shortcutOnHoveredAtom", value: shortcutOnHoveredAtom, valueSetter: setShortcutOnHoveredAtom},
         19: { label: "resetClippingFogging", value: resetClippingFogging, valueSetter: setResetClippingFogging},
         20: { label: "defaultUpdatingScores", value: defaultUpdatingScores, valueSetter: (newValue) => {setDefaultUpdatingScores({action: 'Overwrite', items: newValue})}},
+        21: { label: "maxBackupCount", value: maxBackupCount, valueSetter: setMaxBackupCount},
+        22: { label: "modificationCountBackupThreshold", value: modificationCountBackupThreshold, valueSetter: setModificationCountBackupThreshold},
+        23: { label: "drawInteractions", value: drawInteractions, valueSetter: setDrawInteractions},
     }
 
     const restoreDefaults = (defaultValues)=> {
@@ -224,33 +248,29 @@ const PreferencesContextProvider = ({ children }) => {
      */
      useEffect(() => {       
         const fetchStoredPreferences = async () => {
-            console.log('Retrieving stored preferences...')
             try {
                 const storedVersion = await localforage.getItem('version')
                 const defaultValues = getDefaultValues()                
                 if (storedVersion !== defaultValues.version) {
-                    console.log('Different storage version detected, using defaults')
                     restoreDefaults(defaultValues)
                     return
                 }
                 
                 const fetchPromises = Object.keys(preferencesMap).map(key => localforage.getItem(preferencesMap[key].label))
                 let responses = await Promise.all(fetchPromises)
-                
-                console.log('Retrieved the following preferences from local storage: ', responses)
-                
+                               
                 if(!responses.every(item => item !== null) || responses.length < Object.keys(preferencesMap).length) {
-                    console.log('Cannot find stored preferences, using defaults')
                     restoreDefaults(defaultValues)
                 } else {
-                    console.log(`Stored preferences retrieved successfully: ${responses}`)
                     Object.keys(preferencesMap).forEach((key, index) => preferencesMap[key].valueSetter(responses[index]))
                 }                
                 
             } catch (err) {
                 console.log(err)
                 console.log('Unable to fetch preferences from local storage...')
-            }
+            } finally {
+                setIsMounted(true)
+            }            
         }
         
         localforage.config({
@@ -270,6 +290,24 @@ const PreferencesContextProvider = ({ children }) => {
        
         updateStoredPreferences('shortcutOnHoveredAtom', shortcutOnHoveredAtom);
     }, [shortcutOnHoveredAtom]);
+    
+    useMemo(() => {
+
+        if (maxBackupCount === null) {
+            return
+        }
+       
+        updateStoredPreferences('maxBackupCount', maxBackupCount);
+    }, [maxBackupCount]);
+    
+    useMemo(() => {
+
+        if (modificationCountBackupThreshold === null) {
+            return
+        }
+       
+        updateStoredPreferences('modificationCountBackupThreshold', modificationCountBackupThreshold);
+    }, [modificationCountBackupThreshold]);
 
     useMemo(() => {
 
@@ -390,6 +428,15 @@ const PreferencesContextProvider = ({ children }) => {
 
     useMemo(() => {
 
+        if (drawInteractions === null) {
+            return
+        }
+       
+        updateStoredPreferences('drawInteractions', drawInteractions);
+    }, [drawInteractions]);
+
+    useMemo(() => {
+
         if (mouseSensitivity === null) {
             return
         }
@@ -408,12 +455,12 @@ const PreferencesContextProvider = ({ children }) => {
  
     useMemo(() => {
 
-        if (darkMode === null) {
+        if (defaultBackgroundColor === null) {
             return
         }
        
-        updateStoredPreferences('darkMode', darkMode);
-    }, [darkMode]);
+        updateStoredPreferences('defaultBackgroundColor', defaultBackgroundColor);
+    }, [defaultBackgroundColor]);
     
     useMemo(() => {
 
@@ -443,7 +490,7 @@ const PreferencesContextProvider = ({ children }) => {
     }, [defaultMapLitLines]);
 
     const collectedContextValues = {
-        darkMode, setDarkMode, atomLabelDepthMode, setAtomLabelDepthMode, defaultExpandDisplayCards,
+        defaultBackgroundColor, setDefaultBackgroundColor, atomLabelDepthMode, setAtomLabelDepthMode, defaultExpandDisplayCards,
         setDefaultExpandDisplayCards, shortCuts, setShortCuts, defaultMapLitLines, setDefaultMapLitLines,
         refineAfterMod, setRefineAfterMod, mouseSensitivity, setMouseSensitivity, drawCrosshairs, 
         setDrawCrosshairs, drawMissingLoops, setDrawMissingLoops, mapLineWidth, setMapLineWidth,
@@ -451,7 +498,9 @@ const PreferencesContextProvider = ({ children }) => {
         setDefaultMapSurface, defaultBondSmoothness, setDefaultBondSmoothness, showScoresToast, 
         setShowScoresToast, defaultUpdatingScores, setDefaultUpdatingScores, drawFPS, setDrawFPS,
         wheelSensitivityFactor, setWheelSensitivityFactor, shortcutOnHoveredAtom, setShortcutOnHoveredAtom,
-        resetClippingFogging, setResetClippingFogging
+        resetClippingFogging, setResetClippingFogging, maxBackupCount, setMaxBackupCount,
+        modificationCountBackupThreshold, setModificationCountBackupThreshold, isMounted,
+        drawInteractions, setDrawInteractions
     }
 
     return (

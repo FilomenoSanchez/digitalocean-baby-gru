@@ -1,27 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavDropdown, Form, InputGroup } from "react-bootstrap";
 import { MoorhenShortcutConfigModal } from "./MoorhenShortcutConfigModal"
 import { MenuItem } from "@mui/material";
 import { convertViewtoPx } from "../utils/MoorhenUtils";
-import { MoorhenDefaultBondSmoothnessPreferencesMenuItem, MoorhenScoresToastPreferencesMenuItem } from './MoorhenMenuItem'
+import { MoorhenDefaultBondSmoothnessPreferencesMenuItem, MoorhenScoresToastPreferencesMenuItem, MoorhenBackupPreferencesMenuItem } from './MoorhenMenuItem'
 import MoorhenSlider from './MoorhenSlider' 
 
 export const MoorhenPreferencesMenu = (props) => {
     const { 
-        atomLabelDepthMode, setAtomLabelDepthMode, darkMode, setDarkMode, 
+        atomLabelDepthMode, setAtomLabelDepthMode, setMouseSensitivity, 
         defaultExpandDisplayCards, setDefaultExpandDisplayCards, defaultMapLitLines,
         setDefaultMapLitLines, refineAfterMod, setRefineAfterMod, mouseSensitivity,
-        setMouseSensitivity, drawCrosshairs, setDrawCrosshairs, drawMissingLoops,
-        setDrawMissingLoops, mapLineWidth, setMapLineWidth, makeBackups, setMakeBackups,
+        mapLineWidth, setMapLineWidth, makeBackups, setMakeBackups,
         showShortcutToast, setShowShortcutToast, defaultMapSurface, setDefaultMapSurface,
         defaultBondSmoothness, setDefaultBondSmoothness, showScoresToast, setShowScoresToast,
-        defaultUpdatingScores, setDefaultUpdatingScores, drawFPS, setDrawFPS, wheelSensitivityFactor,
-        setWheelSensitivityFactor, shortcutOnHoveredAtom, setShortcutOnHoveredAtom, resetClippingFogging, 
-        setResetClippingFogging
+        defaultUpdatingScores, setDefaultUpdatingScores, wheelSensitivityFactor,
+        setWheelSensitivityFactor, shortcutOnHoveredAtom, setShortcutOnHoveredAtom, maxBackupCount, 
+        setMaxBackupCount, modificationCountBackupThreshold, setModificationCountBackupThreshold, 
+        timeCapsuleRef
      } = props;
 
     const [showModal, setShowModal] = useState(null);
     const [popoverIsShown, setPopoverIsShown] = useState(false)
+
+    useEffect(() => {
+        if (timeCapsuleRef.current) {
+            timeCapsuleRef.current.maxBackupCount = maxBackupCount
+            timeCapsuleRef.current.modificationCountBackupThreshold = modificationCountBackupThreshold
+        }
+    }, [maxBackupCount, modificationCountBackupThreshold])
 
     return <NavDropdown
                     title="Preferences"
@@ -38,13 +45,6 @@ export const MoorhenPreferencesMenu = (props) => {
                             checked={defaultExpandDisplayCards}
                             onChange={() => { setDefaultExpandDisplayCards(!defaultExpandDisplayCards) }}
                         />
-                    </InputGroup>
-                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
-                        <Form.Check 
-                            type="switch"
-                            checked={darkMode}
-                            onChange={() => { setDarkMode(!darkMode) }}
-                            label={darkMode ? "Switch lights on": "Switch lights off"}/>
                     </InputGroup>
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
                         <Form.Check 
@@ -77,37 +77,9 @@ export const MoorhenPreferencesMenu = (props) => {
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
                         <Form.Check 
                             type="switch"
-                            checked={drawFPS}
-                            onChange={() => { setDrawFPS(!drawFPS) }}
-                            label="Show frames per second counter"/>
-                    </InputGroup>
-                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
-                        <Form.Check 
-                            type="switch"
-                            checked={drawCrosshairs}
-                            onChange={() => { setDrawCrosshairs(!drawCrosshairs) }}
-                            label="Show crosshairs"/>
-                    </InputGroup>
-                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
-                        <Form.Check 
-                            type="switch"
                             checked={showShortcutToast}
                             onChange={() => { setShowShortcutToast(!showShortcutToast) }}
                             label="Show shortcut popup"/>
-                    </InputGroup>
-                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
-                        <Form.Check 
-                            type="switch"
-                            checked={drawMissingLoops}
-                            onChange={() => { setDrawMissingLoops(!drawMissingLoops) }}
-                            label="Show missing loops"/>
-                    </InputGroup>
-                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
-                        <Form.Check 
-                            type="switch"
-                            checked={drawMissingLoops}
-                            onChange={() => { setDefaultBondSmoothness(!drawMissingLoops) }}
-                            label="Default quality of molecule bonds"/>
                     </InputGroup>
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
                         <Form.Check 
@@ -123,13 +95,13 @@ export const MoorhenPreferencesMenu = (props) => {
                             onChange={() => { setShortcutOnHoveredAtom(!shortcutOnHoveredAtom) }}
                             label="Hover on residue to use shortcuts"/>
                     </InputGroup>
-                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
-                        <Form.Check 
-                            type="switch"
-                            checked={resetClippingFogging}
-                            onChange={() => { setResetClippingFogging(!resetClippingFogging) }}
-                            label="Reset clipping and fogging on zoom"/>
-                    </InputGroup>
+                    <MoorhenBackupPreferencesMenuItem 
+                        maxBackupCount={maxBackupCount}
+                        setMaxBackupCount={setMaxBackupCount}
+                        modificationCountBackupThreshold={modificationCountBackupThreshold}
+                        setModificationCountBackupThreshold={setModificationCountBackupThreshold}
+                        setPopoverIsShown={setPopoverIsShown}
+                    />
                     <MoorhenScoresToastPreferencesMenuItem
                         showScoresToast={showScoresToast}
                         setShowScoresToast={setShowScoresToast}

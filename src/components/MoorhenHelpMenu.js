@@ -26,4 +26,3 @@ export const MoorhenHelpMenu = (props) => {
             </NavDropdown >
         </>
     }
-

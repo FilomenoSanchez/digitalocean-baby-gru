@@ -249,6 +249,16 @@ const simpleMeshToMeshData = (simpleMesh,perm) => {
     };
 }
 
+const SuperposeResultsToJSArray = (superposeResults) => {   
+    const alignmentInfo = superposeResults.alignment_info
+    return {
+        referenceSequence: superposeResults.alignment.first,
+        movingSequence: superposeResults.alignment.second,
+        supperposeInfo: superposeResults.suppose_info,
+        validationData: validationDataToJSArray(alignmentInfo)
+    }
+}
+
 const colourRulesToJSArray = (colourRulesArray) => {
     let returnResult = []
     const colourRulesSize = colourRulesArray.size()
@@ -291,6 +301,33 @@ const stringArrayToJSArray = (stringArray) => {
     }
     stringArray.delete()
     return returnResult;
+}
+
+const symmetryToJSData = (symmetryData) => {
+    let result = []
+    const symmetrySize = symmetryData.size()
+
+    for (let i = 0; i < symmetrySize; i++) {
+        const currentSymmetry = symmetryData.at(i)
+        const symTransT = currentSymmetry.first()
+        const cellTranslation = currentSymmetry.second()
+
+        result.push({
+            x: currentSymmetry.x(),
+            y: currentSymmetry.y(),
+            z: currentSymmetry.z(),
+            asString: currentSymmetry.symm_as_string(),
+            us: cellTranslation.us,
+            ws: cellTranslation.ws,
+            vs: cellTranslation.vs
+        })
+
+        symTransT.delete()
+        currentSymmetry.delete()
+    }
+
+    symmetryData.delete()
+    return result
 }
 
 const mmrrccStatsToJSArray = (mmrrccStats) => {
@@ -346,13 +383,15 @@ const residueSpecToJSArray = (residueSpecs) => {
     return returnResult
 }
 
-const validationDataToJSArray = (validationData, chainID) => {
+const validationDataToJSArray = (validationData, chainID=null) => {
     let returnResult = []
     const cviv = validationData.cviv
     const chainSize = cviv.size()
     for (let chainIndex = 0; chainIndex < chainSize; chainIndex++) {
         const chain = cviv.get(chainIndex)
-        if (chain.chain_id === chainID) {
+        if (chainID !== null && chain.chain_id !== chainID) {
+            // pass
+        } else {
             const resInfo = chain.rviv;
             const resInfoSize = resInfo.size()
             for (let ir = 0; ir < resInfoSize; ir++) {
@@ -375,6 +414,33 @@ const validationDataToJSArray = (validationData, chainID) => {
     cviv.delete()
     validationData.delete()
     return returnResult
+}
+
+const vectorHBondToJSArray = (HBondData) => {
+    let hbdata = []
+    const hbondDataSize = HBondData.size()
+    for(let ib=0; ib<hbondDataSize; ib++){
+        const hb = HBondData.get(ib)
+        const o = {
+            hb_hydrogen: hb.hb_hydrogen,
+            donor: hb.donor,
+            acceptor: hb.acceptor,
+            donor_neigh: hb.donor_neigh,
+            acceptor_neigh: hb.acceptor_neigh,
+            angle_1: hb.angle_1,
+            angle_2: hb.angle_2,
+            angle_3: hb.angle_3,
+            dist: hb.dist,
+            ligand_atom_is_donor: hb.ligand_atom_is_donor,
+            hydrogen_is_ligand_atom: hb.hydrogen_is_ligand_atom,
+            bond_has_hydrogen_flag: hb.bond_has_hydrogen_flag,
+        }
+        // FIXME: Need to test whether this is necessary once the hb is available
+        // hb.delete()
+        hbdata.push(o)
+    }
+    HBondData.delete()
+    return hbdata
 }
 
 const interestingPlaceDataToJSArray = (interestingPlaceData) => {
@@ -466,9 +532,7 @@ const read_pdb = (coordData, name) => {
     const theGuid = guid()
     cootModule.FS_createDataFile(".", `${theGuid}.pdb`, coordData, true, true);
     const tempFilename = `./${theGuid}.pdb`
-    console.log(`Off to read coords into coot ${tempFilename} ${name}`)
     const molNo = molecules_container.read_pdb(tempFilename)
-    console.log(`Read coordinates as molecule ${molNo}`)
     cootModule.FS_unlink(tempFilename)
     return molNo
 }
@@ -487,9 +551,7 @@ const read_dictionary = (coordData, associatedMolNo) => {
     const theGuid = guid()
     cootModule.FS_createDataFile(".", `${theGuid}.cif`, coordData, true, true);
     const tempFilename = `./${theGuid}.cif`
-    console.log(`Off to read dictionary into coot ${tempFilename} ${associatedMolNo}`)
     const returnVal = molecules_container.import_cif_dictionary(tempFilename, associatedMolNo)
-    console.log(`Read Dictionary with status ${returnVal}`)
     cootModule.FS_unlink(tempFilename)
     return returnVal
 }
@@ -505,7 +567,6 @@ function base64ToArrayBuffer(base64) {
 }
 
 const new_positions_for_residue_atoms = (molToUpDate, residues) => {
-    console.log("committal", molToUpDate, residues)
     let success = 0
     residues.forEach(atoms => {
         if (atoms.length > 0) {
@@ -519,7 +580,6 @@ const new_positions_for_residue_atoms = (molToUpDate, residues) => {
             success += thisSuccess
         }
     })
-    console.log("Success?", success)
     return success
 }
 
@@ -537,18 +597,12 @@ const read_mtz = (mapData, name, selectedColumns) => {
 }
 
 const associate_data_mtz_file_with_map = (iMol, mtzData, F, SIGF, FREE) => {
-    const theGuid = guid()
     const asUint8Array = new Uint8Array(mtzData.data)
-    cootModule.FS_createDataFile(".", `${theGuid}.mtz`, asUint8Array, true, true);
-    const tempFilename = `./${theGuid}.mtz`
-    /*associate_data_mtz_file_with_map(int imol, const std::string &data_mtz_file_name,
-        const std::string &f_col, const std::string &sigf_col,
-        const std::string &free_r_col);
-        */
-    const args = [iMol, tempFilename, F, SIGF, FREE]
-
-    console.log('associate_data with args', { args })
-    return molecules_container.associate_data_mtz_file_with_map(...args)
+    cootModule.FS_createDataFile(".", `${mtzData.fileName}.mtz`, asUint8Array, true, true);
+    const mtzFilename = `./${mtzData.fileName}.mtz`
+    const args = [iMol, mtzFilename, F, SIGF, FREE]
+    molecules_container.associate_data_mtz_file_with_map(...args)
+    return mtzFilename
 }
 
 const read_ccp4_map = (mapData, name, isDiffMap) => {
@@ -557,16 +611,12 @@ const read_ccp4_map = (mapData, name, isDiffMap) => {
     cootModule.FS_createDataFile(".", `${theGuid}.map`, asUint8Array, true, true);
     const tempFilename = `./${theGuid}.map`
     const read_map_args = [tempFilename, isDiffMap]
-    console.log({ read_map_args, length: asUint8Array })
-    //postMessage({ message: `read_ccp4_map args ${read_map_args}` })
     const molNo = molecules_container.read_ccp4_map(...read_map_args)
-    console.log('Read map into number', molNo)
     cootModule.FS_unlink(tempFilename)
     return molNo
 }
 
 onmessage = function (e) {
-    //console.log(e.data.message)
     if (e.data.message === 'CootInitialize') {
         postMessage({ message: 'Initializing molecules_container' })
 
@@ -581,7 +631,7 @@ onmessage = function (e) {
         }).then((returnedModule) => {
             cootModule = returnedModule;
             molecules_container = new cootModule.molecules_container_js()
-            molecules_container.geometry_init_standard()
+            molecules_container.set_show_timings(false)
             molecules_container.fill_rotamer_probability_tables()
             molecules_container.set_map_sampling_rate(1.7)
             cootModule.FS.mkdir("COOT_BACKUP");
@@ -609,7 +659,7 @@ onmessage = function (e) {
                 print(e);
             });
     }
-
+    
     else if (e.data.message === 'get_atoms') {
         const theGuid = guid()
         const tempFilename = `./${theGuid}.pdb`
@@ -622,6 +672,17 @@ onmessage = function (e) {
             consoleMessage: `Fetched coordinates of molecule ${e.data.molNo}`,
             message: e.data.message,
             result: { molNo: e.data.molNo, pdbData: pdbData }
+        })
+    }
+
+    else if (e.data.message === 'get_mtz_data') {
+        const mtzData = cootModule.FS.readFile(e.data.fileName, { encoding: 'binary' });
+        postMessage({
+            messageId: e.data.messageId,
+            myTimeStamp: e.data.myTimeStamp,
+            consoleMessage: `Fetched mtz data for map ${e.data.molNo}`,
+            message: e.data.message,
+            result: { molNo: e.data.molNo, mtzData: mtzData }
         })
     }
 
@@ -644,7 +705,6 @@ onmessage = function (e) {
     else if (e.data.message === 'read_mtz') {
         try {
             const theGuid = guid()
-            //console.log('e.data.data type', typeof e.data.data, e.data.data.length)
             cootModule.FS_createDataFile(".", `${theGuid}.mtz`, e.data.data, true, true, true);
             const tempFilename = `./${theGuid}.mtz`
             const molNo = molecules_container.read_mtz(tempFilename, 'FWT', 'PHWT', "", false, false)
@@ -706,6 +766,17 @@ onmessage = function (e) {
         })
     }
 
+    else if (e.data.message === 'delete_file_name') {
+        const result = cootModule.FS_unlink(e.data.fileName)
+
+        postMessage({
+            messageId: e.data.messageId,
+            myTimeStamp: e.data.myTimeStamp,
+            messageTag: "result",
+            result: result,
+        })
+    }
+
     if (e.data.message === 'coot_command') {
         const { returnType, command, commandArgs, message, messageId, myTimeStamp } = e.data
         try {
@@ -749,6 +820,9 @@ onmessage = function (e) {
                 case 'instanced_mesh_perm':
                     returnResult = instancedMeshToMeshData(cootResult, true)
                     break;
+                case 'symmetry':
+                    returnResult = symmetryToJSData(cootResult)
+                    break;
                 case 'mmrrcc_stats':
                     returnResult = mmrrccStatsToJSArray(cootResult)
                     break;
@@ -790,6 +864,12 @@ onmessage = function (e) {
                     break;
                 case 'interesting_places_data':
                     returnResult = interestingPlaceDataToJSArray(cootResult)
+                    break;
+                case 'superpose_results':
+                    returnResult = SuperposeResultsToJSArray(cootResult)
+                    break
+                case 'vector_hbond':
+                    returnResult = vectorHBondToJSArray(cootResult)
                     break;
                 case 'status':
                 default:

@@ -1,15 +1,17 @@
-import React, { createRef, useEffect, useCallback, forwardRef, useState, useRef } from 'react';
+import React, { useEffect, useCallback, forwardRef, useState, useRef } from 'react';
 import { Toast, ToastContainer } from 'react-bootstrap';
 import { MGWebGL } from '../WebGLgComponents/mgWebGL.js';
-import { MoorhenAdvancedDisplayOptions } from "./MoorhenAdvancedDisplayOptions"
+import { MoorhenColourRules } from "./MoorhenColourRules.js"
+import { MoorhenContextMenu } from "./MoorhenContextMenu.js"
 import { convertViewtoPx } from '../utils/MoorhenUtils.js';
 
 export const MoorhenWebMG = forwardRef((props, glRef) => {
     const scores = useRef({})
-    const windowResizedBinding = createRef(null)
     const [mapLineWidth, setMapLineWidth] = useState(1.0)
     const [connectedMolNo, setConnectedMolNo] = useState(null)
     const [scoresToastContents, setScoreToastContents] = useState(null)
+    const [showContextMenu, setShowContextMenu] = useState(false)
+    const busyGettingAtom = useRef(false)
 
     const setClipFogByZoom = () => {
         const fieldDepthFront = 8;
@@ -51,6 +53,62 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
             props.hoveredAtom.molecule.centreOn(glRef, `/*/${chainId}/${resNum}-${resNum}/*`)
         }
     }, [props.hoveredAtom, glRef])
+
+
+    const drawHBonds = async () => {
+        const visibleMolecules = props.molecules.filter(molecule => molecule.isVisible && molecule.hasVisibleBuffers())
+        if (visibleMolecules.length === 0) {
+            console.log("returning...",props.molecules)
+            return
+        }
+        busyGettingAtom.current = true
+        const response = await props.commandCentre.current.cootCommand({
+            returnType: "int_string_pair",
+            command: "get_active_atom",
+            commandArgs: [...glRef.current.origin.map(coord => coord * -1), visibleMolecules.map(molecule => molecule.molNo).join(':')]
+        })
+        const moleculeMolNo = response.data.result.result.first
+        const residueCid = response.data.result.result.second
+        const mol = props.molecules.find(molecule => molecule.molNo === moleculeMolNo)
+
+        if(mol) {
+            const cidSplit0 = residueCid.split(" ")[0]
+            const cidSplit = cidSplit0.replace(/\/+$/, "").split("/")
+            const resnum = cidSplit[cidSplit.length-1]
+            const oneCid = cidSplit.join("/")+"-"+resnum
+            const sel = new window.CCP4Module.Selection(oneCid)
+            const hbonds = await props.commandCentre.current.cootCommand({
+                returnType: "vector_hbond",
+                command: "get_hbonds",
+                commandArgs: [mol.molNo,oneCid]
+            })
+            const hbs = hbonds.data.result.result
+            mol.drawHBonds(glRef,hbs)
+        }
+        busyGettingAtom.current = false
+    }
+
+    const clearHBonds = useCallback(async (e) => {
+        if(props.drawInteractions)
+            return
+        props.molecules.forEach(mol => {
+                mol.drawGemmiAtoms(glRef,[],"originNeighbours",[1.0, 0.0, 0.0, 1.0],true,true)
+        })
+    },[props.drawInteractions,props.molecules])
+
+    const handleOriginUpdate = useCallback(async (e) => {
+        if (!busyGettingAtom.current&&props.drawInteractions) {
+            drawHBonds()
+        }
+    }, [props.commandCentre,props.drawInteractions,props.molecules])
+
+    useEffect(() => {
+        if(props.drawInteractions){
+            handleOriginUpdate()
+        } else {
+            clearHBonds()
+        }
+    }, [props.drawInteractions,props.molecules])
 
     const handleScoreUpdates = useCallback(async (e) => {
         if (e.detail?.modifiedMolecule !== null && connectedMolNo && connectedMolNo.molecule === e.detail.modifiedMolecule) {
@@ -123,6 +181,10 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
 
     const handleDisconnectMaps = () => {
         scores.current = {}
+        const selectedMolecule = props.molecules.find(molecule => molecule.molNo === connectedMolNo.molecule)
+        if (selectedMolecule) {
+            selectedMolecule.connectedToMaps = null
+        }
         setConnectedMolNo(null)
         setScoreToastContents(null)
     }
@@ -161,8 +223,16 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
             rFree: currentScores.data.result.result.free_r_factor
         }
 
+        if (connectedMolNo && evt.detail.molecule !== connectedMolNo.molecule) {
+            const previousConnectedMolecule = props.molecules.find(molecule => molecule.molNo === connectedMolNo.molecule)
+            previousConnectedMolecule.connectedToMaps = null    
+        }
+
         setConnectedMolNo(evt.detail)
-    }, [props.commandCentre, props.preferences.defaultUpdatingScores])
+        const selectedMolecule = props.molecules.find(molecule => molecule.molNo === evt.detail.molecule)
+        selectedMolecule.connectedToMaps = evt.detail.maps
+        
+    }, [props.commandCentre, props.preferences.defaultUpdatingScores, props.molecules, connectedMolNo])
 
     useEffect(() => {
         if (scores.current !== null && props.preferences.defaultUpdatingScores !== null && props.preferences.showScoresToast && connectedMolNo) {
@@ -189,6 +259,32 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
 
     }, [props.preferences.defaultUpdatingScores, props.preferences.showScoresToast]);
 
+    const handleWindowResized = useCallback((e) => {
+        glRef.current.setAmbientLightNoUpdate(0.2, 0.2, 0.2)
+        glRef.current.setSpecularLightNoUpdate(0.6, 0.6, 0.6)
+        glRef.current.setDiffuseLight(1., 1., 1.)
+        glRef.current.setLightPositionNoUpdate(10., 10., 60.)
+        if (props.preferences.resetClippingFogging) {
+            setClipFogByZoom()
+        }
+        glRef.current.resize(props.width(), props.height())
+        glRef.current.drawScene()
+    }, [glRef, props.width, props.height])
+
+    const handleRightClick = useCallback((e) => {
+        setShowContextMenu({ ...e.detail })
+    }, [])
+
+    useEffect(() => {
+        glRef.current.setAmbientLightNoUpdate(0.2, 0.2, 0.2)
+        glRef.current.setSpecularLightNoUpdate(0.6, 0.6, 0.6)
+        glRef.current.setDiffuseLight(1., 1., 1.)
+        glRef.current.setLightPositionNoUpdate(10., 10., 60.)
+        setClipFogByZoom()
+        glRef.current.resize(props.width(), props.height())
+        glRef.current.drawScene()
+    }, [])
+
     useEffect(() => {
         document.addEventListener("connectMaps", handleConnectMaps);
         return () => {
@@ -204,6 +300,14 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
         };
 
     }, [handleScoreUpdates]);
+
+    useEffect(() => {
+        document.addEventListener("originUpdate", handleOriginUpdate);
+        return () => {
+            document.removeEventListener("originUpdate", handleOriginUpdate);
+        };
+
+    }, [handleOriginUpdate]);
 
     useEffect(() => {
         document.addEventListener("goToBlobDoubleClick", handleGoToBlobDoubleClick);
@@ -229,23 +333,22 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }, [handleMiddleClickGoToAtom]);
 
     useEffect(() => {
-        glRef.current.setAmbientLightNoUpdate(0.2, 0.2, 0.2);
-        glRef.current.setSpecularLightNoUpdate(0.6, 0.6, 0.6);
-        glRef.current.setDiffuseLight(1., 1., 1.);
-        glRef.current.setLightPositionNoUpdate(10., 10., 60.);
-        setClipFogByZoom()
-        windowResizedBinding.current = window.addEventListener('resize', windowResized)
-        windowResized()
-        glRef.current.drawScene()
+        window.addEventListener('resize', handleWindowResized)
         return () => {
-            window.removeEventListener('resize', windowResizedBinding.current)
+            window.removeEventListener('resize', handleWindowResized)
         }
-    }, [glRef])
+    }, [handleWindowResized])
+
+    useEffect(() => {
+        document.addEventListener("rightClick", handleRightClick);
+        return () => {
+            document.removeEventListener("rightClick", handleRightClick);
+        };
+
+    }, [handleRightClick]);
 
     useEffect(() => {
         if (glRef.current) {
-            console.log('Stuff', glRef.current.background_colour, props.backgroundColor)
-            console.log(props)
             glRef.current.background_colour = props.backgroundColor
             glRef.current.drawScene()
         }
@@ -256,7 +359,6 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
 
     useEffect(() => {
         if (glRef.current) {
-            //console.log('Stuff', glRef.current.atomLabelDepthMode, props.atomLabelDepthMode)
             glRef.current.atomLabelDepthMode = props.atomLabelDepthMode
             glRef.current.drawScene()
         }
@@ -282,33 +384,42 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     useEffect(() => {
         if (connectedMolNo && props.maps.lenght === 0){
             handleDisconnectMaps()
-        } else if (connectedMolNo && !connectedMolNo.maps.every(mapMolNo => props.maps.includes(mapMolNo))){
+        } else if (connectedMolNo && !connectedMolNo.uniqueMaps.every(mapMolNo => props.maps.includes(mapMolNo))){
             handleDisconnectMaps()
         }
         props.maps.forEach(map => {
-            console.log('in map changed useEffect')
             if (map.webMGContour) {
                 map.contour(glRef.current)
             }
         })
     }, [props.maps, props.maps.length])
 
-    const windowResized = (e) => {
-        glRef.current.resize(props.width(), props.height())
-        glRef.current.drawScene()
+    /*
+    if(window.pyodide){
+        window.xxx = 42
+        window.yyy = [2,21,84]
+        window.zzz = {"foo":"bar","sna":"foo"}
+        window.zzz.fu = "kung"
+        window.pyodide.runPython(`
+        from js import window
+        zzz = window.zzz
+        zzz_py = zzz.to_py()
+        print("hello !!!!!!!!!!!!!!!!!!!!!!",window.xxx,window.yyy,len(window.yyy))
+        for k,v in zzz_py.items():
+            print(k,v)
+        `)
     }
-
+    */
     return  <>
                 <ToastContainer style={{ zIndex: '0', marginTop: "5rem", marginLeft: '0.5rem', textAlign:'left', alignItems: 'left', maxWidth: convertViewtoPx(40, props.windowWidth)}} position='top-start' >
                     {scoresToastContents !== null && props.preferences.showScoresToast &&
-                        <Toast bg='light' onClose={() => {}} autohide={false} show={true} style={{width: '100%'}}>
+                        <Toast onClose={() => {}} autohide={false} show={true} style={{width: '100%'}}>
                             {scoresToastContents}
                         </Toast>
                     }
-                    <MoorhenAdvancedDisplayOptions glRef={glRef} {...props}/>
+                    <MoorhenColourRules glRef={glRef} {...props}/>
                 </ToastContainer>
-
-                
+               
                 <MGWebGL
                     ref={glRef}
                     dataChanged={(d) => { console.log(d) }}
@@ -321,7 +432,28 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
                     showCrosshairs={props.preferences.drawCrosshairs}
                     showFPS={props.preferences.drawFPS}
                     mapLineWidth={mapLineWidth}
-                    drawMissingLoops={props.drawMissingLoops} />
+                    drawMissingLoops={props.drawMissingLoops}
+                    drawInteractions={props.drawInteractions} />
+
+                {showContextMenu && 
+                <MoorhenContextMenu 
+                    urlPrefix={props.urlPrefix}
+                    glRef={glRef}
+                    commandCentre={props.commandCentre}
+                    isDark={props.isDark}
+                    timeCapsuleRef={props.timeCapsuleRef}
+                    molecules={props.molecules}
+                    changeMolecules={props.changeMolecules}
+                    maps={props.maps}
+                    changeMaps={props.changeMaps}
+                    showContextMenu={showContextMenu}
+                    setShowContextMenu={setShowContextMenu}
+                    activeMap={props.activeMap}
+                    refineAfterMod={props.preferences.refineAfterMod}
+                    shortCuts={props.preferences.shortCuts}
+                    windowWidth={props.windowWidth}
+                    windowHeight={props.windowHeight}
+                />}
             </>
 });
 

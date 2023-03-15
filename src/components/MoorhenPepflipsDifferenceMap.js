@@ -30,12 +30,10 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
     }
 
     const handleModelChange = (evt) => {
-        console.log(`Selected model ${evt.target.value}`)
         setSelectedModel(parseInt(evt.target.value))
     }
 
     const handleMapChange = (evt) => {
-        console.log(`Selected map ${evt.target.value}`)
         setSelectedMap(parseInt(evt.target.value))
     }
 
@@ -49,7 +47,6 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
             }, true)
 
             if (props.refineAfterMod) {
-                console.log('Triggering post-modification triple refinement...')
                 await props.commandCentre.current.cootCommand({
                     returnType: "status",
                     command: 'refine_residues_using_atom_cid',
@@ -129,7 +126,7 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
 
     useEffect(() => {
 
-        if (selectedMap === null || selectedModel === null || selectedRmsd === null || !props.toolAccordionBodyHeight || !props.showSideBar) {
+        if (selectedMap === null || selectedModel === null || selectedRmsd === null || props.dropdownId !== props.accordionDropdownId || !props.showSideBar) {
             return;
         }
 
@@ -163,7 +160,7 @@ export const MoorhenPepflipsDifferenceMap = (props) => {
 
         setCardList(newCardList)
         
-    }, [pepflips, props.darkMode, props.toolAccordionBodyHeight, props.sideBarWidth, props.showSideBar])
+    }, [pepflips, props.backgroundColor, props.sideBarWidth, props.showSideBar])
 
     return <Fragment>
                 <Form style={{ padding:'0', margin: '0' }}>

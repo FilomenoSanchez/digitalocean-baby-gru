@@ -42,21 +42,18 @@ export const MoorhenHistoryMenu = (props) => {
     const [sessionHistory, setSessionHistory] = useState({ rootNode: { title: "Empty", children: [], key: 0 } })
 
     useEffect(() => {
-        console.log('CommandHistory', props.commandHistory)
         if (props.commandHistory && props.commandHistory.rootNode && showHistory) {
             setSessionHistory(props.commandHistory)
         }
     }, [props.commandHistory])
 
     useEffect(() => {
-        console.log('show history changed', showHistory, props.commandHistory)
         if (props.commandHistory && props.commandHistory.rootNode && showHistory) {
             setSessionHistory(props.commandHistory)
         }
     }, [showHistory])
 
     const executeJournalFiles = (files) => {
-        console.log(files)
         for (const source of files) {
             readTextFile(source)
                 .then(contents => {
@@ -69,7 +66,6 @@ export const MoorhenHistoryMenu = (props) => {
     const executeSessionHistory = (commands) => {
         commands.filter(command => command.returnType === "status").reduce(
             (p, nextCommand) => {
-                //console.log(`Redrawing ${style}`, $this.atomsDirty)
                 return p.then(() => props.commandCentre.current.cootCommand({
                     returnType: nextCommand.returnType,
                     command: nextCommand.command,
@@ -79,7 +75,7 @@ export const MoorhenHistoryMenu = (props) => {
                     // If this was a command to read a molecule, then teh corresponding
                     //MoorhenMolecule has to be created
                     if (nextCommand.command === 'shim_read_pdb') {
-                        const newMolecule = new MoorhenMolecule(props.commandCentre, props.urlPrefix)
+                        const newMolecule = new MoorhenMolecule(props.commandCentre, props.monomerLibraryPath)
                         newMolecule.molNo = reply.data.result.result
                         newMolecule.name = nextCommand.commandArgs[1]
                         newMolecule.centreOn(props.glRef, null, false)
@@ -97,7 +93,6 @@ export const MoorhenHistoryMenu = (props) => {
             },
             Promise.resolve()
         ).then(_ => {
-            console.log('Done editing', props.glRef.current)
             props.molecules.forEach(molecule => {
                 molecule.redraw(props.glRef)
             })
