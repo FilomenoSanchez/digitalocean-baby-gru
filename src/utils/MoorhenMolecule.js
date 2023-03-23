@@ -59,15 +59,48 @@ export function MoorhenMolecule(commandCentre, monomerLibraryPath) {
     this.monomerLibraryPath = (typeof monomerLibraryPath === 'undefined' ? "./baby-gru/monomers" : monomerLibraryPath)
 };
 
-MoorhenMolecule.prototype.getSymmetry = async function (radius=500) {
+MoorhenMolecule.prototype.replaceModelWithFile = async function (fileUrl, glRef) {
+    let coordData
+    let fetchResponse
+    
+    try {
+        fetchResponse = await fetch(fileUrl)
+    } catch (err) {
+        return Promise.reject(`Unable to fetch file ${fileUrl}`)
+    }
+    
+    if (fetchResponse.ok) {
+        coordData = await fetchResponse.text()
+    } else {
+        return Promise.reject(`Error fetching data from url ${fileUrl}`)
+    }
+
+    const cootResponse = await this.commandCentre.current.cootCommand({
+        returnType: "status",
+        command: 'shim_replace_molecule_by_model_from_file',
+        commandArgs: [this.molNo, coordData]
+    }, true)
+    
+    if (cootResponse.data.result.status === 'Completed') {
+        this.atomsDirty = true
+        return this.redraw(glRef).then(this.centreOn(glRef, null, true))
+    }
+    
+    return Promise.reject(cootResponse.data.result.status)
+}
+
+MoorhenMolecule.prototype.displaySymmetry = async function (radius=10) {
     const selectionAtoms = await this.gemmiAtomsForCid('/*/*/*/*')
     const selectionCentre = centreOnGemmiAtoms(selectionAtoms)
+    console.log(`DEBUG: Attempting to get symmetry for imol ${this.molNo} using selection radius ${radius} and coords ${selectionCentre}`)
     const response = await this.commandCentre.current.cootCommand({
         returnType: "symmetry",
         command: 'get_symmetry',
-        commandArgs: [this.molNo, radius, selectionCentre[0]*-1, selectionCentre[1]*-1, selectionCentre[2]*-1]
+        commandArgs: [this.molNo, radius, ...selectionCentre]
     }, true)
-    return response
+    console.log('DEBUG: Received the following symmetry data:')
+    console.log(response.data.result.result)
+    
 }
 
 MoorhenMolecule.prototype.setBackgroundColour = function (backgroundColour) {
@@ -219,9 +252,10 @@ MoorhenMolecule.prototype.copyFragmentUsingCid = async function (cid, background
     })
 }
 
-MoorhenMolecule.prototype.loadToCootFromURL = function (url, molName) {
+MoorhenMolecule.prototype.loadToCootFromURL = function (url, molName, timeout=999999) {
     const $this = this
-    return fetch(url)
+    const timeoutSignal = AbortSignal.timeout(timeout);
+    return fetch(url, {signal: timeoutSignal})
         .then(response => {
             if (response.ok) {
                 return response.text()
@@ -230,7 +264,9 @@ MoorhenMolecule.prototype.loadToCootFromURL = function (url, molName) {
             }
         })
         .then(coordData => $this.loadToCootFromString(coordData, molName))
-        .catch(err => Promise.reject(err))
+        .catch(err =>{
+            return Promise.reject(err)
+        })
 }
 
 MoorhenMolecule.prototype.loadToCootFromFile = function (source) {
@@ -744,6 +780,12 @@ MoorhenMolecule.prototype.drawCootSelectionBonds = async function (glRef, name, 
 
     return meshCommand
         .then(async response => {
+
+            console.log(response.data.timeMainThreadToWorker)
+            console.log(response.data.timelibcootAPI)
+            console.log(response.data.timeconvertingWASMJS)
+            console.log(`Message from worker back to main thread took ${Date.now() - response.data.messageSendTime} ms (get_bonds_mesh_instanced) - (${response.data.messageId.slice(0, 5)})`)
+
             const objects = [response.data.result.result]
             if (objects.length > 0 && !this.gemmiStructure.isDeleted()) {
                 //Empty existing buffers of this type

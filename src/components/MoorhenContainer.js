@@ -7,7 +7,7 @@ import { MoorhenButtonBar } from './MoorhenButtonBar';
 import { Backdrop } from "@mui/material";
 import { historyReducer, initialHistoryState } from './MoorhenHistoryMenu';
 import { PreferencesContext } from "../utils/MoorhenPreferences";
-import { babyGruKeyPress } from './MoorhenKeyboardAccelerators';
+import { babyGruKeyPress } from '../utils/MoorhenKeyboardAccelerators';
 import { MoorhenSideBar } from './MoorhenSideBar';
 import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
 import { MoorhenNavBar } from "./MoorhenNavBar"
@@ -66,7 +66,6 @@ export const MoorhenContainer = (props) => {
     moleculesRef.current = molecules
     mapsRef.current = maps
     activeMapRef.current = activeMap
-    const innerWindowMarginHeight = convertRemToPx(0.5)
     const innerWindowMarginWidth = convertRemToPx(1)
 
     const setWindowDimensions = () => {
@@ -177,7 +176,9 @@ export const MoorhenContainer = (props) => {
     }, [])
 
     useEffect(() => {
-        consoleDivRef.current.scrollTop = consoleDivRef.current.scrollHeight;
+        if(consoleDivRef.current !== null) {
+            consoleDivRef.current.scrollTop = consoleDivRef.current.scrollHeight;
+        }
     }, [consoleMessage])
 
     const onAtomHovered = useCallback(identifier => {
@@ -204,7 +205,7 @@ export const MoorhenContainer = (props) => {
     //Make this so that the keyPress returns true or false, depending on whether mgWebGL is to continue processing event
     const onKeyPress = useCallback(event => {
         return babyGruKeyPress(event, collectedProps, JSON.parse(preferences.shortCuts))
-    }, [molecules, activeMolecule, activeMap, hoveredAtom, preferences])
+    }, [molecules, activeMolecule, activeMap, hoveredAtom, props.viewOnly, preferences])
 
     useEffect(() => {
         if (hoveredAtom && hoveredAtom.molecule && hoveredAtom.cid) {
@@ -269,7 +270,7 @@ export const MoorhenContainer = (props) => {
     }
 
     const webGLHeight = () => {
-        return windowHeight - (convertRemToPx(2.2))
+        return windowHeight - (props.viewOnly ? 0: convertRemToPx(2.2))
     }
 
     const isDark = isDarkBackground(...backgroundColor)
@@ -280,7 +281,8 @@ export const MoorhenContainer = (props) => {
         setToastContent, currentDropdownId, setCurrentDropdownId, hoveredAtom, setHoveredAtom, showToast, setShowToast,
         windowWidth, windowHeight, innerWindowMarginWidth, showColourRulesToast, timeCapsuleRef, setShowColourRulesToast, 
         isDark, exportCallback: props.exportCallback, disableFileUploads: props.disableFileUploads, urlPrefix: props.urlPrefix, 
-        extraMenus:props.extraMenus, monomerLibraryPath: props.monomerLibraryPath, moleculesRef, mapsRef, ...preferences
+        viewOnly: props.viewOnly, extraMenus:props.extraMenus, monomerLibraryPath: props.monomerLibraryPath, moleculesRef, mapsRef,
+        ...preferences
     }
 
     return <> <div>
@@ -290,7 +292,7 @@ export const MoorhenContainer = (props) => {
             <span>Starting moorhen...</span>
         </Backdrop>
         
-        <MoorhenNavBar {...collectedProps} busy={busy}/>
+        {!props.viewOnly && <MoorhenNavBar {...collectedProps} busy={busy}/>}
         
     </div>
         <Container fluid className={`baby-gru ${theme}`}>
@@ -316,6 +318,7 @@ export const MoorhenContainer = (props) => {
                             width={webGLWidth}
                             height={webGLHeight}
                             backgroundColor={backgroundColor}
+                            setBackgroundColor={setBackgroundColor}
                             isDark={isDark}
                             atomLabelDepthMode={preferences.atomLabelDepthMode}
                             onAtomHovered={onAtomHovered}
@@ -328,12 +331,13 @@ export const MoorhenContainer = (props) => {
                             windowWidth={windowWidth}
                             urlPrefix={props.urlPrefix}
                             activeMap={activeMap}
+                            viewOnly={props.viewOnly}
                             drawInteractions={preferences.drawInteractions}
                         />
                     </div>
-                    <MoorhenButtonBar {...collectedProps} />
+                    {!props.viewOnly && <MoorhenButtonBar {...collectedProps} />}
                 </Col>
-                <MoorhenSideBar {...collectedProps} busy={busy} consoleMessage={consoleMessage} ref={consoleDivRef} />
+                {!props.viewOnly && <MoorhenSideBar {...collectedProps} busy={busy} consoleMessage={consoleMessage} ref={consoleDivRef} />}
             </Row>
             <ToastContainer style={{ marginTop: "5rem" }} position='top-center' >
                 <Toast bg='light' onClose={() => setShowToast(false)} autohide={true} delay={4000} show={showToast} style={{overflowY: 'scroll', maxHeight: convertViewtoPx(80, webGLHeight())}}>
@@ -351,5 +355,6 @@ MoorhenContainer.defaultProps = {
     monomerLibraryPath: './baby-gru/monomers',
     exportCallback: null,
     disableFileUploads: false,
-    extraMenus:[]
+    extraMenus: [],
+    viewOnly: false
 }

@@ -305,25 +305,26 @@ const stringArrayToJSArray = (stringArray) => {
 
 const symmetryToJSData = (symmetryData) => {
     let result = []
+    console.log('DEBUG: in cootWorker helper function')
     const symmetrySize = symmetryData.size()
-
+    console.log(`DEBUG: the vector received from molecules_container.get_symmetry has a size of ${symmetrySize}`)
     for (let i = 0; i < symmetrySize; i++) {
-        const currentSymmetry = symmetryData.at(i)
-        const symTransT = currentSymmetry.first()
-        const cellTranslation = currentSymmetry.second()
+        const currentSymmetry = symmetryData.get(i)
+        const symTransT = currentSymmetry.first
+        const cellTranslation = currentSymmetry.second
 
         result.push({
-            x: currentSymmetry.x(),
-            y: currentSymmetry.y(),
-            z: currentSymmetry.z(),
-            asString: currentSymmetry.symm_as_string(),
+            x: symTransT.x(),
+            y: symTransT.y(),
+            z: symTransT.z(),
+            asString: symTransT.symm_as_string,
+            isym: symTransT.isym(),
             us: cellTranslation.us,
             ws: cellTranslation.ws,
             vs: cellTranslation.vs
         })
-
+        
         symTransT.delete()
-        currentSymmetry.delete()
     }
 
     symmetryData.delete()
@@ -566,6 +567,15 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
+const replace_molecule_by_model_from_file = (imol, coordData) => {
+    const theGuid = guid()
+    const tempFilename = `./${theGuid}.pdb`
+    cootModule.FS_createDataFile(".", tempFilename, coordData, true, true)
+    const result = molecules_container.replace_molecule_by_model_from_file(imol, tempFilename)
+    cootModule.FS_unlink(tempFilename)
+    return result
+}
+
 const new_positions_for_residue_atoms = (molToUpDate, residues) => {
     let success = 0
     residues.forEach(atoms => {
@@ -778,8 +788,12 @@ onmessage = function (e) {
     }
 
     if (e.data.message === 'coot_command') {
-        const { returnType, command, commandArgs, message, messageId, myTimeStamp } = e.data
+        const { returnType, command, commandArgs, messageId } = e.data
         try {
+            
+            const timeMainThreadToWorker = `Message from main thread to worker took ${Date.now() - e.data.myTimeStamp } ms (${command}) - (${messageId.slice(0, 5)})`
+            
+            let startTime = new Date()
 
             /* A debug message to show tht commands are reachng CootWorker
             postMessage({ consoleMessage: `Received ${command} with args ${commandArgs}` })
@@ -810,11 +824,18 @@ onmessage = function (e) {
             else if (command === 'shim_associate_data_mtz_file_with_map') {
                 cootResult = associate_data_mtz_file_with_map(...commandArgs)
             }
+            else if (command === 'shim_replace_molecule_by_model_from_file') {
+                cootResult = replace_molecule_by_model_from_file(...commandArgs)
+            }
             else {
                 cootResult = molecules_container[command](...commandArgs)
             }
 
+            let endTime = new Date()
+            let timeDiff = endTime - startTime
+            const timelibcootAPI = `libcootAPI command ${command} took ${timeDiff} ms  - (${messageId.slice(0, 5)})`
             let returnResult;
+            startTime = new Date()
 
             switch (returnType) {
                 case 'instanced_mesh_perm':
@@ -877,12 +898,18 @@ onmessage = function (e) {
                     break;
             }
 
+            endTime = new Date()
+            timeDiff = endTime - startTime
+            const timeconvertingWASMJS = `conversion of output of ${command} to JS data took ${timeDiff} ms  - (${messageId.slice(0, 5)})`
+            
             postMessage({
-                returnType, command, message, messageId, myTimeStamp,
+                timelibcootAPI, timeconvertingWASMJS, timeMainThreadToWorker,
+                messageId, messageSendTime: Date.now(),
                 consoleMessage: `Completed ${command} in ${Date.now() - e.data.myTimeStamp} ms`,
                 result: { status: 'Completed', result: returnResult }
             })
         }
+
         catch (err) {
             console.log(err)
             postMessage({
