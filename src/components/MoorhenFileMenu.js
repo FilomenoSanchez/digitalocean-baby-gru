@@ -46,12 +46,6 @@ export const MoorhenFileMenu = (props) => {
         return newMolecule.loadToCootFromFile(file)
     }
 
-    const doExportCallback = async () => {
-        let moleculePromises = props.molecules.map(molecule => {return molecule.getAtoms()})
-        let moleculeAtoms = await Promise.all(moleculePromises)
-        props.molecules.forEach((molecule, index) => props.exportCallback(molecule.name, moleculeAtoms[index].data.result.pdbData))
-    }
-
     const fetchFiles = () => {
         if (remoteSource === "PDBe") {
             fetchFilesFromEBI()
@@ -272,6 +266,7 @@ export const MoorhenFileMenu = (props) => {
         glRef.current.set_clip_range(sessionData.clipStart, sessionData.clipEnd, false)
         glRef.current.doDrawClickedAtomLines = sessionData.doDrawClickedAtomLines
         glRef.current.atomLabelDepthMode = sessionData.atomLabelDepthMode
+        glRef.current.clipCapPerfectSpheres = sessionData.clipCap
         glRef.current.background_colour = sessionData.backgroundColor
         glRef.current.setOrigin(sessionData.origin, false)
         glRef.current.setQuat(sessionData.quat4)
@@ -479,17 +474,13 @@ export const MoorhenFileMenu = (props) => {
                         Download session
                     </MenuItem>
 
-                    <MenuItem id='save-session-menu-item' variant="success" onClick={createBackup}>
+                    <MenuItem id='save-session-menu-item' variant="success" onClick={createBackup} disabled={!props.enableTimeCapsule}>
                         Save molecule backup
                     </MenuItem>
                     
-                    <MoorhenBackupsMenuItem {...menuItemProps} setShowBackupsModal={setShowBackupsModal} loadSessionJSON={loadSessionJSON} />
+                    <MoorhenBackupsMenuItem {...menuItemProps} disabled={!props.enableTimeCapsule} setShowBackupsModal={setShowBackupsModal} loadSessionJSON={loadSessionJSON} />
 
-                    {props.exportCallback &&
-                        <MenuItem id='cloud-export-menu-item' variant="success" onClick={doExportCallback}>
-                            Export to CCP4 Cloud
-                        </MenuItem>
-                    }
+                    {props.extraFileMenuItems && props.extraFileMenuItems.map( menu => menu)}
                     
                     <hr></hr>
 

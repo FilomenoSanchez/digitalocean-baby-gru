@@ -6,7 +6,7 @@ import { GetSplinesColoured } from '../WebGLgComponents/mgSecStr';
 import { atomsToSpheresInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
 import { contactsToCylindersInfo, contactsToLinesInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
 import { singletonsToLinesInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
-import { readTextFile, readGemmiStructure, cidToSpec, residueCodesThreeToOne, centreOnGemmiAtoms, getBufferAtoms, nucleotideCodesThreeToOne, hexToHsl } from './MoorhenUtils'
+import { guid, readTextFile, readGemmiStructure, cidToSpec, residueCodesThreeToOne, centreOnGemmiAtoms, getBufferAtoms, nucleotideCodesThreeToOne, hexToHsl } from './MoorhenUtils'
 import { quatToMat4 } from '../WebGLgComponents/quatToMat4.js';
 import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
 import * as vec3 from 'gl-matrix/vec3';
@@ -28,6 +28,8 @@ export function MoorhenMolecule(commandCentre, monomerLibraryPath) {
     this.ligands = null
     this.connectedToMaps = null
     this.excludedSegments = []
+    this.symmetryOn = false
+    this.symmetryRadius = 25
     this.gaussianSurfaceSettings = {
         sigma: 4.4,
         countourLevel: 4.0,
@@ -56,10 +58,11 @@ export function MoorhenMolecule(commandCentre, monomerLibraryPath) {
         originNeighbours: [],
         transformation: { origin: [0, 0, 0], quat: null, centre: [0, 0, 0] }
     }
+    this.uniqueId = guid()
     this.monomerLibraryPath = (typeof monomerLibraryPath === 'undefined' ? "./baby-gru/monomers" : monomerLibraryPath)
 };
 
-MoorhenMolecule.prototype.replaceModelWithFile = async function (fileUrl, glRef) {
+MoorhenMolecule.prototype.replaceModelWithFile = async function (glRef, fileUrl, molName) {
     let coordData
     let fetchResponse
     
@@ -83,24 +86,45 @@ MoorhenMolecule.prototype.replaceModelWithFile = async function (fileUrl, glRef)
     
     if (cootResponse.data.result.status === 'Completed') {
         this.atomsDirty = true
-        return this.redraw(glRef).then(this.centreOn(glRef, null, true))
+        return this.redraw(glRef)
     }
     
     return Promise.reject(cootResponse.data.result.status)
 }
 
-MoorhenMolecule.prototype.displaySymmetry = async function (radius=10) {
-    const selectionAtoms = await this.gemmiAtomsForCid('/*/*/*/*')
-    const selectionCentre = centreOnGemmiAtoms(selectionAtoms)
-    console.log(`DEBUG: Attempting to get symmetry for imol ${this.molNo} using selection radius ${radius} and coords ${selectionCentre}`)
-    const response = await this.commandCentre.current.cootCommand({
-        returnType: "symmetry",
-        command: 'get_symmetry',
-        commandArgs: [this.molNo, radius, ...selectionCentre]
-    }, true)
-    console.log('DEBUG: Received the following symmetry data:')
-    console.log(response.data.result.result)
-    
+MoorhenMolecule.prototype.toggleSymmetry = function (glRef) {
+    this.symmetryOn = !this.symmetryOn;
+    return this.drawSymmetry(glRef)
+}
+
+MoorhenMolecule.prototype.setSymmetryRadius = function (radius, glRef) {
+    this.symmetryRadius = radius
+    return this.drawSymmetry(glRef)
+}
+
+MoorhenMolecule.prototype.drawSymmetry = async function (glRef) {
+    let symmetryMatrices = []
+
+    if(this.symmetryOn){
+        const selectionCentre = glRef.current.origin.map(coord => -coord)
+        const response = await this.commandCentre.current.cootCommand({
+            returnType: "symmetry",
+            command: 'get_symmetry_with_matrices',
+            commandArgs: [this.molNo, this.symmetryRadius, ...selectionCentre]
+        }, true)
+        symmetryMatrices = response.data.result.result.map(symm => symm.matrix)
+    }
+
+     Object.keys(this.displayObjects)
+        .filter(key => !['hover', 'originNeighbours', 'selection', 'transformation', 'contact_dots', 'chemical_features', 'VdWSurface'].some(style => key.includes(style)))
+        .forEach(displayObjectType => {
+            if(this.displayObjects[displayObjectType].length > 0) {
+                this.displayObjects[displayObjectType].forEach(displayObject => {
+                    displayObject.symmetryMatrices = symmetryMatrices
+                })
+            }
+    })
+    glRef.current.drawScene()
 }
 
 MoorhenMolecule.prototype.setBackgroundColour = function (backgroundColour) {
@@ -119,6 +143,28 @@ MoorhenMolecule.prototype.updateGemmiStructure = async function () {
     return Promise.resolve()
 }
 
+MoorhenMolecule.prototype.getUnitCellParams = function () {
+    if (this.gemmiStructure === null) {
+        return
+    }
+
+    const structure = this.gemmiStructure.clone()
+    const unitCell = this.gemmiStructure.cell
+
+    const unitCellParams = {
+        a: unitCell.a,
+        b: unitCell.b,
+        c: unitCell.c,
+        alpha: unitCell.alpha,
+        beta: unitCell.beta,
+        gamma: unitCell.gamma
+    }
+
+    structure.delete()
+    unitCell.delete()
+
+    return unitCellParams
+}
 MoorhenMolecule.prototype.parseSequences = function () {
     if (this.gemmiStructure === null) {
         return
@@ -252,10 +298,9 @@ MoorhenMolecule.prototype.copyFragmentUsingCid = async function (cid, background
     })
 }
 
-MoorhenMolecule.prototype.loadToCootFromURL = function (url, molName, timeout=999999) {
+MoorhenMolecule.prototype.loadToCootFromURL = function (url, molName) {
     const $this = this
-    const timeoutSignal = AbortSignal.timeout(timeout);
-    return fetch(url, {signal: timeoutSignal})
+    return fetch(url)
         .then(response => {
             if (response.ok) {
                 return response.text()
@@ -640,8 +685,8 @@ MoorhenMolecule.prototype.drawWithStyleFromAtoms = async function (style, glRef)
 
 MoorhenMolecule.prototype.addBuffersOfStyle = function (glRef, objects, style) {
     const $this = this
-    objects.forEach(object => {
-        var a = glRef.current.appendOtherData(object, true);
+    objects.filter(object => typeof object !== 'undefined' && object !== null).forEach(object => {
+        const a = glRef.current.appendOtherData(object, true);
         $this.displayObjects[style] = $this.displayObjects[style].concat(a)
     })
     glRef.current.buildBuffers();
@@ -676,7 +721,7 @@ MoorhenMolecule.prototype.drawCootContactDotsCid = function (glRef, style) {
         //Empty existing buffers of this type
         this.clearBuffersOfStyle(style, glRef)
         this.addBuffersOfStyle(glRef, objects, style)
-    })
+    }).catch(err => console.log(err))
 }
 
 MoorhenMolecule.prototype.drawCootChemicalFeaturesCid = function (glRef, style) {
@@ -692,7 +737,7 @@ MoorhenMolecule.prototype.drawCootChemicalFeaturesCid = function (glRef, style) 
         //Empty existing buffers of this type
         this.clearBuffersOfStyle(style, glRef)
         this.addBuffersOfStyle(glRef, objects, style)
-    })
+    }).catch(err => console.log(err))
 }
 
 MoorhenMolecule.prototype.drawCootContactDots = function (glRef) {
@@ -709,7 +754,7 @@ MoorhenMolecule.prototype.drawCootContactDots = function (glRef) {
         //Empty existing buffers of this type
         this.clearBuffersOfStyle(style, glRef)
         this.addBuffersOfStyle(glRef, objects, style)
-    })
+    }).catch(err => console.log(err))
 }
 
 MoorhenMolecule.prototype.drawRotamerDodecahedra = function (glRef) {
@@ -724,7 +769,7 @@ MoorhenMolecule.prototype.drawRotamerDodecahedra = function (glRef) {
         //Empty existing buffers of this type
         this.clearBuffersOfStyle(style, glRef)
         this.addBuffersOfStyle(glRef, objects, style)
-    })
+    }).catch(err => console.log(err))
 }
 
 MoorhenMolecule.prototype.drawCootLigands = async function (glRef) {
@@ -780,12 +825,6 @@ MoorhenMolecule.prototype.drawCootSelectionBonds = async function (glRef, name, 
 
     return meshCommand
         .then(async response => {
-
-            console.log(response.data.timeMainThreadToWorker)
-            console.log(response.data.timelibcootAPI)
-            console.log(response.data.timeconvertingWASMJS)
-            console.log(`Message from worker back to main thread took ${Date.now() - response.data.messageSendTime} ms (get_bonds_mesh_instanced) - (${response.data.messageId.slice(0, 5)})`)
-
             const objects = [response.data.result.result]
             if (objects.length > 0 && !this.gemmiStructure.isDeleted()) {
                 //Empty existing buffers of this type
@@ -842,7 +881,7 @@ MoorhenMolecule.prototype.drawCootGaussianSurface = async function (glRef) {
             this.clearBuffersOfStyle(style, glRef)
         }
         return Promise.resolve(true)
-    })
+    }).catch(err => console.log(err))
 }
 
 MoorhenMolecule.prototype.drawCootRepresentation = async function (glRef, style) {
@@ -904,14 +943,14 @@ MoorhenMolecule.prototype.drawCootRepresentation = async function (glRef, style)
             this.clearBuffersOfStyle(style, glRef)
             this.addBuffersOfStyle(glRef, objects, style)
             let bufferAtoms = getBufferAtoms(this.gemmiStructure.clone())
-            if (bufferAtoms.length > 0) {
+            if (bufferAtoms.length > 0 && this.displayObjects[style].length > 0) {
                 this.displayObjects[style][0].atoms = bufferAtoms
             }
         } else {
             this.clearBuffersOfStyle(style, glRef)
         }
         return Promise.resolve(true)
-    })
+    }).catch(err => console.log(err))
 }
 
 MoorhenMolecule.prototype.show = function (style, glRef) {
@@ -921,6 +960,7 @@ MoorhenMolecule.prototype.show = function (style, glRef) {
     if (this.displayObjects[style].length === 0) {
         return this.fetchIfDirtyAndDraw(style, glRef)
             .then(_ => { glRef.current.drawScene() })
+            .catch(err => console.log(err))
     }
     else {
         this.displayObjects[style].forEach(displayBuffer => {
@@ -1431,8 +1471,10 @@ MoorhenMolecule.prototype.redraw = function (glRef) {
     return promise.then(_ => {
         return itemsToRedraw.reduce(
             (p, style) => {
-                return p.then(() => $this.fetchIfDirtyAndDraw(style, glRef)
-                )
+                return p.then(() => {
+                   $this.fetchIfDirtyAndDraw(style, glRef)
+                   $this.drawSymmetry(glRef)
+                })
             },
             Promise.resolve()
         )

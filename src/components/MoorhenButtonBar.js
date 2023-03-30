@@ -88,13 +88,13 @@ export const MoorhenButtonBar = (props) => {
         let currentItem = []
 
         editButtons.forEach(button => {
-            currentItem.push(button)
             currentlyUsedWidth += buttonWidth
             if (currentlyUsedWidth >= maximumAllowedWidth) {
                 carouselItems.push(currentItem)
                 currentItem = []
                 currentlyUsedWidth = 0
             }
+            currentItem.push(button)
         })
         
         if (currentItem.length > 0) {
@@ -203,6 +203,7 @@ export const MoorhenButtonBar = (props) => {
             onMouseOut={() => {if(!popoverIsShownRef.current) setOpacity(0.5) }}
             >
         <Carousel 
+                className="stop-scrolling"
                 style={{marginBottom: '0.1rem'}}
                 key={carouselItems.length}
                 variant={props.isDark ? "light" : "dark"} 

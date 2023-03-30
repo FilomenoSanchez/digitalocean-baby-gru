@@ -1245,6 +1245,7 @@ class DisplayBuffer {
         this.transparent = false;
         this.alphaChanged = false;
         this.atoms = [];
+        this.symmetryMatrices = [];
         this.texture = null;
         this.clearBuffers();
     }
@@ -1547,6 +1548,7 @@ class MGWebGL extends Component {
         this.gl_clipPlane5 = new Float32Array(4);
         this.gl_clipPlane6 = new Float32Array(4);
         this.gl_clipPlane7 = new Float32Array(4);
+        this.clipCapPerfectSpheres = false;
         this.labelledAtoms = [];
         this.measuredAtoms = [];
         this.textLabels = [];
@@ -4934,6 +4936,7 @@ class MGWebGL extends Component {
         this.shaderProgramPerfectSpheres.clipPlane6 = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "clipPlane6");
         this.shaderProgramPerfectSpheres.clipPlane7 = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "clipPlane7");
         this.shaderProgramPerfectSpheres.nClipPlanes = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "nClipPlanes");
+        this.shaderProgramPerfectSpheres.clipCap = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "clipCap");
     }
 
     initImageShaders(vertexShader, fragmentShader) {
@@ -6639,6 +6642,55 @@ class MGWebGL extends Component {
                 } else {
                     this.instanced_ext.drawElementsInstancedANGLE(vertexType, drawBuffer.numItems, this.gl.UNSIGNED_INT, 0, theBuffer.triangleInstanceOriginBuffer[j].numItems);
                 }
+                if(theBuffer.symmetryMatrices.length>0){
+                    var tempMVMatrix = mat4.create();
+                    var tempMVInvMatrix = mat4.create();
+                    for (var isym = 0; isym < theBuffer.symmetryMatrices.length; isym++) {
+
+                        var symt = mat4.create();
+                        mat4.set(symt,
+                        theBuffer.symmetryMatrices[isym][0],
+                        theBuffer.symmetryMatrices[isym][1],
+                        theBuffer.symmetryMatrices[isym][2],
+                        theBuffer.symmetryMatrices[isym][3],
+                        theBuffer.symmetryMatrices[isym][4],
+                        theBuffer.symmetryMatrices[isym][5],
+                        theBuffer.symmetryMatrices[isym][6],
+                        theBuffer.symmetryMatrices[isym][7],
+                        theBuffer.symmetryMatrices[isym][8],
+                        theBuffer.symmetryMatrices[isym][9],
+                        theBuffer.symmetryMatrices[isym][10],
+                        theBuffer.symmetryMatrices[isym][11],
+                        theBuffer.symmetryMatrices[isym][12],
+                        theBuffer.symmetryMatrices[isym][13],
+                        theBuffer.symmetryMatrices[isym][14],
+                        theBuffer.symmetryMatrices[isym][15])
+                        //console.log(isym)
+                        //console.log(theBuffer.symmetryMatrices[isym])
+                        mat4.multiply(tempMVMatrix, this.mvMatrix, symt);
+                        this.gl.uniformMatrix4fv(theShader.mvMatrixUniform, false, tempMVMatrix);
+                        tempMVMatrix[12] = 0.0;
+                        tempMVMatrix[13] = 0.0;
+                        tempMVMatrix[14] = 0.0;
+                        mat4.invert(tempMVInvMatrix, tempMVMatrix);// All else
+                        this.gl.uniformMatrix4fv(theShader.mvInvMatrixUniform, false, tempMVInvMatrix);// All else
+                        let screenZ = vec3.create();
+                        screenZ[0] = 0.0;
+                        screenZ[1] = 0.0;
+                        screenZ[2] = 1.0;
+                        vec3.transformMat4(screenZ, screenZ, tempMVInvMatrix);
+                        this.gl.uniform3fv(theShader.screenZ, screenZ);
+                        if (this.WEBGL2) {
+                            this.gl.drawElementsInstanced(vertexType, drawBuffer.numItems, this.gl.UNSIGNED_INT, 0, theBuffer.triangleInstanceOriginBuffer[j].numItems);
+                        } else {
+                            this.instanced_ext.drawElementsInstancedANGLE(vertexType, drawBuffer.numItems, this.gl.UNSIGNED_INT, 0, theBuffer.triangleInstanceOriginBuffer[j].numItems);
+                        }
+
+                    }
+                    this.gl.uniformMatrix4fv(theShader.mvMatrixUniform, false, this.mvMatrix);// All else
+                    this.gl.uniformMatrix4fv(theShader.mvInvMatrixUniform, false, this.mvInvMatrix);// All else
+                    this.gl.enableVertexAttribArray(theShader.vertexColourAttribute);
+                }
                 this.gl.disableVertexAttribArray(theShader.vertexInstanceOriginAttribute);
                 this.gl.disableVertexAttribArray(theShader.vertexInstanceSizeAttribute);
                 this.gl.disableVertexAttribArray(theShader.vertexInstanceOrientationAttribute);
@@ -7880,6 +7932,7 @@ class MGWebGL extends Component {
                     this.gl.useProgram(program);
                     this.setMatrixUniforms(program);
                     this.setLightUniforms(program);
+                    this.gl.uniform1i(program.clipCap,this.clipCapPerfectSpheres);
                     this.gl.disableVertexAttribArray(program.vertexColourAttribute);
                     this.gl.enableVertexAttribArray(program.vertexTextureAttribute);
                 }
@@ -10150,7 +10203,7 @@ class MGWebGL extends Component {
             const font = `${fontSize > 20 ? 20 : fontSize}px helvetica`
             this.showShortCutHelp.forEach((shortcut, index) => {
                 const xpos = -23.5 * ratio
-                const ypos = 20 - index
+                const ypos = -21.5 + index
                 drawString(shortcut, xpos, ypos, 0.0, font, false)
             });
         }

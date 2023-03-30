@@ -23,9 +23,10 @@ const updateStoredPreferences = async (key, value) => {
 
 const getDefaultValues = () => {
     return {
-        version: 'v19',
+        version: 'v22',
         defaultBackgroundColor: [1, 1, 1, 1], 
         atomLabelDepthMode: true, 
+        enableTimeCapsule: true, 
         defaultExpandDisplayCards: true,
         defaultMapLitLines: false,
         refineAfterMod: true,
@@ -33,9 +34,9 @@ const getDefaultValues = () => {
         drawFPS: false,
         drawMissingLoops: true,
         drawInteractions: false,
-        mouseSensitivity: 2.0,
+        mouseSensitivity: 0.3,
         wheelSensitivityFactor: 1.0,
-        mapLineWidth: 1.0,
+        mapLineWidth: 0.46,
         makeBackups: true,
         showShortcutToast: true,
         defaultMapSurface: false,
@@ -43,6 +44,7 @@ const getDefaultValues = () => {
         showScoresToast: true,
         shortcutOnHoveredAtom: true,
         resetClippingFogging: true,
+        clipCap: false,
         defaultUpdatingScores: ['Rfree', 'Rfactor', 'Moorhen Points'],
         maxBackupCount: 10,
         modificationCountBackupThreshold: 5,
@@ -206,6 +208,7 @@ const PreferencesContext = createContext();
 const PreferencesContextProvider = ({ children }) => {
     const [isMounted, setIsMounted] = useState(false)
     const [defaultBackgroundColor, setDefaultBackgroundColor] = useState(null)
+    const [enableTimeCapsule, setEnableTimeCapsule] = useState(null)
     const [atomLabelDepthMode, setAtomLabelDepthMode] = useState(null)
     const [defaultExpandDisplayCards, setDefaultExpandDisplayCards] = useState(null)
     const [shortCuts, setShortCuts] = useState(null)
@@ -225,6 +228,7 @@ const PreferencesContextProvider = ({ children }) => {
     const [showScoresToast, setShowScoresToast] = useState(null)
     const [shortcutOnHoveredAtom, setShortcutOnHoveredAtom] = useState(null)
     const [resetClippingFogging, setResetClippingFogging] = useState(null)
+    const [clipCap, setClipCap] = useState(null)
     const [maxBackupCount, setMaxBackupCount] = useState(null)
     const [modificationCountBackupThreshold, setModificationCountBackupThreshold] = useState(null)
     const [defaultUpdatingScores, setDefaultUpdatingScores] = useReducer(itemReducer, null)
@@ -253,6 +257,8 @@ const PreferencesContextProvider = ({ children }) => {
         21: { label: "maxBackupCount", value: maxBackupCount, valueSetter: setMaxBackupCount},
         22: { label: "modificationCountBackupThreshold", value: modificationCountBackupThreshold, valueSetter: setModificationCountBackupThreshold},
         23: { label: "drawInteractions", value: drawInteractions, valueSetter: setDrawInteractions},
+        24: { label: "clipCap", value: clipCap, valueSetter: setClipCap},
+        25: { label: "enableTimeCapsule", value: enableTimeCapsule, valueSetter: setEnableTimeCapsule},
     }
 
     const restoreDefaults = (defaultValues)=> {
@@ -318,6 +324,15 @@ const PreferencesContextProvider = ({ children }) => {
     
     useMemo(() => {
 
+        if (enableTimeCapsule === null) {
+            return
+        }
+       
+        updateStoredPreferences('enableTimeCapsule', enableTimeCapsule);
+    }, [enableTimeCapsule]);
+    
+    useMemo(() => {
+
         if (maxBackupCount === null) {
             return
         }
@@ -333,6 +348,15 @@ const PreferencesContextProvider = ({ children }) => {
        
         updateStoredPreferences('modificationCountBackupThreshold', modificationCountBackupThreshold);
     }, [modificationCountBackupThreshold]);
+
+    useMemo(() => {
+
+        if (clipCap === null) {
+            return
+        }
+
+        updateStoredPreferences('clipCap', clipCap);
+    }, [clipCap]);
 
     useMemo(() => {
 
@@ -525,7 +549,7 @@ const PreferencesContextProvider = ({ children }) => {
         wheelSensitivityFactor, setWheelSensitivityFactor, shortcutOnHoveredAtom, setShortcutOnHoveredAtom,
         resetClippingFogging, setResetClippingFogging, maxBackupCount, setMaxBackupCount,
         modificationCountBackupThreshold, setModificationCountBackupThreshold, isMounted,
-        drawInteractions, setDrawInteractions
+        drawInteractions, setDrawInteractions, clipCap, setClipCap, enableTimeCapsule, setEnableTimeCapsule
     }
 
     return (

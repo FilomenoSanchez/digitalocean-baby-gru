@@ -303,15 +303,19 @@ const stringArrayToJSArray = (stringArray) => {
     return returnResult;
 }
 
-const symmetryToJSData = (symmetryData) => {
+const symmetryToJSData = (symmetryDataPair) => {
     let result = []
-    console.log('DEBUG: in cootWorker helper function')
-    const symmetrySize = symmetryData.size()
-    console.log(`DEBUG: the vector received from molecules_container.get_symmetry has a size of ${symmetrySize}`)
+    const symmetryData = symmetryDataPair.first
+    const symmetryMatrices = symmetryDataPair.second
+    const cell = symmetryData.cell
+    const symm_trans = symmetryData.symm_trans
+    const symmetrySize = symm_trans.size()
+
     for (let i = 0; i < symmetrySize; i++) {
-        const currentSymmetry = symmetryData.get(i)
+        const currentSymmetry = symm_trans.get(i)
         const symTransT = currentSymmetry.first
         const cellTranslation = currentSymmetry.second
+        const currentSymmMat = symmetryMatrices.get(i)
 
         result.push({
             x: symTransT.x(),
@@ -321,12 +325,15 @@ const symmetryToJSData = (symmetryData) => {
             isym: symTransT.isym(),
             us: cellTranslation.us,
             ws: cellTranslation.ws,
-            vs: cellTranslation.vs
+            vs: cellTranslation.vs,
+            matrix: currentSymmMat
         })
-        
         symTransT.delete()
     }
 
+    cell.delete()
+    symm_trans.delete()
+    symmetryMatrices.delete()
     symmetryData.delete()
     return result
 }
@@ -576,6 +583,17 @@ const replace_molecule_by_model_from_file = (imol, coordData) => {
     return result
 }
 
+const replace_map_by_mtz_from_file = (imol, mtzData, selectedColumns) => {
+    const theGuid = guid()
+    const tempFilename = `./${theGuid}.mtz`
+    const asUint8Array = new Uint8Array(mtzData)
+    cootModule.FS_createDataFile(".", tempFilename, asUint8Array, true, true);
+    const readMtzArgs = [imol, tempFilename, selectedColumns.F, selectedColumns.PHI, "", false]
+    const result = molecules_container.replace_map_by_mtz_from_file(...readMtzArgs)
+    cootModule.FS_unlink(tempFilename)
+    return result
+}
+
 const new_positions_for_residue_atoms = (molToUpDate, residues) => {
     let success = 0
     residues.forEach(atoms => {
@@ -600,7 +618,6 @@ const read_mtz = (mapData, name, selectedColumns) => {
     const tempFilename = `./${theGuid}.mtz`
     const read_mtz_args = [tempFilename, selectedColumns.F,
         selectedColumns.PHI, "", false, selectedColumns.isDifference]
-    //postMessage({ message: `read_mtz args ${read_mtz_args}` })
     const molNo = molecules_container.read_mtz(...read_mtz_args)
     cootModule.FS_unlink(tempFilename)
     return molNo
@@ -626,6 +643,35 @@ const read_ccp4_map = (mapData, name, isDiffMap) => {
     return molNo
 }
 
+const doColourTest = (imol) => {
+    console.log('DEBUG: Start test...')
+
+    const colours = {
+        0: {cid: '//A/1-10/', rgb: [255., 0., 0.]},
+        1: {cid: '//A/11-20/', rgb: [0., 255., 0.]},
+        2: {cid: '//A/21-30/', rgb: [0., 0., 255.]},
+    }
+    
+    let colourMap = new cootModule.MapIntFloat3()
+    for (const key in Object.keys(colours)) {
+        colourMap[key] = colours[key].rgb
+    }
+
+    let indexedResiduesVec = new cootModule.VectorStringUInt_pair()
+    for (const key in Object.keys(colours)) {
+        const i = {first: colours[key].cid, second: parseInt(key)}
+        indexedResiduesVec.push_back(i)
+    }
+    
+    console.log('DEBUG: Running molecules_container.set_user_defined_bond_colours')
+    molecules_container.set_user_defined_bond_colours(imol, colourMap)
+    console.log('DEBUG: Running molecules_container.set_user_defined_atom_colour_by_residue')
+    molecules_container.set_user_defined_atom_colour_by_residue(imol, indexedResiduesVec)
+
+    indexedResiduesVec.delete()
+    colourMap.delete()
+}
+
 onmessage = function (e) {
     if (e.data.message === 'CootInitialize') {
         postMessage({ message: 'Initializing molecules_container' })
@@ -640,7 +686,7 @@ onmessage = function (e) {
             printErr: print,
         }).then((returnedModule) => {
             cootModule = returnedModule;
-            molecules_container = new cootModule.molecules_container_js()
+            molecules_container = new cootModule.molecules_container_js(false)
             molecules_container.set_show_timings(false)
             molecules_container.fill_rotamer_probability_tables()
             molecules_container.set_map_sampling_rate(1.7)
@@ -826,6 +872,12 @@ onmessage = function (e) {
             }
             else if (command === 'shim_replace_molecule_by_model_from_file') {
                 cootResult = replace_molecule_by_model_from_file(...commandArgs)
+            } 
+            else if (command === 'shim_replace_map_by_mtz_from_file') {
+                cootResult = replace_map_by_mtz_from_file(...commandArgs)
+            }
+            else if (command === 'shim_do_colour_test') {
+                cootResult = doColourTest(...commandArgs)
             }
             else {
                 cootResult = molecules_container[command](...commandArgs)

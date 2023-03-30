@@ -97,7 +97,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     },[props.drawInteractions,props.molecules])
 
     const handleOriginUpdate = useCallback(async (e) => {
-        if (!busyGettingAtom.current&&props.drawInteractions) {
+        if (!busyGettingAtom.current && props.drawInteractions) {
             drawHBonds()
         }
     }, [props.commandCentre,props.drawInteractions,props.molecules])
@@ -363,6 +363,16 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
 
     useEffect(() => {
         if (glRef.current) {
+            glRef.current.clipCapPerfectSpheres = props.clipCap
+            glRef.current.drawScene()
+        }
+    }, [
+        props.clipCap,
+        glRef.current
+    ])
+
+    useEffect(() => {
+        if (glRef.current) {
             glRef.current.background_colour = props.backgroundColor
             glRef.current.drawScene()
         }
@@ -388,7 +398,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }, [props.preferences])
 
     useEffect(() => {
-        if (connectedMolNo && props.molecules.lenght === 0){
+        if (connectedMolNo && props.molecules.length === 0){
             handleDisconnectMaps()
         } else if (connectedMolNo && !props.molecules.map(molecule => molecule.molNo).includes(connectedMolNo.molecule)){
             handleDisconnectMaps()
@@ -396,7 +406,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     }, [props.molecules])
 
     useEffect(() => {
-        if (connectedMolNo && props.maps.lenght === 0){
+        if (connectedMolNo && props.maps.length === 0){
             handleDisconnectMaps()
         } else if (connectedMolNo && !connectedMolNo.uniqueMaps.every(mapMolNo => props.maps.includes(mapMolNo))){
             handleDisconnectMaps()
@@ -468,6 +478,7 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
                     activeMap={props.activeMap}
                     refineAfterMod={props.preferences.refineAfterMod}
                     shortCuts={props.preferences.shortCuts}
+                    enableTimeCapsule={props.preferences.enableTimeCapsule}
                     windowWidth={props.windowWidth}
                     windowHeight={props.windowHeight}
                 />}

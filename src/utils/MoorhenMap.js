@@ -4,21 +4,21 @@ import { readMapFromArrayBuffer, mapToMapGrid } from '../WebGLgComponents/mgWebG
 export function MoorhenMap(commandCentre) {
     this.type = 'map'
     this.commandCentre = commandCentre
-    this.contourLevel = 0.5
+    this.contourLevel = 0.8
     this.mapRadius = 13
     this.mapColour = [0.3, 0.3, 1.0, 1.0]
     this.liveUpdatingMaps = {}
     this.webMGContour = false
     this.cootContour = true
     this.displayObjects = { Coot: [] }
-    this.litLines = true
+    this.litLines = false
     this.solid = false
-    this.alpha = 1.0
     this.isDifference = false
     this.hasReflectionData = false
     this.selectedColumns = null
     this.associatedReflectionFileName = null
     this.uniqueId = guid()
+    this.rgba = {r: 0.30000001192092896, g: 0.30000001192092896, b: 0.699999988079071, a: 1.0}
 }
 
 MoorhenMap.prototype.delete = async function (glRef) {
@@ -41,12 +41,46 @@ MoorhenMap.prototype.delete = async function (glRef) {
     await Promise.all(promises)
 }
 
+MoorhenMap.prototype.replaceMapWithMtzFile = async function (glRef, fileUrl, name, selectedColumns) {
+    let mtzData
+    let fetchResponse
+    
+    try {
+        fetchResponse = await fetch(fileUrl)
+    } catch (err) {
+        return Promise.reject(`Unable to fetch file ${fileUrl}`)
+    }
+    
+    if (fetchResponse.ok) {
+        const reflectionData = await fetchResponse.blob()
+        const arrayBuffer = await reflectionData.arrayBuffer()
+        mtzData = new Uint8Array(arrayBuffer)
+    } else {
+        return Promise.reject(`Error fetching data from url ${fileUrl}`)
+    }
+
+    const cootResponse = await this.commandCentre.current.cootCommand({
+        returnType: "status",
+        command: 'shim_replace_map_by_mtz_from_file',
+        commandArgs: [this.molNo, mtzData, selectedColumns]
+    }, true)
+
+    if (cootResponse.data.result.status === 'Completed') {
+        return this.doCootContour(glRef, ...glRef.current.origin.map(coord => -coord), this.mapRadius, this.contourLevel)
+    }
+    
+    return Promise.reject(cootResponse.data.result.status)
+
+}
 
 MoorhenMap.prototype.loadToCootFromMtzURL = async function (url, name, selectedColumns) {
     const $this = this
 
     try {
         const response = await fetch(url)
+        if (!response.ok) {
+            return Promise.reject(`Error fetching data from url ${url}`)
+        }
         const reflectionData = await response.blob()
         const arrayBuffer = await reflectionData.arrayBuffer()
         const asUIntArray = new Uint8Array(arrayBuffer)
@@ -274,23 +308,26 @@ MoorhenMap.prototype.doCootContour = function (glRef, x, y, z, radius, contourLe
             returnType: returnType,
             command: "get_map_contours_mesh",
             commandArgs: [$this.molNo, x, y, z, radius, contourLevel]
-        }).then(response => {
-            
-            console.log(response.data.timeMainThreadToWorker)
-            console.log(response.data.timelibcootAPI)
-            console.log(response.data.timeconvertingWASMJS)
-            console.log(`Message from worker back to main thread took ${Date.now() - response.data.messageSendTime} ms (get_map_contours_mesh) - (${response.data.messageId.slice(0, 5)})`)
-
+        }).then(response => {            
             const objects = [response.data.result.result]
             $this.clearBuffersOfStyle(glRef, "Coot")
-            //$this.displayObjects['Coot'] = [...$this.displayObjects['Coot'], ...objects.map(object=>gl.appendOtherData(object, true))]
-            objects.forEach(object => {
-                //I could inject alpha here ... ?
+            objects.filter(object => typeof object !== 'undefined' && object !== null).forEach(object => {
                 object.col_tri.forEach(cols => {
                         cols.forEach(col => {
-                                for(let idx=3;idx<col.length;idx+=4){
-                                    col[idx] = $this.alpha
+                            if (!this.isDifference) {
+                                for(let idx=0; idx<col.length; idx+=4){
+                                    col[idx] = $this.rgba.r
                                 }
+                                for(let idx=1; idx<col.length; idx+=4){
+                                    col[idx] = $this.rgba.g
+                                }
+                                for(let idx=2; idx<col.length; idx+=4){
+                                    col[idx] = $this.rgba.b
+                                }    
+                            }
+                            for(let idx=3; idx<col.length; idx+=4){
+                                col[idx] = $this.rgba.a
+                            }
                         })
                 })
                 let a = glRef.current.appendOtherData(object, true);
@@ -299,13 +336,38 @@ MoorhenMap.prototype.doCootContour = function (glRef, x, y, z, radius, contourLe
             glRef.current.buildBuffers();
             glRef.current.drawScene();
             resolve(true)
-        })
+        }).catch(err => console.log(err))
     })
-
 }
 
-MoorhenMap.prototype.setAlpha = async function (alpha,glRef) {
-    this.alpha = alpha
+MoorhenMap.prototype.setColour = async function (r, g, b, glRef, redraw=true) {
+    if (this.isDifference) {
+        console.log('Cannot set colour of difference map yet...')
+        return
+    }
+    this.rgba = { ...this.rgba, r, g, b }
+    this.displayObjects['Coot'].forEach(buffer => {
+        buffer.triangleColours.forEach(colbuffer => {
+            for(let idx=0; idx<colbuffer.length; idx+=4){
+                colbuffer[idx] = this.rgba.r
+            }
+            for(let idx=1; idx<colbuffer.length; idx+=4){
+                colbuffer[idx] = this.rgba.g
+            }
+            for(let idx=2; idx<colbuffer.length; idx+=4){
+                colbuffer[idx] =this.rgba.b
+            }    
+        })
+        buffer.isDirty = true
+    })
+    glRef.current.buildBuffers();
+    if (redraw) {
+        glRef.current.drawScene();    
+    }
+}
+
+MoorhenMap.prototype.setAlpha = async function (alpha, glRef, redraw=true) {
+    this.rgba.a = alpha
     this.displayObjects['Coot'].forEach(buffer => {
         buffer.triangleColours.forEach(colbuffer => {
             for(let idx=3;idx<colbuffer.length;idx+=4){
@@ -321,7 +383,9 @@ MoorhenMap.prototype.setAlpha = async function (alpha,glRef) {
         }
     })
     glRef.current.buildBuffers();
-    glRef.current.drawScene();
+    if (redraw) {
+        glRef.current.drawScene();
+    }
 }
 
 MoorhenMap.prototype.associateToReflectionData = async function (selectedColumns, reflectionData) {

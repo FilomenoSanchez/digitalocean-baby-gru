@@ -312,7 +312,7 @@ export const MoorhenContextMenu = (props) => {
                     <>
                      <MoorhenMergeMoleculesMenuItem glRef={props.glRef} molecules={props.molecules} setPopoverIsShown={() => {}} menuItemText="Merge molecule into..." popoverPlacement='right' fromMolNo={selectedMolecule.molNo}/>
                      <MoorhenImportFSigFMenuItem glRef={props.glRef} molecules={props.molecules} setPopoverIsShown={() => {}} selectedMolNo={selectedMolecule.molNo} maps={props.maps} commandCentre={props.commandCentre} />
-                     <MenuItem onClick={() => handleCreateBackup()}>Create backup</MenuItem>
+                     <MenuItem disabled={!props.enableTimeCapsule} onClick={() => handleCreateBackup()}>Create backup</MenuItem>
                      <hr></hr>
                      <FormGroup ref={quickActionsFormGroupRef} style={{ margin: "0px", padding: "0px", width: '21rem' }} row>
                       <MoorhenContextQuickEditButton 
@@ -537,6 +537,7 @@ export const MoorhenContextMenu = (props) => {
                     <>
                       <MoorhenGetMonomerMenuItem setPopoverIsShown={() => {}} defaultBondSmoothness={0} glRef={props.glRef} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor}/>
                       <MoorhenFitLigandRightHereMenuItem setPopoverIsShown={() => {}} defaultBondSmoothness={0} glRef={props.glRef} maps={props.maps} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor} />
+                      <MoorhenBackgroundColorMenuItem setPopoverIsShown={() => { }} backgroundColor={props.backgroundColor} setBackgroundColor={props.setBackgroundColor}/>
                       <MenuItem onClick={() => handleCreateBackup()}>Create backup</MenuItem>
                     </>
                      }

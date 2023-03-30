@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useReducer } from "react";
+import React, { useEffect, useState, useRef, useReducer, useCallback } from "react";
 import { Card, Row, Col, Accordion, Stack } from "react-bootstrap";
 import { doDownload, sequenceIsValid, getNameLabel} from '../utils/MoorhenUtils';
 import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
@@ -29,10 +29,15 @@ export const MoorhenMoleculeCard = (props) => {
     const [surfaceLevel, setSurfaceLevel] = useState(4.0)
     const [surfaceRadius, setSurfaceRadius] = useState(5.0)
     const [surfaceGridScale, setSurfaceGridScale] = useState(0.7)
+    const [symmetryRadius, setSymmetryRadius] = useState(25.0)
 
     const bondSettingsProps = {
         bondWidth, setBondWidth, atomRadiusBondRatio,
         setAtomRadiusBondRatio, bondSmoothness, setBondSmoothness
+    }
+
+    const symmetrySettingsProps = {
+        symmetryRadius, setSymmetryRadius
     }
 
     const gaussianSettingsProps = {
@@ -40,16 +45,36 @@ export const MoorhenMoleculeCard = (props) => {
         surfaceRadius, setSurfaceRadius, surfaceGridScale, setSurfaceGridScale
     }
 
-    const redrawIfDirty = async () => {
+    const redrawMolIfDirty = async () => {
         if (isDirty.current) {
             busyRedrawing.current = true
             isDirty.current = false
             props.molecule.setAtomsDirty(true)
             await props.molecule.redraw(props.glRef)
             busyRedrawing.current = false
-            redrawIfDirty()
+            redrawMolIfDirty()
         }
     }
+    
+    const redrawSymmetryIfDirty = () => {
+        if (isDirty.current) {
+            busyRedrawing.current = true
+            isDirty.current = false
+            props.molecule.drawSymmetry(props.glRef)
+            .then(_ => {
+                busyRedrawing.current = false
+                redrawSymmetryIfDirty()
+            })
+        }
+    }
+
+    const handleOriginUpdate = useCallback(() => {
+        isDirty.current = true
+        if (!busyRedrawing.current) {
+            redrawSymmetryIfDirty()
+        }
+
+    }, [props.molecule, props.glRef])
 
     useEffect(() => {
         if (props.drawMissingLoops === null) {
@@ -88,7 +113,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.cootBondsOptions.smoothness = bondSmoothness
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.cootBondsOptions.smoothness = bondSmoothness
@@ -105,7 +130,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.cootBondsOptions.width = bondWidth
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.cootBondsOptions.width = bondWidth
@@ -122,7 +147,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.cootBondsOptions.atomRadiusBondRatio = atomRadiusBondRatio
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.cootBondsOptions.atomRadiusBondRatio = atomRadiusBondRatio
@@ -130,6 +155,13 @@ export const MoorhenMoleculeCard = (props) => {
 
     }, [atomRadiusBondRatio]);
 
+
+    useEffect(() => {
+        if (symmetryRadius === null) {
+            return
+        }
+        props.molecule.setSymmetryRadius(symmetryRadius,props.glRef)
+    }, [symmetryRadius]);
 
     useEffect(() => {
         if (surfaceSigma === null) {
@@ -140,7 +172,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.gaussianSurfaceSettings.sigma = surfaceSigma
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.gaussianSurfaceSettings.sigma = surfaceSigma
@@ -157,7 +189,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.gaussianSurfaceSettings.countourLevel = surfaceLevel
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.gaussianSurfaceSettings.countourLevel = surfaceLevel
@@ -174,7 +206,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.gaussianSurfaceSettings.boxRadius = surfaceRadius
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.gaussianSurfaceSettings.boxRadius = surfaceRadius
@@ -191,7 +223,7 @@ export const MoorhenMoleculeCard = (props) => {
             props.molecule.gaussianSurfaceSettings.gridScale = surfaceGridScale
             isDirty.current = true
             if (!busyRedrawing.current) {
-                redrawIfDirty()
+                redrawMolIfDirty()
             }
         } else {
             props.molecule.gaussianSurfaceSettings.gridScale = surfaceGridScale
@@ -225,7 +257,15 @@ export const MoorhenMoleculeCard = (props) => {
 
         props.molecule.centreOn(props.glRef, `/*/${clickedResidue.chain}/${clickedResidue.seqNum}-${clickedResidue.seqNum}/*`)
 
-    }, [clickedResidue]);
+    }, [clickedResidue])
+
+    useEffect(() => {
+        document.addEventListener("originUpdate", handleOriginUpdate);
+        return () => {
+            document.removeEventListener("originUpdate", handleOriginUpdate);
+        };
+
+    }, [handleOriginUpdate])
 
     const handleVisibility = () => {
         if (isVisible) {
@@ -362,6 +402,7 @@ export const MoorhenMoleculeCard = (props) => {
                         setCurrentDropdownMolNo={props.setCurrentDropdownMolNo}
                         bondSettingsProps={bondSettingsProps}
                         gaussianSettingsProps={gaussianSettingsProps}
+                        symmetrySettingsProps={symmetrySettingsProps}
                         backupsEnabled={props.makeBackups}
                         {...handleProps}
                     />
