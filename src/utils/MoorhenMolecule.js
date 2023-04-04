@@ -1560,6 +1560,7 @@ MoorhenMolecule.prototype.transformedCachedAtomsAsMovedAtoms = function (glRef) 
         chains.delete()
     }
     models.delete()
+
     return movedResidues
 }
 
