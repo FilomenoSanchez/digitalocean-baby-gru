@@ -1,7 +1,7 @@
 import { MenuItem } from "@mui/material";
 import { CheckOutlined, CloseOutlined } from "@mui/icons-material";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { OverlayTrigger, Popover, PopoverBody, PopoverHeader, Form, InputGroup, Button, FormSelect, Row, Col, SplitButton, Dropdown, Stack } from "react-bootstrap";
+import { Modal, OverlayTrigger, Popover, PopoverBody, PopoverHeader, Form, InputGroup, Button, FormSelect, Row, Col, SplitButton, Dropdown, Stack, Placeholder } from "react-bootstrap";
 import { SketchPicker } from "react-color";
 import { MoorhenMtzWrapper, readTextFile, readDataFile } from "../utils/MoorhenUtils";
 import { MoorhenMap } from "../utils/MoorhenMap";
@@ -10,9 +10,12 @@ import { MoorhenMoleculeSelect } from "./MoorhenMoleculeSelect";
 import { MoorhenMapSelect } from "./MoorhenMapSelect";
 import { MoorhenBackupSelect } from "./MoorhenBackupSelect";
 import { MoorhenChainSelect } from "./MoorhenChainSelect";
+import { MoorhenLigandSelect } from "./MoorhenLigandSelect"
+import { MoorhenCidInputForm } from "./MoorhenCidInputForm"
 import MoorhenSlider from "./MoorhenSlider";
 import "rc-tree/assets/index.css"
 import Tree from 'rc-tree';
+import { MoorhenScriptModal } from "./MoorhenScriptModal";
 
 export const MoorhenMenuItem = (props) => {
 
@@ -164,7 +167,7 @@ export const MoorhenGetMonomerMenuItem = (props) => {
 
     const onCompleted = () => {
         const fromMolNo = parseInt(selectRef.current.value)
-        const newTlc = tlcRef.current.value
+        const newTlc = tlcRef.current.value.toUpperCase()
         const newMolecule = new MoorhenMolecule(props.commandCentre, props.monomerLibraryPath)
 
         const getMonomer = () => {
@@ -227,7 +230,7 @@ export const MoorhenSharpenBlurMapMenuItem = (props) => {
     const onCompleted = () => {
         const mapNo = parseInt(selectRef.current.value)
         const bFactor = parseFloat(factorRef.current.value)
-        const newMap = new MoorhenMap(props.commandCentre, props.monomerLibraryPath)
+        const newMap = new MoorhenMap(props.commandCentre)
 
         const blurMap = () => {
             return props.commandCentre.current.cootCommand({
@@ -506,12 +509,12 @@ export const MoorhenBackupPreferencesMenuItem = (props) => {
 
     const panelContent =
         <>
-            <Form.Group style={{ width: '25rem'}}>
-                <Form.Check 
+            <Form.Group style={{ width: '25rem' }}>
+                <Form.Check
                     type="switch"
                     checked={enableTimeCapsule}
                     onChange={() => { setEnableTimeCapsule(!enableTimeCapsule) }}
-                    label="Make automatic backups"/>
+                    label="Make automatic backups" />
             </Form.Group>
             <hr></hr>
             <Form.Group className="mb-3" style={{ width: '18rem', margin: '0' }} controlId="MoorhenMaxBackupCount">
@@ -591,26 +594,6 @@ export const MoorhenScoresToastPreferencesMenuItem = (props) => {
 }
 
 export const MoorhenMapSettingsMenuItem = (props) => {
-    const [mapColour, setMapColour] = useState(null)
-
-    useEffect(() => {
-        setMapColour({
-            r: 255 * props.map.rgba.r,
-            g: 255 * props.map.rgba.g,
-            b: 255 * props.map.rgba.b,
-            a: props.map.rgba.a
-        })
-    }, [props.map.rgba])
-
-    const handleColorChange = (color) => {
-        try {
-            props.map.setColour(color.rgb.r / 255., color.rgb.g / 255., color.rgb.b / 255., props.glRef)
-            setMapColour(color)
-        }
-        catch (err) {
-            console.log('err', err)
-        }
-    }
 
     const panelContent =
         <>
@@ -629,14 +612,6 @@ export const MoorhenMapSettingsMenuItem = (props) => {
             <Form.Group style={{ width: '100%', margin: '0.1rem' }} controlId="MoorhenMapOpacitySlider">
                 <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false} sliderTitle="Opacity" initialValue={props.mapOpacity} externalValue={props.mapOpacity} setExternalValue={props.setMapOpacity} />
             </Form.Group>
-            {!props.map.isDifference &&
-                <Form.Group>
-                    <Form.Label>
-                        Map Colour
-                    </Form.Label>
-                    <SketchPicker color={mapColour} onChange={handleColorChange} disableAlpha={true} />
-                </Form.Group>
-            }
         </>
     return <MoorhenMenuItem
         popoverPlacement='left'
@@ -2039,5 +2014,184 @@ export const MoorhenCentreOnLigandMenuItem = (props) => {
             setPopoverIsShown={props.setPopoverIsShown}
         />
     </>
+}
 
+export const MoorhenLoadScriptMenuItem = (props) => {
+    const filesRef = useRef(null);
+    const [showCodeEditor, setShowCodeEditor] = useState(false)
+    const [code, setCode] = useState('No code loaded')
+
+    const panelContent = <Row>
+        <Form.Group style={{ width: '30rem', margin: '0.5rem', padding: '0rem' }} controlId="uploadScript" className="mb-3">
+            <Form.Label>Load and execute script</Form.Label>
+            <Form.Control ref={filesRef} type="file" multiple={false} accept={[".js"]} />
+        </Form.Group>
+    </Row>
+
+    const onCompleted = async (onCompletedArg) => {
+        for (const file of filesRef.current.files) {
+            const text = await readTextFile(file)
+            setShowCodeEditor(true)
+            setCode(text)
+            //eval(text)
+        }
+    }
+
+    return <><MoorhenMenuItem
+        key='execute-script-menu-item'
+        id='execute-on-ligand-menu-item'
+        popoverContent={panelContent}
+        menuItemText="Load and execute..."
+        onCompleted={onCompleted}
+        setPopoverIsShown={props.setPopoverIsShown}
+    />
+        <MoorhenScriptModal code={code} show={showCodeEditor} setShow={setShowCodeEditor} />
+    </>
+
+}
+
+export const MoorhenMapMaskingMenuItem = (props) => {
+    const [invertFlag, setInvertFlag] = useState(false)
+    const [maskType, setMaskType] = useState('molecule')
+    const moleculeSelectRef = useRef(null)
+    const maskTypeSelectRef = useRef(null)
+    const invertFlagRef = useRef(null)
+    const mapSelectRef = useRef(null)
+    const chainSelectRef = useRef(null)
+    const ligandSelectRef = useRef(null)
+    const cidSelectRef = useRef(null)
+
+    const { commandCentre, maps, changeMaps } = props
+
+    const panelContent = <>
+        <Form.Group style={{ margin: '0.5rem', width: '20rem' }}>
+            <Form.Label>Create mask by...</Form.Label>
+            <FormSelect size="sm" ref={maskTypeSelectRef} defaultValue={'molecule'} onChange={(evt) => {
+                setMaskType(evt.target.value)
+                maskTypeSelectRef.current.value = evt.target.value
+            }}>
+                <option value={'molecule'} key={'molecule'}>By molecule</option>
+                <option value={'chain'} key={'chain'}>By chain</option>
+                <option value={'ligand'} key={'ligand'}>By ligand</option>
+                <option value={'cid'} key={'cid'}>By CID</option>
+            </FormSelect>
+        </Form.Group>
+        <MoorhenMapSelect {...props} ref={mapSelectRef} />
+        <MoorhenMoleculeSelect {...props} allowAny={false} ref={moleculeSelectRef} />
+        {maskTypeSelectRef.current?.value === 'cid' && <MoorhenCidInputForm {...props} width='20rem' margin='0.5rem' ref={cidSelectRef} />}
+        {maskTypeSelectRef.current?.value === 'chain' && <MoorhenChainSelect {...props} molecules={props.molecules} selectedCoordMolNo={parseInt(moleculeSelectRef.current?.value)} ref={chainSelectRef} />}
+        {maskTypeSelectRef.current?.value === 'ligand' && <MoorhenLigandSelect {...props} molecules={props.molecules} selectedCoordMolNo={parseInt(moleculeSelectRef.current?.value)} ref={ligandSelectRef} />}
+        <Form.Group style={{ width: '20rem', margin: '0.5rem' }}>
+            <Form.Check
+                ref={invertFlagRef}
+                type="switch"
+                checked={invertFlag}
+                onChange={() => setInvertFlag(!invertFlag)}
+                label="Invert mask" />
+        </Form.Group>
+    </>
+
+    const onCompleted = useCallback(() => {
+        const mapNo = parseInt(mapSelectRef.current.value)
+        const molNo = parseInt(moleculeSelectRef.current.value)
+        const newMap = new MoorhenMap(commandCentre)
+
+        const maskMap = () => {
+            let cidLabel
+
+            switch (maskTypeSelectRef.current?.value) {
+                case 'molecule':
+                    cidLabel = `/1/*/*/*:*`
+                    break
+                case 'chain':
+                    cidLabel = `/1/${chainSelectRef.current.value}/*/*:*`
+                    break
+                case 'cid':
+                    cidLabel = cidSelectRef.current.value
+                    break
+                case 'ligand':
+                    cidLabel = ligandSelectRef.current.value
+                    break
+                default:
+                    console.log('Unrecognised mask type...')
+                    break
+            }
+
+            return commandCentre.current.cootCommand({
+                returnType: 'status',
+                command: 'mask_map_by_atom_selection',
+                commandArgs: [molNo, mapNo, cidLabel, invertFlagRef.current.checked
+                ]
+            }, true)
+        }
+
+        maskMap()
+            .then(result => {
+                if (result.data.result.result !== -1) {
+                    newMap.molNo = result.data.result.result
+                    newMap.name = `Map ${mapNo} masked`
+                    const originalMap = maps.find(map => map.molNo === mapNo)
+                    newMap.isDifference = originalMap.isDifference
+                    changeMaps({ action: 'Add', item: newMap })
+                }
+                return Promise.resolve(result)
+            })
+    }, [commandCentre, maps, changeMaps])
+
+    return <MoorhenMenuItem
+        id='mask-map'
+        popoverContent={panelContent}
+        menuItemText="Map masking..."
+        onCompleted={onCompleted}
+        setPopoverIsShown={props.setPopoverIsShown}
+    />
+}
+
+// FIXME: this will be incorporated to the UI when the backend allows to set map weight by imol
+export const MoorhenMapWeightMenuItem = (props) => {
+    const [mapWeight, setMapWeight] = useState(null)
+
+
+    useEffect(() => {
+        const fetchInitialMapWeight = async () => {
+            //const result = await props.map.getMapWeight()
+            //setMapWeight(result.data.result.result)
+        }
+
+        fetchInitialMapWeight()
+    }, [])
+
+    useEffect(() => {
+        const setMapWeight = async () => {
+            await props.map.setMapWeight(mapWeight)
+        }
+
+        setMapWeight()
+    }, [mapWeight])
+
+
+    const onCompleted = () => {
+
+    }
+
+    const panelContent =
+        <Form.Group className="mb-3" style={{ width: '18rem', margin: '0' }} controlId="MapWeightSlider">
+            {mapWeight === null ?
+                <Placeholder animation="glow">
+                    <Placeholder size='lg' xs={3} />
+                    <Placeholder size='lg' xs={12} />
+                </Placeholder>
+                :
+                <MoorhenSlider minVal={1} maxVal={30} allowFloats={false} logScale={false} sliderTitle="Map Weight" initialValue={mapWeight} externalValue={mapWeight} setExternalValue={setMapWeight} />
+            }
+        </Form.Group>
+
+    return <MoorhenMenuItem
+        popoverPlacement='left'
+        showOkButton={false}
+        popoverContent={panelContent}
+        menuItemText='Set map weight'
+        onCompleted={onCompleted}
+        setPopoverIsShown={props.setPopoverIsShown}
+    />
 }
