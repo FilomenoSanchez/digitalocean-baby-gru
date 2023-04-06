@@ -47,6 +47,7 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
                 }
             }
             molecule.setAtomsDirty(true)
+            molecule.clearBuffersOfStyle('hover', props.glRef)
             await molecule.redraw(props.glRef)
             const scoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: { origin: props.glRef.current.origin, modifiedMolecule: molecule.molNo } })
             document.dispatchEvent(scoresUpdateEvent)
@@ -631,7 +632,7 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
             </Row>
             <Row>
                 {localRotateTranslateMode === 'CUSTOM' && 
-                    <MoorhenCidInputForm defaultValue={customCid.current} onChange={(value) => { customCid.current = value }} placeholder={customCid.current ? "" : "Input custom cid e.g. //A,B"}/>
+                    <MoorhenCidInputForm defaultValue={customCid.current} onChange={(e) => { customCid.current = e.target.value }} placeholder={customCid.current ? "" : "Input custom cid e.g. //A,B"}/>
                 }
             </Row>
         </Container>
