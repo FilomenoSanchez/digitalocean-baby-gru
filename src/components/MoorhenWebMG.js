@@ -7,7 +7,7 @@ import { convertViewtoPx } from '../utils/MoorhenUtils.js';
 
 export const MoorhenWebMG = forwardRef((props, glRef) => {
     const scores = useRef({})
-    const [mapLineWidth, setMapLineWidth] = useState(1.0)
+    const [mapLineWidth, setMapLineWidth] = useState(0.75)
     const [connectedMolNo, setConnectedMolNo] = useState(null)
     const [scoresToastContents, setScoreToastContents] = useState(null)
     const [showContextMenu, setShowContextMenu] = useState(false)
@@ -112,8 +112,14 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
 
     useEffect(() => {
         glRef.current.doPerspectiveProjection = props.doPerspectiveProjection
+        glRef.current.clearTextPositionBuffers()
         glRef.current.drawScene()
     }, [props.doPerspectiveProjection])
+
+    useEffect(() => {
+        glRef.current.useOffScreenBuffers = props.useOffScreenBuffers
+        glRef.current.drawScene()
+    }, [props.useOffScreenBuffers])
 
     const handleScoreUpdates = useCallback(async (e) => {
         if (e.detail?.modifiedMolecule !== null && connectedMolNo && connectedMolNo.molecule === e.detail.modifiedMolecule) {
