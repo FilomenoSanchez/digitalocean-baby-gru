@@ -1,7 +1,7 @@
 import { Form, InputGroup, NavDropdown } from "react-bootstrap";
 import { useState } from "react";
 import { MenuItem } from "@mui/material";
-import { MoorhenBackgroundColorMenuItem, MoorhenClipFogMenuItem } from "./MoorhenMenuItem";
+import { MoorhenBackgroundColorMenuItem, MoorhenClipFogMenuItem, MoorhenLightingMenuItem } from "./MoorhenMenuItem";
 
 export const MoorhenViewMenu = (props) => {
     const [popoverIsShown, setPopoverIsShown] = useState(false)
@@ -28,6 +28,13 @@ export const MoorhenViewMenu = (props) => {
                             checked={props.drawCrosshairs}
                             onChange={() => { props.setDrawCrosshairs(!props.drawCrosshairs) }}
                             label="Show crosshairs"/>
+                    </InputGroup>
+                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
+                        <Form.Check 
+                            type="switch"
+                            checked={props.drawAxes}
+                            onChange={() => { props.setDrawAxes(!props.drawAxes) }}
+                            label="Show axes"/>
                     </InputGroup>
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
                         <Form.Check 
@@ -62,6 +69,7 @@ export const MoorhenViewMenu = (props) => {
                     <hr></hr>
                     <MoorhenBackgroundColorMenuItem {...menuItemProps} />
                     <MoorhenClipFogMenuItem {...menuItemProps} />
+                    <MoorhenLightingMenuItem {...menuItemProps} />
                     <MenuItem onClick={() => {
                         props.setShowColourRulesToast(true)
                         document.body.click()

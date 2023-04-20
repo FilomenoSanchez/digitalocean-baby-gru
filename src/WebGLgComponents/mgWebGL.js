@@ -1371,6 +1371,10 @@ class MGWebGL extends Component {
         this.gl.viewportWidth = this.canvas.width;
         this.gl.viewportHeight = this.canvas.height;
 
+        if(this.useOffScreenBuffers){
+            this.recreateOffScreeenBuffers();
+        }
+
     }
 
     constructor(props) {
@@ -1404,6 +1408,11 @@ class MGWebGL extends Component {
         this.previousTextColour = "";
         this.atomLabelDepthMode = true;
         this.showCrosshairs = false
+        this.showAxes = false;
+
+        if (this.props.showAxes !== null) {
+            this.showAxes = this.props.showAxes
+        }
         if (this.props.showCrosshairs !== null) {
             this.showCrosshairs = this.props.showCrosshairs
         }
@@ -1441,6 +1450,10 @@ class MGWebGL extends Component {
         }
         if (oldProps.showCrosshairs !== this.props.showCrosshairs){
             this.showCrosshairs = this.props.showCrosshairs
+            this.drawScene()
+        }
+        if (oldProps.showAxes !== this.props.showAxes){
+            this.showAxes = this.props.showAxes
             this.drawScene()
         }
         if (oldProps.showFPS !== this.props.showFPS){
@@ -1541,8 +1554,6 @@ class MGWebGL extends Component {
 
         this.save_pixel_data = false;
         this.renderToTexture = false;
-
-        this.showAxes = true;
 
         this.doShadow = false;
         this.doShadowDepthDebug = false;
@@ -9575,9 +9586,9 @@ class MGWebGL extends Component {
         const self = this
         let factor;
         if (event.deltaY > 0) {
-            factor = 1. + 1 / (50.0 - self.props.wheelSensitivityFactor * 5);
+            factor = 1. + 1 / (50.0 - self.props.zoomWheelSensitivityFactor * 5);
         } else {
-            factor = 1. - 1 / (50.0 - self.props.wheelSensitivityFactor * 5);
+            factor = 1. - 1 / (50.0 - self.props.zoomWheelSensitivityFactor * 5);
         }
 
         if (self.keysDown['set_map_contour']) {

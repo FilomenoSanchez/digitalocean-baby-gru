@@ -16,6 +16,7 @@ import MoorhenSlider from "./MoorhenSlider";
 import "rc-tree/assets/index.css"
 import Tree from 'rc-tree';
 import { MoorhenScriptModal } from "./MoorhenScriptModal";
+import { MoorhenLightPosition } from "./MoorhenLightPosition";
 
 export const MoorhenMenuItem = (props) => {
 
@@ -181,9 +182,12 @@ export const MoorhenAddSimpleMenuItem = (props) => {
         popoverContent={panelContent}
         menuItemText="Add simple..."
         onCompleted={onCompleted}
+        popoverPlacement={props.popoverPlacement}
         setPopoverIsShown={props.setPopoverIsShown}
     />
 }
+
+MoorhenAddSimpleMenuItem.defaultProps = { popoverPlacement: "right" }
 
 export const MoorhenGetMonomerMenuItem = (props) => {
     const tlcRef = useRef()
@@ -244,8 +248,11 @@ export const MoorhenGetMonomerMenuItem = (props) => {
         menuItemText="Get monomer..."
         onCompleted={onCompleted}
         setPopoverIsShown={props.setPopoverIsShown}
+        popoverPlacement={props.popoverPlacement}
     />
 }
+
+MoorhenGetMonomerMenuItem.defaultProps = { popoverPlacement: "right" }
 
 export const MoorhenSharpenBlurMapMenuItem = (props) => {
     const factorRef = useRef()
@@ -379,8 +386,11 @@ export const MoorhenFitLigandRightHereMenuItem = (props) => {
         menuItemText="Fit ligand here..."
         onCompleted={onCompleted}
         setPopoverIsShown={props.setPopoverIsShown}
+        popoverPlacement={props.popoverPlacement}
     />
 }
+
+MoorhenFitLigandRightHereMenuItem.defaultProps = { popoverPlacement: "right" }
 
 export const MoorhenDeleteDisplayObjectMenuItem = (props) => {
 
@@ -866,8 +876,11 @@ export const MoorhenBackgroundColorMenuItem = (props) => {
         menuItemText="Set background colour..."
         onCompleted={() => props.setPopoverIsShown(false)}
         setPopoverIsShown={props.setPopoverIsShown}
+        popoverPlacement={props.popoverPlacement}
     />
 }
+
+MoorhenBackgroundColorMenuItem.defaultProps = { popoverPlacement: "right" }
 
 export const MoorhenSuperposeMenuItem = (props) => {
     const refChainSelectRef = useRef(null);
@@ -1104,19 +1117,27 @@ export const MoorhenImportDictionaryMenuItem = (props) => {
         
         if (moleculeSelectValueRef.current) {
             selectedMoleculeIndex = parseInt(moleculeSelectValueRef.current)
+            const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedMoleculeIndex)
+            if (typeof selectedMolecule !== 'undefined') {
+                selectedMolecule.addDict(fileContent)
+            }
         } else {
             selectedMoleculeIndex = parseInt(-999999)
+            await Promise.all([
+                props.commandCentre.current.cootCommand({
+                    returnType: "status",
+                    command: 'shim_read_dictionary',
+                    commandArgs: [fileContent, selectedMoleculeIndex],
+                    changesMolecules: []
+                }, true),
+                ...props.molecules.map(molecule => {
+                    molecule.addDictShim(fileContent)
+                    return molecule.redraw(props.glRef)
+                })
+            ])
+            
         }
                 
-        await Promise.all(
-            props.molecules.map(molecule => {
-                if (molecule.molNo === selectedMoleculeIndex || -999999 === selectedMoleculeIndex) {
-                    return molecule.addDict(fileContent).then(_ => molecule.redraw(props.glRef))         
-                }
-                return Promise.resolve()
-            })
-        )
-        
         if (createRef.current) {
             const instanceName = tlcValueRef.current
             const result = await props.commandCentre.current.cootCommand({
@@ -1426,11 +1447,10 @@ export const MoorhenImportFSigFMenuItem = (props) => {
         if (connectMapsArgs.every(arg => !isNaN(arg))) {
 
             //Calculate rmsd before connecting
-            const prevRmsd = await Promise.all(uniqueMaps.map(imol => props.commandCentre.current.cootCommand({
-                command: 'get_map_rmsd_approx',
-                commandArgs: [imol],
-                returnType: 'status'
-            }, true)))
+            const prevRmsd = await Promise.all(uniqueMaps.map(imol => {
+                const currentMap = props.maps.find(map => map.molNo === imol)
+                return currentMap.fetchMapRmsd()
+            }))
 
             // Connect maps
             await props.commandCentre.current.cootCommand({
@@ -1455,30 +1475,28 @@ export const MoorhenImportFSigFMenuItem = (props) => {
             document.dispatchEvent(connectedMapsEvent)
 
             //Adjust contour to match previous rmsd
-            const postRmsd = await Promise.all(uniqueMaps.map(imol => props.commandCentre.current.cootCommand({
-                command: 'get_map_rmsd_approx',
-                commandArgs: [imol],
-                returnType: 'status'
-            }, true)))
-
-            uniqueMaps.forEach((imol, index) => {
-                const map = props.maps.find(map => map.molNo === imol)
-                let newContourLevel = map.contourLevel * postRmsd[index].data.result.result / prevRmsd[index].data.result.result
-                if (map.isDifference) {
-                    newContourLevel -= newContourLevel * 0.3
-                }
-                const newMapContourEvt = new CustomEvent("newMapContour", {
-                    "detail": {
-                        molNo: map.molNo,
-                        mapRadius: map.mapRadius,
-                        cootContour: map.cootContour,
-                        contourLevel: newContourLevel,
-                        mapColour: map.colour,
-                        litLines: map.litLines,
-                    }
+            await Promise.all(
+                uniqueMaps.map((imol, index) => {
+                    const currentMap = props.maps.find(map => map.molNo === imol)
+                    return currentMap.fetchMapRmsd().then(postRmsd => {
+                        let newContourLevel = currentMap.contourLevel * postRmsd / prevRmsd[index]
+                        if (currentMap.isDifference) {
+                            newContourLevel -= newContourLevel * 0.3
+                        }
+                        const newMapContourEvt = new CustomEvent("newMapContour", {
+                            "detail": {
+                                molNo: currentMap.molNo,
+                                mapRadius: currentMap.mapRadius,
+                                cootContour: currentMap.cootContour,
+                                contourLevel: newContourLevel,
+                                mapColour: currentMap.colour,
+                                litLines: currentMap.litLines,
+                            }
+                        })
+                        document.dispatchEvent(newMapContourEvt)    
+                    })
                 })
-                document.dispatchEvent(newMapContourEvt)
-            })
+            )
         }
     }
 
@@ -1628,6 +1646,89 @@ export const MoorhenAboutMenuItem = (props) => {
         id='help-about-menu-item'
         popoverContent={panelContent}
         menuItemText="About..."
+        onCompleted={() => { }}
+        setPopoverIsShown={props.setPopoverIsShown}
+    />
+}
+
+export const MoorhenLightingMenuItem = (props) => {
+    const [diffuse, setDiffuse] = useState(props.glRef.current.light_colours_diffuse)
+    const [specular, setSpecular] = useState(props.glRef.current.light_colours_specular)
+    const [ambient, setAmbient] = useState(props.glRef.current.light_colours_ambient)
+    const [position, setPosition] = useState([props.glRef.current.light_positions[0],props.glRef.current.light_positions[1],props.glRef.current.light_positions[2]])
+
+    const busyLighting = useRef(false)
+    const isSetLightPosIsDirty = useRef(false)
+
+    const setLightPosition = function (glRef,newValue) {
+        return new Promise((resolve, reject) => {
+            glRef.current.setLightPosition(newValue[0],-newValue[1],newValue[2]);
+            glRef.current.drawScene();
+        })
+    }
+
+    const setLightingPositionIfDirty = (newValue) => {
+        if (isSetLightPosIsDirty.current) {
+            busyLighting.current = true;
+            isSetLightPosIsDirty.current = false;
+            setLightPosition(props.glRef,newValue).then(result => {
+                    setPosition([newValue[0],-newValue[1],newValue[2],1.0])
+                    busyLighting.current = false;
+                    setLightingPositionIfDirty(newValue);
+            })
+        }
+    }
+
+    useEffect(() => {
+        if (props.glRef.current && props.glRef.current.light_colours_diffuse) {
+            setDiffuse(props.glRef.current.light_colours_diffuse[0])
+            setSpecular(props.glRef.current.light_colours_specular[0])
+            setAmbient(props.glRef.current.light_colours_ambient[0])
+            setPosition([props.glRef.current.light_positions[0],props.glRef.current.light_positions[1],props.glRef.current.light_positions[2]])
+        }
+    }, [props.glRef.current.light_positions,props.glRef.current.light_colours_diffuse,props.glRef.current.light_colours_specular,props.glRef.current.light_colours_ambient])
+
+    const panelContent = <div style={{ minWidth: "20rem" }}>
+        <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false}
+            sliderTitle="Diffuse"
+            initialValue={props.glRef.current.light_colours_diffuse[0]}
+            externalValue={props.glRef.current.light_colours_diffuse[0]}
+            setExternalValue={(newValue) => {
+                props.glRef.current.light_colours_diffuse = [newValue,newValue,newValue,1.0]
+                props.glRef.current.drawScene()
+                setDiffuse([newValue,newValue,newValue,1.0])
+            }} />
+        <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false}
+            sliderTitle="Specular"
+            initialValue={props.glRef.current.light_colours_specular[0]}
+            externalValue={props.glRef.current.light_colours_specular[0]}
+            setExternalValue={(newValue) => {
+                props.glRef.current.light_colours_specular = [newValue,newValue,newValue,1.0]
+                props.glRef.current.drawScene()
+                setSpecular([newValue,newValue,newValue,1.0])
+            }} />
+        <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false}
+            sliderTitle="Ambient"
+            initialValue={props.glRef.current.light_colours_ambient[0]}
+            externalValue={props.glRef.current.light_colours_ambient[0]}
+            setExternalValue={(newValue) => {
+                props.glRef.current.light_colours_ambient = [newValue,newValue,newValue,1.0]
+                props.glRef.current.drawScene()
+                setAmbient([newValue,newValue,newValue,1.0])
+            }} />
+        <MoorhenLightPosition
+            initialValue={props.glRef.current.light_positions}
+            externalValue={props.glRef.current.light_positions}
+            setExternalValue={(newValue) => {
+                isSetLightPosIsDirty.current = true
+                setLightingPositionIfDirty(newValue);
+            }}
+        />
+    </div>
+    return <MoorhenMenuItem
+        id='lighting-menu-item'
+        popoverContent={panelContent}
+        menuItemText="Lighting..."
         onCompleted={() => { }}
         setPopoverIsShown={props.setPopoverIsShown}
     />

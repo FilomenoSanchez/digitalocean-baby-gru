@@ -1,6 +1,6 @@
 import styled, { css } from "styled-components";
 import { ClickAwayListener, FormGroup, IconButton, List, MenuItem, Tooltip } from '@mui/material';
-import { ArrowBackIosOutlined, ArrowForwardIosOutlined, CheckOutlined, CloseOutlined } from "@mui/icons-material";
+import { ArrowBackIosOutlined, ArrowForwardIosOutlined, CheckOutlined, CloseOutlined, FirstPageOutlined } from "@mui/icons-material";
 import { MoorhenMergeMoleculesMenuItem, MoorhenGetMonomerMenuItem, MoorhenFitLigandRightHereMenuItem, MoorhenImportFSigFMenuItem, MoorhenBackgroundColorMenuItem, MoorhenAddSimpleMenuItem } from "./MoorhenMenuItem";
 import { cidToSpec, convertRemToPx, getTooltipShortcutLabel } from "../utils/MoorhenUtils";
 import { getBackupLabel } from "../utils/MoorhenTimeCapsule"
@@ -145,8 +145,43 @@ export const MoorhenContextMenu = (props) => {
   const [showOverlay, setShowOverlay] = useState(false)
   const [overlayContents, setOverlayContents] = useState(null)
   const [overrideMenuContents, setOverrideMenuContents] = useState(false)
-  const [opacity, setOpacity] = useState(1.0)
+  const [opacity, setOpacity] = useState(0)
+  const [menuPosition, setMenuPosition] = useState({top: 0, left: 0, placement: 'left'})
+  const backgroundColor = props.isDark ? '#858585' : '#ffffff' 
   
+  let selectedMolecule
+  let chosenAtom
+  if (props.showContextMenu.buffer){
+    selectedMolecule = props.molecules.find(molecule => molecule.buffersInclude(props.showContextMenu.buffer))
+  }
+  if (props.showContextMenu.atom) {
+    chosenAtom = cidToSpec(props.showContextMenu.atom.label)
+  }
+
+  useEffect(() => {
+    let top = props.showContextMenu.pageY
+    let left = props.showContextMenu.pageX
+    const menuWidth = selectedMolecule && chosenAtom ? convertRemToPx(19) : convertRemToPx(7)
+    const menuHeight = selectedMolecule && chosenAtom ? convertRemToPx(20) : convertRemToPx(7)
+  
+    if (props.windowWidth - left < menuWidth) {
+      left -= menuWidth
+    }
+    if (props.windowHeight - top < menuHeight) {
+      top -= menuHeight
+    }
+    
+    let placement = "right"
+    if (props.windowWidth * 0.5 < left){
+      placement = 'left'
+    }
+    
+    setMenuPosition({top, left, placement})
+    setOpacity(1.0)
+  }, [])
+
+  const collectedProps = {selectedMolecule, chosenAtom, setOverlayContents, setShowOverlay, ...props}
+
   const handleCreateBackup = async () => {
     await props.timeCapsuleRef.current.updateDataFiles()
     const session = await props.timeCapsuleRef.current.fetchSession(false)
@@ -197,7 +232,7 @@ export const MoorhenContextMenu = (props) => {
     await newMolecule.updateAtoms()
     
     Object.keys(molecule.displayObjects)
-      .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases'].includes(style) })
+      .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases','VdwSpheres'].includes(style) })
       .forEach(async style => {
           if (molecule.displayObjects[style].length > 0 &&
               molecule.displayObjects[style][0].visible) {
@@ -233,8 +268,25 @@ export const MoorhenContextMenu = (props) => {
     props.glRef.current.setActiveMolecule(newMolecule)
     setShowOverlay(false)
     setOpacity(0.5)
+    let offsetX = 0
+    let offsetY = 0
     setOverrideMenuContents(
-      <Card onMouseOver={() => setOpacity(1)} onMouseOut={() => setOpacity(0.5)} >
+      <Card style={{position: 'absolute', width: '15rem'}} onMouseOver={() => setOpacity(1)} onMouseOut={() => setOpacity(0.5)} draggable={true}
+            onDragStart={(evt) => {
+              const rect = evt.target.getBoundingClientRect();
+              offsetX = rect.width + (evt.clientX - rect.x - rect.width)
+              offsetY = rect.height + (evt.clientY - rect.y - rect.height)
+              setTimeout(() => {
+                evt.target.style.visibility = "hidden"
+              }, 1)
+            }}
+            onDragEnd={(evt) => {
+              setMenuPosition({top: evt.clientY - offsetY, left: evt.clientX - offsetX})
+              setTimeout(() => {
+                evt.target.style.visibility = ""
+              }, 1)
+            }}
+        >
         <Card.Header>Accept rotate/translate ?</Card.Header>
         <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
           <em>{"Hold <Shift><Alt> to translate"}</em>
@@ -274,7 +326,7 @@ export const MoorhenContextMenu = (props) => {
     newMolecule.drawSelection(props.glRef, fragmentCid)
     await newMolecule.updateAtoms()
     Object.keys(molecule.displayObjects)
-        .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases'].includes(style) })
+        .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases','VdwSpheres'].includes(style) })
         .forEach(async style => {
             if (molecule.displayObjects[style].length > 0 &&
                 molecule.displayObjects[style][0].visible) {
@@ -286,14 +338,35 @@ export const MoorhenContextMenu = (props) => {
     /* General functions */
     const getPopoverContents = (rotamerInfo) => {
       const rotamerName = rotamerInfo.data.result.result.name
-      const rotamerRank = rotamerInfo.data.result.result.rank  
-      return <Card onMouseOver={() => setOpacity(1)} onMouseOut={() => setOpacity(0.5)} >
+      const rotamerRank = rotamerInfo.data.result.result.rank
+      const rotamerProbability = rotamerInfo.data.result.result.richardson_probability
+      let offsetX = 0
+      let offsetY = 0
+
+      return <Card style={{position: 'absolute', width: '15rem'}} onMouseOver={() => setOpacity(1)} onMouseOut={() => setOpacity(0.5)} draggable={true}
+                  onDragStart={(evt) => {
+                    const rect = evt.target.getBoundingClientRect();
+                    offsetX = rect.width + (evt.clientX - rect.x - rect.width)
+                    offsetY = rect.height + (evt.clientY - rect.y - rect.height)
+                    setTimeout(() => {
+                      evt.target.style.visibility = "hidden"
+                    }, 1)
+                  }}
+                  onDragEnd={(evt) => {
+                    setMenuPosition({top: evt.clientY - offsetY, left: evt.clientX - offsetX})
+                    setTimeout(() => {
+                      evt.target.style.visibility = ""
+                    }, 1)
+                  }}
+              >
               <Card.Header>Accept new rotamer ?</Card.Header>
               <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
-                <span>Current rotamer: {rotamerName} ({rotamerRank+1}<sup>{rotamerRank === 0 ? 'st' : rotamerRank === 1 ? 'nd' : rotamerRank === 2 ? 'rd' : 'th'}</sup>)</span>
+              <span>Current rotamer: {rotamerName} ({rotamerRank+1}<sup>{rotamerRank === 0 ? 'st' : rotamerRank === 1 ? 'nd' : rotamerRank === 2 ? 'rd' : 'th'}</sup>)</span>
+              <br></br>
+              <span>Probability: {rotamerProbability}%</span>
                 <Stack gap={2} direction='horizontal' style={{paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
+                <Button onClick={() => changeRotamer('change_to_first_rotamer')}><FirstPageOutlined/></Button>
                   <Button onClick={() => changeRotamer('change_to_previous_rotamer')}><ArrowBackIosOutlined/></Button>
-                  <Button onClick={() => changeRotamer('change_to_first_rotamer')}>1<sup>st</sup> rotamer</Button>
                   <Button onClick={() => changeRotamer('change_to_next_rotamer')}><ArrowForwardIosOutlined/></Button>
                 </Stack>
                 <Stack gap={2} direction='horizontal' style={{paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
@@ -374,38 +447,8 @@ export const MoorhenContextMenu = (props) => {
     }, true)
   }, [props.activeMap, props.commandCentre])
 
-
-  const backgroundColor = props.isDark ? '#858585' : '#ffffff' 
-  let selectedMolecule
-  let chosenAtom
-  if (props.showContextMenu.buffer){
-    selectedMolecule = props.molecules.find(molecule => molecule.buffersInclude(props.showContextMenu.buffer))
-  }
-  if (props.showContextMenu.atom) {
-    chosenAtom = cidToSpec(props.showContextMenu.atom.label)
-  }
-
-  let top = props.showContextMenu.pageY
-  let left = props.showContextMenu.pageX
-  const menuWidth = selectedMolecule && chosenAtom ? convertRemToPx(19) : convertRemToPx(7)
-  const menuHeight = selectedMolecule && chosenAtom ? convertRemToPx(20) : convertRemToPx(7)
-
-  if (props.windowWidth - left < menuWidth) {
-    left -= menuWidth
-  }
-  if (props.windowHeight - top < menuHeight) {
-    top -= menuHeight
-  }
-  
-  let placement = "right"
-  if (props.windowWidth * 0.5 < left){
-    placement = 'left'
-  }
-
-  const collectedProps = {selectedMolecule, chosenAtom, setOverlayContents, setShowOverlay, ...props}
-
   return <>
-      <ContextMenu ref={contextMenuRef} top={top} left={left} backgroundColor={backgroundColor} opacity={opacity}>
+      <ContextMenu ref={contextMenuRef} top={menuPosition.top} left={menuPosition.left} backgroundColor={backgroundColor} opacity={opacity}>
         {overrideMenuContents ? 
         overrideMenuContents 
         :
@@ -654,10 +697,10 @@ export const MoorhenContextMenu = (props) => {
                     </>
                     :
                     <>
-                      <MoorhenAddSimpleMenuItem setPopoverIsShown={() => {}} defaultBondSmoothness={0} glRef={props.glRef} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor}/>
-                      <MoorhenGetMonomerMenuItem setPopoverIsShown={() => {}} defaultBondSmoothness={0} glRef={props.glRef} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor}/>
-                      <MoorhenFitLigandRightHereMenuItem setPopoverIsShown={() => {}} defaultBondSmoothness={0} glRef={props.glRef} maps={props.maps} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor} />
-                      <MoorhenBackgroundColorMenuItem setPopoverIsShown={() => { }} backgroundColor={props.backgroundColor} setBackgroundColor={props.setBackgroundColor}/>
+                      <MoorhenAddSimpleMenuItem setPopoverIsShown={() => {}} popoverPlacement={menuPosition.placement} defaultBondSmoothness={0} glRef={props.glRef} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor}/>
+                      <MoorhenGetMonomerMenuItem setPopoverIsShown={() => {}} popoverPlacement={menuPosition.placement} defaultBondSmoothness={0} glRef={props.glRef} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor}/>
+                      <MoorhenFitLigandRightHereMenuItem setPopoverIsShown={() => {}} popoverPlacement={menuPosition.placement} defaultBondSmoothness={0} glRef={props.glRef} maps={props.maps} molecules={props.molecules} commandCentre={props.commandCentre} changeMolecules={props.changeMolecules} backgroundColor={props.backgroundColor} />
+                      <MoorhenBackgroundColorMenuItem setPopoverIsShown={() => { }} popoverPlacement={menuPosition.placement} backgroundColor={props.backgroundColor} setBackgroundColor={props.setBackgroundColor}/>
                       <MenuItem disabled={!props.enableTimeCapsule} onClick={() => handleCreateBackup()}>Create backup</MenuItem>
                     </>
                      }
@@ -666,7 +709,7 @@ export const MoorhenContextMenu = (props) => {
         </ClickAwayListener>
         }
           </ContextMenu>
-          <Overlay placement={placement} show={showOverlay} target={quickActionsFormGroupRef.current}>
+          <Overlay placement={menuPosition.placement} show={showOverlay} target={quickActionsFormGroupRef.current}>
               <Popover>
               <Popover.Body>
                 {overlayContents}

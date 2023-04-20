@@ -1,4 +1,4 @@
-import { ArrowBackIosOutlined, ArrowForwardIosOutlined, CheckOutlined, CloseOutlined } from "@mui/icons-material";
+import { FirstPageOutlined, ArrowBackIosOutlined, ArrowForwardIosOutlined, CheckOutlined, CloseOutlined } from "@mui/icons-material";
 import { MenuItem, MenuList, Tooltip } from "@mui/material";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { Button, Overlay, Container, Row, FormSelect, FormGroup, FormLabel, Card, Form, Stack } from "react-bootstrap"
@@ -611,6 +611,7 @@ export const MoorhenRotamerChangeButton = (props) => {
     const chosenMolecule = useRef(null)
     const [rotamerName, setRotamerName] = useState('')
     const [rotamerRank, setRotamerRank] = useState('')
+    const [rotamerProbability, setRotamerProbability] = useState('')
     const selectedFragmentRef = useRef({cid: '', alt_conf: ''})
     const { changeMolecules, backgroundColor, glRef, defaultBondSmoothness } = props
 
@@ -622,6 +623,7 @@ export const MoorhenRotamerChangeButton = (props) => {
         }, true)
         setRotamerName(rotamerInfo.data.result.result.name)
         setRotamerRank(rotamerInfo.data.result.result.rank)
+        setRotamerProbability(rotamerInfo.data.result.result.richardson_probability)
         fragmentMolecule.current.atomsDirty = true
         fragmentMolecule.current.clearBuffersOfStyle('selection', glRef)
         fragmentMolecule.current.drawSelection(glRef, selectedFragmentRef.current.cid)  
@@ -669,11 +671,12 @@ export const MoorhenRotamerChangeButton = (props) => {
         }, true)
         setRotamerName(rotamerInfo.data.result.result.name)
         setRotamerRank(rotamerInfo.data.result.result.rank)
+        setRotamerProbability(rotamerInfo.data.result.result.richardson_probability)
         /* redraw */
         newMolecule.drawSelection(glRef, selectedFragmentRef.current.cid)
         await newMolecule.updateAtoms()
         Object.keys(molecule.displayObjects)
-            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases'].includes(style) })
+            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases','VdwSpheres'].includes(style) })
             .forEach(async style => {
                 if (molecule.displayObjects[style].length > 0 &&
                     molecule.displayObjects[style][0].visible) {
@@ -709,9 +712,11 @@ export const MoorhenRotamerChangeButton = (props) => {
                         <Card.Header >Accept rotamer ?</Card.Header>
                         <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
                             <span>Current rotamer: {rotamerName} ({rotamerRank+1}<sup>{rotamerRank === 0 ? 'st' : rotamerRank === 1 ? 'nd' : rotamerRank === 2 ? 'rd' : 'th'}</sup>)</span>
+                            <br></br>
+                            <span>Probability: {rotamerProbability}%</span>
                             <Stack gap={2} direction='horizontal' style={{paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
+                                <Button onClick={() => changeRotamer('change_to_first_rotamer')}><FirstPageOutlined/></Button>
                                 <Button onClick={() => changeRotamer('change_to_previous_rotamer')}><ArrowBackIosOutlined/></Button>
-                                <Button onClick={() => changeRotamer('change_to_first_rotamer')}>1<sup>st</sup> rotamer</Button>
                                 <Button onClick={() => changeRotamer('change_to_next_rotamer')}><ArrowForwardIosOutlined/></Button>
                             </Stack>
                             <Stack gap={2} direction='horizontal' style={{paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
@@ -834,7 +839,7 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
         )
         await newMolecule.updateAtoms()
         Object.keys(molecule.displayObjects)
-            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases'].includes(style) })
+            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases','VdwSpheres'].includes(style) })
             .forEach(async style => {
                 if (molecule.displayObjects[style].length > 0 &&
                     molecule.displayObjects[style][0].visible) {
