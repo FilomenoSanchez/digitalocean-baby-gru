@@ -1994,10 +1994,7 @@ MoorhenMolecule.prototype.drawHBonds = async function(glRef,hbs) {
     }
 }
 
-MoorhenMolecule.prototype.generateSelfRestraints = async function(maxRadius) {
-    if (typeof maxRadius === 'undefined'){
-        maxRadius = 4.2
-    }
+MoorhenMolecule.prototype.generateSelfRestraints = async function(maxRadius=4.2) {
     return this.commandCentre.current.cootCommand({
         command: "generate_self_restraints", 
         returnType: 'status',
@@ -2029,3 +2026,12 @@ MoorhenMolecule.prototype.refineResiduesUsingAtomCid = async function(cid, mode)
         commandArgs: [this.molNo, cid, mode], 
     })
 }
+
+MoorhenMolecule.prototype.SSMSuperpose = async function(movCid, refMolNo, refCid) {
+    return this.commandCentre.current.cootCommand({
+        command: "SSM_superpose", 
+        returnType: 'superpose_results',
+        commandArgs: [this.molNo, movCid, refMolNo, refCid], 
+    })
+}
+

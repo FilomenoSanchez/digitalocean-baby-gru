@@ -3,7 +3,7 @@ import { CheckOutlined, CloseOutlined } from "@mui/icons-material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OverlayTrigger, Popover, PopoverBody, PopoverHeader, Form, InputGroup, Button, FormSelect, Row, Col, SplitButton, Dropdown, Stack, Placeholder } from "react-bootstrap";
 import { SketchPicker } from "react-color";
-import { MoorhenMtzWrapper, readTextFile, readDataFile } from "../utils/MoorhenUtils";
+import { MoorhenMtzWrapper, readTextFile, readDataFile, cidToSpec } from "../utils/MoorhenUtils";
 import { MoorhenMap } from "../utils/MoorhenMap";
 import { MoorhenMolecule } from "../utils/MoorhenMolecule";
 import { MoorhenMoleculeSelect } from "./MoorhenMoleculeSelect";
@@ -873,6 +873,7 @@ export const MoorhenBackgroundColorMenuItem = (props) => {
     return <MoorhenMenuItem
         id="change-background-colour-menu-item"
         popoverContent={panelContent}
+        showOkButton={false}
         menuItemText="Set background colour..."
         onCompleted={() => props.setPopoverIsShown(false)}
         setPopoverIsShown={props.setPopoverIsShown}
@@ -1208,7 +1209,7 @@ export const MoorhenImportDictionaryMenuItem = (props) => {
         }
         const response = await props.commandCentre.current.cootCommand({
             command: 'shim_smiles_to_pdb',
-            commandArgs: [smile, tlcValueRef.current, 1, 200],
+            commandArgs: [smile, tlcValueRef.current, 10, 200],
             returnType: 'str_str_pair'
         }, true)
         const result = response.data.result.result.second
@@ -1655,27 +1656,20 @@ export const MoorhenLightingMenuItem = (props) => {
     const [diffuse, setDiffuse] = useState(props.glRef.current.light_colours_diffuse)
     const [specular, setSpecular] = useState(props.glRef.current.light_colours_specular)
     const [ambient, setAmbient] = useState(props.glRef.current.light_colours_ambient)
+    const [specularPower, setSpecularPower] = useState(props.glRef.current.specularPower)
     const [position, setPosition] = useState([props.glRef.current.light_positions[0],props.glRef.current.light_positions[1],props.glRef.current.light_positions[2]])
 
     const busyLighting = useRef(false)
     const isSetLightPosIsDirty = useRef(false)
 
-    const setLightPosition = function (glRef,newValue) {
-        return new Promise((resolve, reject) => {
-            glRef.current.setLightPosition(newValue[0],-newValue[1],newValue[2]);
-            glRef.current.drawScene();
-        })
-    }
-
     const setLightingPositionIfDirty = (newValue) => {
         if (isSetLightPosIsDirty.current) {
-            busyLighting.current = true;
-            isSetLightPosIsDirty.current = false;
-            setLightPosition(props.glRef,newValue).then(result => {
-                    setPosition([newValue[0],-newValue[1],newValue[2],1.0])
-                    busyLighting.current = false;
-                    setLightingPositionIfDirty(newValue);
-            })
+            busyLighting.current = true
+            isSetLightPosIsDirty.current = false
+            props.glRef.current.setLightPosition(newValue[0],-newValue[1],newValue[2])
+            props.glRef.current.drawScene()
+            busyLighting.current = false;
+            setLightingPositionIfDirty(newValue)
         }
     }
 
@@ -1684,9 +1678,10 @@ export const MoorhenLightingMenuItem = (props) => {
             setDiffuse(props.glRef.current.light_colours_diffuse[0])
             setSpecular(props.glRef.current.light_colours_specular[0])
             setAmbient(props.glRef.current.light_colours_ambient[0])
+            setSpecularPower(props.glRef.current.specularPower)
             setPosition([props.glRef.current.light_positions[0],props.glRef.current.light_positions[1],props.glRef.current.light_positions[2]])
         }
-    }, [props.glRef.current.light_positions,props.glRef.current.light_colours_diffuse,props.glRef.current.light_colours_specular,props.glRef.current.light_colours_ambient])
+    }, [props.glRef.current.specularPower,props.glRef.current.light_positions,props.glRef.current.light_colours_diffuse,props.glRef.current.light_colours_specular,props.glRef.current.light_colours_ambient])
 
     const panelContent = <div style={{ minWidth: "20rem" }}>
         <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false}
@@ -1696,7 +1691,7 @@ export const MoorhenLightingMenuItem = (props) => {
             setExternalValue={(newValue) => {
                 props.glRef.current.light_colours_diffuse = [newValue,newValue,newValue,1.0]
                 props.glRef.current.drawScene()
-                setDiffuse([newValue,newValue,newValue,1.0])
+                setDiffuse([newValue, newValue, newValue,1.0])
             }} />
         <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false}
             sliderTitle="Specular"
@@ -1705,7 +1700,7 @@ export const MoorhenLightingMenuItem = (props) => {
             setExternalValue={(newValue) => {
                 props.glRef.current.light_colours_specular = [newValue,newValue,newValue,1.0]
                 props.glRef.current.drawScene()
-                setSpecular([newValue,newValue,newValue,1.0])
+                setSpecular([newValue, newValue, newValue,1.0])
             }} />
         <MoorhenSlider minVal={0.0} maxVal={1.0} logScale={false}
             sliderTitle="Ambient"
@@ -1714,19 +1709,30 @@ export const MoorhenLightingMenuItem = (props) => {
             setExternalValue={(newValue) => {
                 props.glRef.current.light_colours_ambient = [newValue,newValue,newValue,1.0]
                 props.glRef.current.drawScene()
-                setAmbient([newValue,newValue,newValue,1.0])
+                setAmbient([newValue, newValue, newValue,1.0])
+            }} />
+        <MoorhenSlider minVal={1.0} maxVal={128.0} logScale={false}
+            sliderTitle="Specular Power"
+            initialValue={props.glRef.current.specularPower}
+            externalValue={props.glRef.current.specularPower}
+            setExternalValue={(newValue) => {
+                props.glRef.current.specularPower = newValue
+                props.glRef.current.drawScene()
+                setAmbient(newValue)
             }} />
         <MoorhenLightPosition
             initialValue={props.glRef.current.light_positions}
             externalValue={props.glRef.current.light_positions}
             setExternalValue={(newValue) => {
                 isSetLightPosIsDirty.current = true
-                setLightingPositionIfDirty(newValue);
+                setLightingPositionIfDirty(newValue)
             }}
         />
     </div>
+
     return <MoorhenMenuItem
         id='lighting-menu-item'
+        showOkButton={false}
         popoverContent={panelContent}
         menuItemText="Lighting..."
         onCompleted={() => { }}
@@ -1741,13 +1747,13 @@ export const MoorhenClipFogMenuItem = (props) => {
     const [zfogBack, setZfogBack] = useState(props.glRef.current.gl_fog_end - props.glRef.current.fogClipOffset)
 
     useEffect(() => {
-        if (props.glRef.current && props.glRef.current.gl_clipPlane0) {
+        if (props.glRef.current && props.glRef.current.gl_clipPlane0 && props.glRef.current.gl_clipPlane1) {
             setZclipFront(props.glRef.current.fogClipOffset + props.glRef.current.gl_clipPlane0[3])
             setZclipBack(props.glRef.current.gl_clipPlane1[3] - props.glRef.current.fogClipOffset)
             setZfogFront(props.glRef.current.fogClipOffset - props.glRef.current.gl_fog_start)
             setZfogBack(props.glRef.current.gl_fog_end - props.glRef.current.fogClipOffset)
         }
-    }, [props.glRef.current.gl_clipPlane, props.glRef.current.gl_clipPlane1, props.glRef.current.gl_fog_start, props.glRef.current.gl_fog_end])
+    }, [props.glRef.current.gl_clipPlane, props.glRef.current.gl_clipPlane1[3], props.glRef.current.gl_clipPlane0[3], props.glRef.current.gl_fog_start, props.glRef.current.gl_fog_end])
 
     const panelContent = <div style={{ minWidth: "20rem" }}>
         <MoorhenSlider minVal={0.1} maxVal={1000} logScale={true}
@@ -1866,23 +1872,26 @@ export const MoorhenGoToMenuItem = (props) => {
 
     const onCompleted = () => {
         const selectedCid = cidRef.current.value
-        if (!selectedCid) {
+        if (!selectedCid || props.molecules.length === 0) {
+            return
+        }
+        
+        let residueSpec
+        try {
+            residueSpec = cidToSpec(selectedCid)
+        } catch (err) {
+            console.log(err)
+            console.log('Unable to parse CID')
             return
         }
 
-        const [molName, insCode, chainId, resInfo, atomName] = selectedCid.split('/')
-        if (!molName || !chainId || !resInfo) {
+        const molecule = residueSpec.mol_name ? props.molecules.find(molecule => molecule.name === residueSpec.mol_name) : props.molecules[0]
+        
+        if (!residueSpec.chain_id || !residueSpec.res_no || !molecule) {
             return
         }
 
-        const molecule = props.molecules.find(molecule => molecule.name === molName)
-        if (!molecule) {
-            return
-        }
-
-        const resNum = resInfo.split("(")[0]
-
-        molecule.centreOn(props.glRef, `/*/${chainId}/${resNum}-${resNum}/*`)
+        molecule.centreOn(props.glRef, `/${residueSpec.mol_no ? residueSpec.mol_no : '*'}/${residueSpec.chain_id}/${residueSpec.res_no}-${residueSpec.res_no}/*`)
     }
 
     return <MoorhenMenuItem
