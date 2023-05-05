@@ -6,7 +6,8 @@ import { GetSplinesColoured } from '../WebGLgComponents/mgSecStr';
 import { atomsToSpheresInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
 import { contactsToCylindersInfo, contactsToLinesInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
 import { singletonsToLinesInfo } from '../WebGLgComponents/mgWebGLAtomsToPrimitives';
-import { guid, readTextFile, readGemmiStructure, cidToSpec, residueCodesThreeToOne, centreOnGemmiAtoms, getBufferAtoms, nucleotideCodesThreeToOne, hexToHsl } from './MoorhenUtils'
+import { guid, readTextFile, readGemmiStructure, cidToSpec, residueCodesThreeToOne, centreOnGemmiAtoms, getBufferAtoms, 
+    nucleotideCodesThreeToOne, hexToHsl, getDashedCylinder, gemmiAtomPairsToCylindersInfo, gemmiAtomsToCirclesSpheresInfo} from './MoorhenUtils'
 import { quatToMat4 } from '../WebGLgComponents/quatToMat4.js';
 import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
 import * as vec3 from 'gl-matrix/vec3';
@@ -56,6 +57,7 @@ export function MoorhenMolecule(commandCentre, monomerLibraryPath) {
         rama: [],
         rotamer: [],
         CDs: [],
+        allHBonds: [],
         hover: [],
         selection: [],
         originNeighbours: [],
@@ -535,88 +537,6 @@ MoorhenMolecule.prototype.centreAndAlignViewOn = function (glRef, selectionCid, 
 }
 
 MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = true) {
-
-    let promise
-    if (this.atomsDirty) {
-        promise = this.updateAtoms()
-    }
-    else {
-        promise = Promise.resolve()
-    }
-
-    return promise.then(async () => {
-
-        let selectionAtomsAlign = []
-        let selectionAtomsCentre = []
-        if (selectionCid) {
-            selectionAtomsAlign = await this.gemmiAtomsForCid(selectionCid + "*")
-            selectionAtomsCentre = await this.gemmiAtomsForCid(selectionCid + "CA")
-
-        } else {
-            selectionAtomsAlign = await this.gemmiAtomsForCid('/*/*/*/*')
-            selectionAtomsCentre = await this.gemmiAtomsForCid('/*/*/*/*')
-        }
-
-        let CA = null
-        let C = null
-        let O = null
-
-        selectionAtomsAlign.forEach(atom => {
-            if (atom.name === "CA") {
-                CA = [atom.x, atom.y, atom.z]
-            }
-            if (atom.name === "C") {
-                C = [atom.x, atom.y, atom.z]
-            }
-            if (atom.name === "O") {
-                O = [atom.x, atom.y, atom.z]
-            }
-        })
-
-        let newQuat = null
-
-        if (C && CA && O) {
-            let right = vec3.create()
-            vec3.set(right, C[0] - CA[0], C[1] - CA[1], C[2] - CA[2])
-            let rightNorm = vec3.create()
-            vec3.normalize(rightNorm, right);
-
-            let upInit = vec3.create()
-            vec3.set(upInit, O[0] - C[0], O[1] - C[1], O[2] - C[2])
-            let upInitNorm = vec3.create()
-            vec3.normalize(upInitNorm, upInit);
-
-            let forward = vec3.create()
-            vec3.cross(forward, right, upInitNorm)
-            let forwardNorm = vec3.create()
-            vec3.normalize(forwardNorm, forward);
-
-            let up = vec3.create()
-            vec3.cross(up, forwardNorm, rightNorm)
-            let upNorm = vec3.create()
-            vec3.normalize(upNorm, up);
-
-            newQuat = quat4.create()
-            let mat = mat3.create()
-            const [right_x, right_y, right_z] = [rightNorm[0], rightNorm[1], rightNorm[2]]
-            const [up_x, up_y, up_z] = [upNorm[0], upNorm[1], upNorm[2]]
-            const [formaward_x, formaward_y, formaward_z] = [forwardNorm[0], forwardNorm[1], forwardNorm[2]]
-            mat3.set(mat, right_x, right_y, right_z, up_x, up_y, up_z, formaward_x, formaward_y, formaward_z)
-            quat4.fromMat3(newQuat, mat)
-        }
-
-        let selectionCentre = centreOnGemmiAtoms(selectionAtomsCentre)
-        return new Promise((resolve, reject) => {
-            if (newQuat) {
-                glRef.current.setOriginOrientationAndZoomAnimated(selectionCentre, newQuat, 0.20);
-            }
-            resolve(true);
-        })
-    })
-
-}
-
-MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = true) {
     //Note add selection to permit centringh on subset
     let promise
     if (this.atomsDirty) {
@@ -631,9 +551,13 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
         let selectionAtoms = []
         if (selectionCid) {
             selectionAtoms = await this.gemmiAtomsForCid(selectionCid)
-
         } else {
             selectionAtoms = await this.gemmiAtomsForCid('/*/*/*/*')
+        }
+
+        if (selectionAtoms.length === 0) {
+            console.log('Unable to selet any atoms, skip centering...')
+            return
         }
 
         let selectionCentre = centreOnGemmiAtoms(selectionAtoms)
@@ -649,10 +573,12 @@ MoorhenMolecule.prototype.centreOn = function (glRef, selectionCid, animate = tr
     })
 }
 
-
 MoorhenMolecule.prototype.drawWithStyleFromAtoms = async function (style, glRef) {
 
     switch (style) {
+        case 'allHBonds':
+            this.drawAllHBonds(glRef)
+            break;
         case 'rama':
             this.drawRamachandranBalls(glRef)
             break;
@@ -672,7 +598,6 @@ MoorhenMolecule.prototype.drawWithStyleFromAtoms = async function (style, glRef)
         case 'CRs':
         case 'MolecularSurface':
         case 'DishyBases':
-        case 'VdwSpheres':
         case 'VdWSurface':
         case 'Calpha':
             await this.drawCootRepresentation(glRef, style)
@@ -700,6 +625,13 @@ MoorhenMolecule.prototype.addBuffersOfStyle = function (glRef, objects, style) {
     })
     glRef.current.buildBuffers();
     glRef.current.drawScene();
+}
+
+MoorhenMolecule.prototype.drawAllHBonds = async function (glRef) {
+    const style = "allHBonds"
+    //Empty existing buffers of this type
+    this.clearBuffersOfStyle(style, glRef)
+    this.drawHBonds(glRef, "/*/*/*", style, false) 
 }
 
 MoorhenMolecule.prototype.drawRamachandranBalls = function (glRef) {
@@ -1003,8 +935,8 @@ MoorhenMolecule.prototype.hide = function (style, gl) {
 MoorhenMolecule.prototype.webMGAtomsFromFileString = function (fileString) {
     const $this = this
     let result = { atoms: [] }
-    var possibleIndentedLines = fileString.split("\n");
-    var unindentedLines = possibleIndentedLines.map(line => line.trim())
+    let possibleIndentedLines = fileString.split("\n");
+    let unindentedLines = possibleIndentedLines.map(line => line.trim())
     try {
         result = parseMMCIF(unindentedLines, $this.name);
         if (typeof result.atoms === 'undefined') {
@@ -1134,239 +1066,12 @@ MoorhenMolecule.prototype.drawLigands = function (webMGAtoms, glRef, colourSchem
     this.addBuffersOfStyle(glRef, objects, style)
 }
 
-const getDashedCylinder = (nsteps,cylinder_accu) => {
-    let cylinderCache = {}
-
-    if([nsteps,cylinder_accu] in cylinderCache){
-        return cylinderCache[[nsteps,cylinder_accu]]
-    }
-    let thisPos = []
-    let thisNorm = []
-    let thisIdxs = []
-
-    let ipos=0
-    let maxIdx = 0
-
-    const dash_step = 1.0 / nsteps / 2.0
-
-    for(let i=0; i<nsteps; i++,ipos+=2){
-        const z = ipos*dash_step;
-        const zp1 = (ipos+1)*dash_step;
-        for(let j=0;j<360;j+=360/cylinder_accu){
-            const theta1 = j * Math.PI / 180.0;
-            const theta2 = (j+360/cylinder_accu) * Math.PI / 180.0;
-            const x1 = Math.sin(theta1);
-            const y1 = Math.cos(theta1);
-            const x2 = Math.sin(theta2);
-            const y2 = Math.cos(theta2);
-            thisNorm.push(...[ x1, y1, 0.0])
-            thisNorm.push(...[ x1, y1, 0.0])
-            thisNorm.push(...[ x2, y2, 0.0])
-            thisNorm.push(...[ x2, y2, 0.0])
-            thisPos.push(...[ x1, y1, z])
-            thisPos.push(...[ x1, y1, zp1])
-            thisPos.push(...[ x2, y2, z])
-            thisPos.push(...[ x2, y2, zp1])
-            thisIdxs.push(...[ 0+maxIdx, 1+maxIdx, 2+maxIdx])
-            thisIdxs.push(...[ 1+maxIdx, 3+maxIdx, 2+maxIdx])
-            maxIdx += 4
-            thisPos.push(...[  x1,  y1, z])
-            thisPos.push(...[  x2,  y2, z])
-            thisPos.push(...[ 0.0, 0.0, z])
-            thisNorm.push(...[ 0.0, 0.0, 1.0])
-            thisNorm.push(...[ 0.0, 0.0, 1.0])
-            thisNorm.push(...[ 0.0, 0.0, 1.0])
-            thisIdxs.push(...[ 0+maxIdx, 2+maxIdx, 1+maxIdx])
-            maxIdx += 3
-            thisPos.push(...[  x1,  y1, zp1])
-            thisPos.push(...[  x2,  y2, zp1])
-            thisPos.push(...[ 0.0, 0.0, zp1])
-            thisNorm.push(...[ 0.0, 0.0, -1.0])
-            thisNorm.push(...[ 0.0, 0.0, -1.0])
-            thisNorm.push(...[ 0.0, 0.0, -1.0])
-            thisIdxs.push(...[ 0+maxIdx, 1+maxIdx, 2+maxIdx])
-            maxIdx += 3
-        }
-    }
-
-    cylinderCache[[nsteps,cylinder_accu]] = [thisPos, thisNorm, thisIdxs]
-    return cylinderCache[[nsteps,cylinder_accu]]
-}
-
-const gemmiAtomPairsToCylindersInfo = (atoms, size, colourScheme, labelled=false) => {
-
-    let atomPairs = atoms;
-
-    let totIdxs = []
-    let totPos = []
-    let totNorm = []
-    let totInstance_sizes = []
-    let totInstance_colours = []
-    let totInstance_origins = []
-    let totInstance_orientations = []
-    let totInstanceUseColours = []
-    let totInstancePrimTypes = []
-    
-    const [thisPos, thisNorm, thisIdxs] = getDashedCylinder(10,8);
-
-    let thisInstance_sizes = []
-    let thisInstance_colours = []
-    let thisInstance_origins = []
-    let thisInstance_orientations = []
-
-    let totTextPrimTypes = []
-    let totTextIdxs = []
-    let totTextPrimPos = []
-    let totTextPrimNorm = []
-    let totTextPrimCol = []
-    let totTextLabels = []
-    
-
-    for (let iat = 0; iat < atomPairs.length; iat++) {
-        const at0 = atomPairs[iat][0];
-        const at1 = atomPairs[iat][1];
-        let ab = vec3.create()
-        let midpoint = vec3.create()
-
-        vec3.set(ab,at0.pos[0]-at1.pos[0],at0.pos[1]-at1.pos[1],at0.pos[2]-at1.pos[2])
-        vec3.set(midpoint,0.5*(at0.pos[0]+at1.pos[0]),0.5*(at0.pos[1]+at1.pos[1]),0.5*(at0.pos[2]+at1.pos[2]))
-        const l = vec3.length(ab)
-
-        totTextLabels.push(l.toFixed(2))
-        totTextIdxs.push(iat) // Meaningless, I think
-        totTextPrimNorm.push(...[0,0,1]) // Also meaningless, I think
-        totTextPrimPos.push(...[midpoint[0],midpoint[1],midpoint[2]])
-
-        if(l>4.0||l<1.8) continue;
-
-        for (let ip = 0; ip < colourScheme[`${at0.serial}`].length; ip++) {
-            thisInstance_colours.push(colourScheme[`${at0.serial}`][ip])
-            totTextPrimCol.push(colourScheme[`${at0.serial}`][ip])
-        }
-        thisInstance_origins.push(...at0.pos)
-        thisInstance_sizes.push(...[size,size,l])
-        let v = vec3.create()
-        let au = vec3.create()
-        let a = vec3.create()
-        let b = vec3.create()
-        let aup = at0.pos.map((v, i) => v - at1.pos[i])
-        vec3.set(au,...aup)
-        vec3.normalize(a,au)
-        vec3.set(b,0.0,0.0,-1.0)
-        vec3.cross(v,a,b)
-        const c = vec3.dot(a,b)
-        if(Math.abs(c+1.0)<1e-4){
-            thisInstance_orientations.push(...[
-                    -1.0,  0.0,  0.0, 0.0,
-                     0.0,  1.0,  0.0, 0.0,
-                     0.0,  0.0, -1.0, 0.0,
-                     0.0,  0.0,  0.0, 1.0,
-            ])
-        } else {
-            const s = vec3.length(v)
-            let k = mat3.create()
-            k.set([
-              0.0, -v[2],  v[1],
-             v[2],   0.0, -v[0],
-            -v[1],  v[0],   0.0,
-            ])
-            let kk = mat3.create()
-            mat3.multiply(kk,k,k)
-            let sk = mat3.create()
-            mat3.multiplyScalar(sk,k,1.0)
-            let omckk = mat3.create()
-            mat3.multiplyScalar(omckk,kk,1.0/(1.0+c))
-            let r = mat3.create()
-            r.set([
-               1.0, 0.0, 0.0,
-               0.0, 1.0, 0.0,
-               0.0, 0.0, 1.0,
-            ])
-            mat3.add(r,r,sk)
-            mat3.add(r,r,omckk)
-            thisInstance_orientations.push(...[
-                    r[0], r[1], r[2], 1.0,
-                    r[3], r[4], r[5], 1.0,
-                    r[6], r[7], r[8], 1.0,
-                     0.0,  0.0,  0.0, 1.0,
-            ])
-        }
-    }
-
-    totNorm.push(thisNorm)
-    totPos.push(thisPos)
-    totIdxs.push(thisIdxs)
-    totInstance_sizes.push(thisInstance_sizes)
-    totInstance_origins.push(thisInstance_origins)
-    totInstance_orientations.push(thisInstance_orientations)
-    totInstance_colours.push(thisInstance_colours)
-    totInstanceUseColours.push(true)
-    totInstancePrimTypes.push("TRIANGLES")
-    totTextPrimTypes.push("TEXTLABELS")
-    
-
-    return {
-            prim_types: [totInstancePrimTypes,totTextPrimTypes],
-            idx_tri: [totIdxs,totTextIdxs],
-            vert_tri: [totPos,totTextPrimPos],
-            norm_tri: [totNorm,totTextPrimNorm],
-            col_tri: [totInstance_colours,totTextPrimCol],
-            label_tri: [[],totTextLabels],
-            instance_use_colors: [totInstanceUseColours,[false]],
-            instance_sizes: [totInstance_sizes,[]],
-            instance_origins: [totInstance_origins,[]],
-            instance_orientations: [totInstance_orientations,[]]
-   }
-    
-}
-
-const gemmiAtomsToCirclesSpheresInfo = (atoms, size, primType, colourScheme) => {
-
-    let sphere_sizes = [];
-    let sphere_col_tri = [];
-    let sphere_vert_tri = [];
-    let sphere_idx_tri = [];
-    let sphere_atoms = [];
-
-    for (let iat = 0; iat < atoms.length; iat++) {
-        sphere_idx_tri.push(iat);
-        sphere_vert_tri.push(atoms[iat].pos[0]);
-        sphere_vert_tri.push(atoms[iat].pos[1]);
-        sphere_vert_tri.push(atoms[iat].pos[2]);
-        for (let ip = 0; ip < colourScheme[`${atoms[iat].serial}`].length; ip++) {
-            sphere_col_tri.push(colourScheme[`${atoms[iat].serial}`][ip])
-        }
-        sphere_sizes.push(size);
-        let atom = {};
-        atom["x"] = atoms[iat].pos[0];
-        atom["y"] = atoms[iat].pos[1];
-        atom["z"] = atoms[iat].pos[2];
-        atom["tempFactor"] = atoms[iat].b_iso;
-        atom["charge"] = atoms[iat].charge;
-        atom["symbol"] = atoms[iat].element;
-        atom["label"] = ""
-        sphere_atoms.push(atom);
-    }
-
-    const spherePrimitiveInfo = {
-        atoms: [[sphere_atoms]],
-        sizes: [[sphere_sizes]],
-        col_tri: [[sphere_col_tri]],
-        norm_tri: [[[]]],
-        vert_tri: [[sphere_vert_tri]],
-        idx_tri: [[sphere_idx_tri]],
-        prim_types: [[primType]]
-    }
-    return spherePrimitiveInfo;
-}
-
-MoorhenMolecule.prototype.drawGemmiAtoms = async function (glRef, selectedGemmiAtoms, style,  colour, labelled=false, clearBuffers=false) {
+MoorhenMolecule.prototype.drawGemmiAtomPairs = async function (glRef, gemmiAtomPairs, style,  colour, labelled=false, clearBuffers=false) {
     const $this = this
     const atomColours = {}
-    selectedGemmiAtoms.forEach(atom => { atomColours[`${atom[0].serial}`] = colour; atomColours[`${atom[1].serial}`] = colour })
+    gemmiAtomPairs.forEach(atom => { atomColours[`${atom[0].serial}`] = colour; atomColours[`${atom[1].serial}`] = colour })
     let objects = [
-         gemmiAtomPairsToCylindersInfo(selectedGemmiAtoms, 0.1, atomColours,labelled)
-         
+        gemmiAtomPairsToCylindersInfo(gemmiAtomPairs, 0.1, atomColours, labelled) 
     ]
     if (clearBuffers){
         $this.clearBuffersOfStyle(style, glRef)
@@ -1606,26 +1311,38 @@ MoorhenMolecule.prototype.applyTransform = function (glRef) {
     return $this.updateWithMovedAtoms(movedResidues, glRef)
 }
 
-MoorhenMolecule.prototype.mergeMolecules = async function (otherMolecules, glRef, doHide) {
-    const $this = this
-    if (typeof doHide === 'undefined') doHide = false
-    return $this.commandCentre.current.cootCommand({
-        command: 'merge_molecules',
-        commandArgs: [$this.molNo, `${otherMolecules.map(molecule => molecule.molNo).join(':')}`],
-        returnType: "merge_molecules_return",
-        changesMolecules: [$this.molNo]
-    }, true).then(async result => {
-        $this.setAtomsDirty(true)
-        if (doHide) otherMolecules.forEach(molecule => {
-            Object.keys(molecule.displayObjects).forEach(style => {
-                if (Array.isArray(molecule.displayObjects[style])) {
-                    molecule.hide(style, glRef)
+MoorhenMolecule.prototype.mergeMolecules = async function (otherMolecules, glRef, doHide=false) {
+    try {
+        await this.commandCentre.current.cootCommand({
+            command: 'merge_molecules',
+            commandArgs: [this.molNo, `${otherMolecules.map(molecule => molecule.molNo).join(':')}`],
+            returnType: "merge_molecules_return",
+            changesMolecules: [this.molNo]
+        }, true)
+
+        let promises = []
+        otherMolecules.forEach(molecule => {
+            if (doHide) {
+                Object.keys(molecule.displayObjects).forEach(style => {
+                    if (Array.isArray(molecule.displayObjects[style])) {
+                        molecule.hide(style, glRef)
+                    }
+                })     
+            }
+            Object.keys(molecule.ligandDicts).forEach(key => {
+                if (!Object.hasOwn(this.ligandDicts, key)) {
+                    promises.push(this.addDict(molecule.ligandDicts[key]))
                 }
             })
         })
-        await $this.redraw(glRef)
-        return Promise.resolve(true)
-    })
+        await Promise.all(promises)
+
+        this.setAtomsDirty(true)
+        await this.redraw(glRef)
+
+    } catch (err) {
+        console.log(err)
+    }
 }
 
 MoorhenMolecule.prototype.addLigandOfType = async function (resType, glRef, fromMolNo=-999999) {
@@ -1938,63 +1655,54 @@ MoorhenMolecule.prototype.unhideAll = async function(glRef) {
     return Promise.resolve(result)
 }
 
-MoorhenMolecule.prototype.drawHBonds = async function(glRef,hbs) {
-    let selectedGemmiAtomsPairs = [];
-    for(let ihb=0;ihb<hbs.length;ihb++){
-        const donor = hbs[ihb].donor
-        const acceptor = hbs[ihb].acceptor
-        let modelName = donor.modelId
-        let chainName = donor.chainName
-        let resNum = donor.resNum
-        let residueName = donor.residueName
-        let atomName = donor.name
-        let atomAltLoc = donor.altLoc
-        let atomHasAltLoc = true
-        if(atomAltLoc==="") atomHasAltLoc = false
-        const donorAtomInfo = {
-                  pos: [donor.x, donor.y, donor.z],
-                  x: donor.x,
-                  y: donor.y,
-                  z: donor.z,
-                  charge: donor.charge,
-                  element: donor.element, // ???
-                  name: donor.name,
-                  symbol: donor.element, // ???
-                  b_iso: donor.b_iso,
-                  serial:donor.serial,
-                  label: `/${modelName}/${chainName}/${resNum}(${residueName})/${atomName}${atomHasAltLoc ? ':' + String.fromCharCode(atomAltLoc) : ''}`
-        }
-        modelName = acceptor.modelId
-        chainName = acceptor.chainName
-        resNum = acceptor.resNum
-        residueName = acceptor.residueName
-        atomName = acceptor.name
-        atomAltLoc = acceptor.altLoc
-        atomHasAltLoc = true
-        if(atomAltLoc==="") atomHasAltLoc = false
-        const acceptorAtomInfo = {
-                  pos: [acceptor.x, acceptor.y, acceptor.z],
-                  x: acceptor.x,
-                  y: acceptor.y,
-                  z: acceptor.z,
-                  charge: acceptor.charge,
-                  element: acceptor.element, // ???
-                  name: acceptor.name,
-                  symbol: acceptor.element, // ???
-                  b_iso: acceptor.b_iso,
-                  serial:acceptor.serial,
-                  label: `/${modelName}/${chainName}/${resNum}(${residueName})/${atomName}${atomHasAltLoc ? ':' + String.fromCharCode(atomAltLoc) : ''}`
-        }
-        const pair = [donorAtomInfo,acceptorAtomInfo]
-        selectedGemmiAtomsPairs.push(pair)
-    }
+MoorhenMolecule.prototype.drawHBonds = async function(glRef, oneCid, style, labelled=false) {
+    const response = await this.commandCentre.current.cootCommand({
+        returnType: "vector_hbond",
+        command: "get_h_bonds",
+        commandArgs: [this.molNo, oneCid, false]
+    })
+    const hBonds = response.data.result.result
 
-    if(selectedGemmiAtomsPairs.length>0){
-        this.drawGemmiAtoms(glRef,selectedGemmiAtomsPairs,"originNeighbours",[1.0, 0.0, 0.0, 1.0],true,true)
-    }
+    const selectedGemmiAtomsPairs = hBonds.map(hbond => {
+        const donor = hbond.donor
+        const acceptor = hbond.acceptor
+        
+        const donorAtomInfo = {
+            pos: [donor.x, donor.y, donor.z],
+            x: donor.x,
+            y: donor.y,
+            z: donor.z,
+            charge: donor.charge,
+            element: donor.element, // ???
+            name: donor.name,
+            symbol: donor.element, // ???
+            b_iso: donor.b_iso,
+            serial: donor.serial,
+            label: `/${donor.modelId}/${donor.chainName}/${donor.resNum}(${donor.residueName})/${donor.name}${donor.altLoc === "" ? ':' + String.fromCharCode(donor.altLoc) : ''}`
+        }
+
+        const acceptorAtomInfo = {
+            pos: [acceptor.x, acceptor.y, acceptor.z],
+            x: acceptor.x,
+            y: acceptor.y,
+            z: acceptor.z,
+            charge: acceptor.charge,
+            element: acceptor.element, // ???
+            name: acceptor.name,
+            symbol: acceptor.element, // ???
+            b_iso: acceptor.b_iso,
+            serial: acceptor.serial,
+            label: `/${acceptor.modelId}/${acceptor.chainName}/${acceptor.resNum}(${acceptor.name})/${acceptor.name}${acceptor.altLoc === "" ? ':' + String.fromCharCode(acceptor.altLoc) : ''}`
+        }
+        
+        const pair = [donorAtomInfo, acceptorAtomInfo]
+        return pair
+    })
+
+    this.drawGemmiAtomPairs(glRef, selectedGemmiAtomsPairs, style, [1.0, 0.0, 0.0, 1.0], labelled, true)
 }
 
-MoorhenMolecule.prototype.generateSelfRestraints = async function(maxRadius=4.2) {
+MoorhenMolecule.prototype.generateSelfRestraints = function(maxRadius=4.2) {
     return this.commandCentre.current.cootCommand({
         command: "generate_self_restraints", 
         returnType: 'status',
@@ -2002,7 +1710,7 @@ MoorhenMolecule.prototype.generateSelfRestraints = async function(maxRadius=4.2)
     })
 }
 
-MoorhenMolecule.prototype.clearExtraRestraints = async function() {
+MoorhenMolecule.prototype.clearExtraRestraints = function() {
     return this.commandCentre.current.cootCommand({
         command: "clear_extra_restraints", 
         returnType: 'status',
@@ -2010,7 +1718,7 @@ MoorhenMolecule.prototype.clearExtraRestraints = async function() {
     })
 }
 
-MoorhenMolecule.prototype.rigidBodyFit = async function(cidsString, mapNo) {
+MoorhenMolecule.prototype.rigidBodyFit = function(cidsString, mapNo) {
     return this.commandCentre.current.cootCommand({
         command: "rigid_body_fit", 
         returnType: 'status',
@@ -2019,7 +1727,7 @@ MoorhenMolecule.prototype.rigidBodyFit = async function(cidsString, mapNo) {
 }
 
 
-MoorhenMolecule.prototype.refineResiduesUsingAtomCid = async function(cid, mode) {
+MoorhenMolecule.prototype.refineResiduesUsingAtomCid = function(cid, mode) {
     return this.commandCentre.current.cootCommand({
         command: "refine_residues_using_atom_cid", 
         returnType: 'status',
@@ -2027,11 +1735,11 @@ MoorhenMolecule.prototype.refineResiduesUsingAtomCid = async function(cid, mode)
     })
 }
 
-MoorhenMolecule.prototype.SSMSuperpose = async function(movCid, refMolNo, refCid) {
+MoorhenMolecule.prototype.SSMSuperpose = function(movChainId, refMolNo, refChainId) {
     return this.commandCentre.current.cootCommand({
         command: "SSM_superpose", 
         returnType: 'superpose_results',
-        commandArgs: [this.molNo, movCid, refMolNo, refCid], 
+        commandArgs: [refMolNo, refChainId, this.molNo, movChainId], 
     })
 }
 

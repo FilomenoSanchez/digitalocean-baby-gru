@@ -451,10 +451,18 @@ MoorhenMap.prototype.duplicate = async function () {
     return newMap.loadToCootFromMapData(reply.data.result.mapData, `Copy of ${this.name}`, this.isDifference)
 }
 
-MoorhenMap.prototype.blur = async function (bFactor) {
+MoorhenMap.prototype.blur = function (bFactor) {
     return this.commandCentre.current.cootCommand({
         command: 'sharpen_blur_map',
         commandArgs: [this.molNo, bFactor, true],
         returnType: "status"
+    })
+}
+
+MoorhenMap.prototype.mapMoleculeCentre = function () {
+    return this.commandCentre.current.cootCommand({
+        command: 'get_map_molecule_centre',
+        commandArgs: [this.molNo],
+        returnType: "map_molecule_centre_info_t"
     })
 }

@@ -1,8 +1,9 @@
-import { NavDropdown, Form, Button, InputGroup, Overlay, SplitButton, Dropdown, Modal, Card, Stack } from "react-bootstrap";
+import { NavDropdown, Form, Button, InputGroup, SplitButton, Dropdown, Modal, Card, Stack } from "react-bootstrap";
 import { MoorhenMolecule } from "../utils/MoorhenMolecule";
 import { MoorhenMap } from "../utils/MoorhenMap";
 import { useState, useRef, useEffect } from "react";
-import { MoorhenAssociateReflectionsToMap, MoorhenImportMapCoefficientsMenuItem, MoorhenAutoOpenMtzMenuItem, MoorhenDeleteEverythingMenuItem, MoorhenLoadTutorialDataMenuItem, MoorhenImportMapMenuItem, MoorhenImportFSigFMenuItem, MoorhenBackupsMenuItem } from "./MoorhenMenuItem";
+import { MoorhenAssociateReflectionsToMap, MoorhenImportMapCoefficientsMenuItem, MoorhenAutoOpenMtzMenuItem, MoorhenDeleteEverythingMenuItem, 
+    MoorhenLoadTutorialDataMenuItem, MoorhenImportMapMenuItem, MoorhenImportFSigFMenuItem, MoorhenBackupsMenuItem } from "./MoorhenMenuItem";
 import { MenuItem } from "@mui/material";
 import { convertViewtoPx, doDownload, readTextFile, getMultiColourRuleArgs } from "../utils/MoorhenUtils";
 import { getBackupLabel } from "../utils/MoorhenTimeCapsule"
@@ -10,9 +11,6 @@ import { getBackupLabel } from "../utils/MoorhenTimeCapsule"
 export const MoorhenFileMenu = (props) => {
 
     const { changeMolecules, changeMaps, commandCentre, glRef } = props;
-    const [overlayVisible, setOverlayVisible] = useState(false)
-    const [overlayContent, setOverlayContent] = useState(<></>)
-    const [overlayTarget, setOverlayTarget] = useState(null)
     const [popoverIsShown, setPopoverIsShown] = useState(false)
     const [remoteSource, setRemoteSource] = useState("PDBe")
     const [isValidPdbId, setIsValidPdbId] = useState(true)
@@ -498,7 +496,7 @@ export const MoorhenFileMenu = (props) => {
                     </MenuItem>
 
                     <MenuItem id='save-session-menu-item' variant="success" onClick={createBackup} disabled={!props.enableTimeCapsule}>
-                        Save molecule backup
+                        Save backup
                     </MenuItem>
                     
                     <MoorhenBackupsMenuItem {...menuItemProps} disabled={!props.enableTimeCapsule} setShowBackupsModal={setShowBackupsModal} loadSessionJSON={loadSessionJSON} />
@@ -510,28 +508,6 @@ export const MoorhenFileMenu = (props) => {
                     <MoorhenDeleteEverythingMenuItem {...menuItemProps} />
                 </div>
         </NavDropdown>
-
-
-
-        <Overlay
-            target={overlayTarget}
-            show={overlayVisible}
-            placement={"right"}
-        >
-            {({ placement, arrowProps, show: _show, popper, ...props }) => (
-                <div
-                    {...props}
-                    style={{
-                        position: 'absolute',
-                        marginBottom: '0.5rem',
-                        marginLeft: '1rem',
-                        borderRadius: 3,
-                        ...props.style,
-                    }}
-                >{overlayContent}
-                </div>
-            )}
-        </Overlay>
 
         <Modal show={showBackupsModal} onHide={() => setShowBackupsModal(false)}>
             <Modal.Header closeButton>

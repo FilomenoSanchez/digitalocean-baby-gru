@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Fragment } from "react";
-import { Card, Form, Button, Row, Col, DropdownButton, Stack, Dropdown, OverlayTrigger } from "react-bootstrap";
+import { Card, Form, Button, Col, DropdownButton, Stack, Dropdown, OverlayTrigger, ToggleButton } from "react-bootstrap";
 import { doDownload, getNameLabel } from '../utils/MoorhenUtils';
-import { VisibilityOffOutlined, VisibilityOutlined, ExpandMoreOutlined, ExpandLessOutlined, DownloadOutlined, Settings, FileCopyOutlined } from '@mui/icons-material';
+import { VisibilityOffOutlined, VisibilityOutlined, ExpandMoreOutlined, ExpandLessOutlined, DownloadOutlined, Settings, FileCopyOutlined, RadioButtonCheckedOutlined, RadioButtonUncheckedOutlined, AddOutlined, RemoveOutlined } from '@mui/icons-material';
 import { MoorhenMapSettingsMenuItem, MoorhenDeleteDisplayObjectMenuItem, MoorhenRenameDisplayObjectMenuItem } from "./MoorhenMenuItem";
 import MoorhenSlider from "./MoorhenSlider";
-import { MenuItem, Tooltip } from "@mui/material";
+import { IconButton, MenuItem, Tooltip } from "@mui/material";
 import { SketchPicker } from "react-color";
 
 export const MoorhenMapCard = (props) => {
@@ -72,6 +72,13 @@ export const MoorhenMapCard = (props) => {
         return props.changeMaps({ action: "Add", item: newMap })
     }
 
+    const handleCenterOnMap = async () => {
+        const response = await props.map.mapMoleculeCentre()
+        if (response.data.result.result.success) {
+            props.glRef.current.setOriginAnimated(response.data.result.result.updated_centre.map(coord => -coord))
+        }
+    }
+
     const actionButtons = {
         1: {
             label: cootContour ? "Hide map" : "Show map",
@@ -110,17 +117,11 @@ export const MoorhenMapCard = (props) => {
                 </Button>)
             },
         },
-        /*
         6: {
-            label: "Blur/sharpen map",
-            compressed: () => { return (<MenuItem key='sharpen-blur-map' variant="success" onClick={handleDuplicate}>Duplicate map</MenuItem>) },
-            expanded: () => {
-                return (<Button key='blur-map' size="sm" variant="outlined" onClick={handleDuplicate}>
-                    <FileCopyOutlined />
-                </Button>)
-            },
+            label: "Centre on map",
+            compressed: () => { return (<MenuItem key='centre-on-map'variant="success" onClick={handleCenterOnMap}>Centre on map</MenuItem>) },
+            expanded: null
         },
-        */
     }
 
     const getButtonBar = (sideBarWidth) => {
@@ -202,12 +203,23 @@ export const MoorhenMapCard = (props) => {
     }, [mapContourLevel, mapRadius])
 
     const handleWheelContourLevelCallback = useCallback(e => {
+        let newMapContourLevel
         if (props.map.cootContour && props.map.molNo === props.activeMap.molNo) {
             if (e.detail.factor > 1) {
-                setMapContourLevel(mapContourLevel + parseFloat(props.contourWheelSensitivityFactor))
+                newMapContourLevel = mapContourLevel + parseFloat(props.contourWheelSensitivityFactor)
             } else {
-                setMapContourLevel(mapContourLevel - parseFloat(props.contourWheelSensitivityFactor))
+                newMapContourLevel = mapContourLevel - parseFloat(props.contourWheelSensitivityFactor)
             }
+            
+            setMapContourLevel(newMapContourLevel)
+            props.setToastContent(
+                <h5 style={{margin: 0}}>
+                    <span>
+                        {`Level: ${newMapContourLevel.toFixed(2)} ${props.map.mapRmsd ? '(' + (newMapContourLevel / props.map.mapRmsd).toFixed(2) + ' rmsd)' : ''}`}
+                    </span>
+                </h5>
+            )
+    
         }
     }, [mapContourLevel, mapRadius, props.activeMap?.molNo, props.map.molNo, props.map.cootContour])
 
@@ -264,6 +276,19 @@ export const MoorhenMapCard = (props) => {
         }
 
     }, [mapRadius, mapContourLevel, mapLitLines, mapSolid])
+
+    const increaseLevelButton = <IconButton onClick={() => setMapContourLevel(mapContourLevel + parseFloat(props.contourWheelSensitivityFactor))} style={{padding: 0}}>
+                                    <AddOutlined/>
+                                </IconButton>
+    const decreaseLevelButton = <IconButton onClick={() => setMapContourLevel(mapContourLevel - parseFloat(props.contourWheelSensitivityFactor))} style={{padding: 0}}>
+                                    <RemoveOutlined/>
+                                </IconButton>
+    const increaseRadiusButton = <IconButton onClick={() => setMapRadius(mapRadius + 2)} style={{padding: 0}}>
+                                    <AddOutlined/>
+                                </IconButton>
+    const decreaseRadiusButton = <IconButton onClick={() => setMapRadius(mapRadius - 2)} style={{padding: 0}}>
+                                    <RemoveOutlined/>
+                                </IconButton>
 
     const getMapColourSelector = () => {
         if (mapColour === null) {
@@ -322,37 +347,57 @@ export const MoorhenMapCard = (props) => {
                 </Col>
             </Stack>
         </Card.Header>
-        <Card.Body style={{ display: isCollapsed ? 'none' : '' }}>
-            <Row className="align-items-center" style={{ height: '100%', justifyContent: 'between', display: 'flex', color: props.isDark ? 'white' : 'black' }}>
-                <Col className="border-left" style={{ justifyContent: 'left', display: 'flex' }}>
-                    <Row>
-                        <Form.Check checked={props.map === props.activeMap}
-                            style={{ margin: '0' }}
-                            inline
-                            label={'Active'}
-                            name={`setActiveMap ${props.map.molNo}`}
-                            type="checkbox"
-                            variant="outline"
-                            onChange={(e) => {
-                                if (e.target.checked) {
-                                    props.setActiveMap(props.map)
-                                }
-                            }}
-                        />
-                    </Row>
-                </Col>
+        <Card.Body style={{ display: isCollapsed ? 'none' : '', padding: '0.5rem' }}>
+            <Stack direction='horizontal' gap={4}>
+                <ToggleButton
+                    type="checkbox"
+                    variant={props.isDark ? "outline-light" : "outline-primary"}
+                    checked={props.map === props.activeMap}
+                    style={{ marginLeft: '0.1rem', marginRight: '0.5rem', justifyContent: 'space-betweeen', display: 'flex'}}
+                    onClick={evt => props.setActiveMap(props.map) }
+                >
+                    {props.map === props.activeMap ? <RadioButtonCheckedOutlined/> : <RadioButtonUncheckedOutlined/>}
+                    <span style={{marginLeft: '0.5rem'}}>Active</span>
+                </ToggleButton>
                 <Col>
                     <Form.Group controlId="contouringLevel" className="mb-3">
-                        <span>{`Level: ${mapContourLevel.toFixed(2)} ${props.map.mapRmsd ? '(' + (mapContourLevel / props.map.mapRmsd).toFixed(2) + ' rmsd)' : ''}`}</span>
-                        <MoorhenSlider minVal={0.01} maxVal={5} logScale={true} showSliderTitle={false} isDisabled={!cootContour} initialValue={props.initialContour} externalValue={mapContourLevel} setExternalValue={setMapContourLevel} />
+                        <span>{`Lvl: ${mapContourLevel.toFixed(2)} ${props.map.mapRmsd ? '(' + (mapContourLevel / props.map.mapRmsd).toFixed(2) + ' rmsd)' : ''}`}</span>
+                        <MoorhenSlider
+                            minVal={0.01}
+                            maxVal={5}
+                            showMinMaxVal={false}
+                            decrementButton={decreaseLevelButton}
+                            incrementButton={increaseLevelButton}
+                            allowExternalFeedback={true}
+                            logScale={true}
+                            showSliderTitle={false}
+                            isDisabled={!cootContour}
+                            initialValue={props.initialContour}
+                            externalValue={mapContourLevel}
+                            setExternalValue={setMapContourLevel}
+                        />
                     </Form.Group>
                 </Col>
                 <Col>
                     <Form.Group controlId="contouringRadius" className="mb-3">
-                        <MoorhenSlider minVal={0.01} maxVal={100} logScale={false} sliderTitle="Radius" decimalPlaces={2} isDisabled={!cootContour} initialValue={props.initialRadius} externalValue={mapRadius} setExternalValue={setMapRadius} />
+                        <MoorhenSlider
+                            minVal={0.01}
+                            maxVal={100}
+                            showMinMaxVal={false}
+                            decrementButton={decreaseRadiusButton} 
+                            incrementButton={increaseRadiusButton} 
+                            allowExternalFeedback={true} 
+                            logScale={false} 
+                            sliderTitle="Radius" 
+                            decimalPlaces={2} 
+                            isDisabled={!cootContour} 
+                            initialValue={props.initialRadius} 
+                            externalValue={mapRadius} 
+                            setExternalValue={setMapRadius}
+                        />
                     </Form.Group>
                 </Col>
-            </Row>
+            </Stack>
         </Card.Body>
     </Card >
 }
