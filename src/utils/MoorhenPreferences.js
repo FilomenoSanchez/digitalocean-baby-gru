@@ -37,6 +37,7 @@ const getDefaultValues = () => {
         drawInteractions: false,
         doPerspectiveProjection: false,
         useOffScreenBuffers: false,
+        doShadowDepthDebug: false,
         mouseSensitivity: 0.3,
         zoomWheelSensitivityFactor: 1.0,
         contourWheelSensitivityFactor: 0.05,
@@ -52,6 +53,7 @@ const getDefaultValues = () => {
         defaultUpdatingScores: ['Rfree', 'Rfactor', 'Moorhen Points'],
         maxBackupCount: 10,
         modificationCountBackupThreshold: 5,
+        devMode: false,
         shortCuts: {
             "decrease_front_clip": {
                 modifiers: [],
@@ -252,6 +254,7 @@ const PreferencesContextProvider = ({ children }) => {
     const [drawInteractions, setDrawInteractions] = useState(null)
     const [doPerspectiveProjection, setDoPerspectiveProjection] = useState(null)
     const [useOffScreenBuffers, setUseOffScreenBuffers] = useState(null)
+    const [doShadowDepthDebug, setDoShadowDepthDebug] = useState(null)
     const [mapLineWidth, setMapLineWidth] = useState(null)
     const [makeBackups, setMakeBackups] = useState(null)
     const [showShortcutToast, setShowShortcutToast] = useState(null)
@@ -264,6 +267,7 @@ const PreferencesContextProvider = ({ children }) => {
     const [maxBackupCount, setMaxBackupCount] = useState(null)
     const [modificationCountBackupThreshold, setModificationCountBackupThreshold] = useState(null)
     const [defaultUpdatingScores, setDefaultUpdatingScores] = useReducer(itemReducer, null)
+    const [devMode, setDevMode] = useState(null)
 
     const preferencesMap = {
         1: { label: "defaultBackgroundColor", value: defaultBackgroundColor, valueSetter: setDefaultBackgroundColor},
@@ -295,6 +299,8 @@ const PreferencesContextProvider = ({ children }) => {
         27: { label: "useOffScreenBuffers", value: useOffScreenBuffers, valueSetter: setUseOffScreenBuffers},
         28: { label: "contourWheelSensitivityFactor", value: contourWheelSensitivityFactor, valueSetter: setContourWheelSensitivityFactor},
         29: { label: "drawAxes", value: drawAxes, valueSetter: setDrawAxes},
+        30: { label: "devMode", value: devMode, valueSetter: setDevMode},
+        31: { label: "doShadowDepthDebug", value: doShadowDepthDebug, valueSetter: setDoShadowDepthDebug},
     }
 
     const restoreDefaults = (defaultValues)=> {
@@ -357,6 +363,15 @@ const PreferencesContextProvider = ({ children }) => {
        
         updateStoredPreferences('shortcutOnHoveredAtom', shortcutOnHoveredAtom);
     }, [shortcutOnHoveredAtom]);
+
+    useMemo(() => {
+
+        if (devMode === null) {
+            return
+        }
+       
+        updateStoredPreferences('devMode', devMode);
+    }, [devMode]);
     
     useMemo(() => {
 
@@ -549,6 +564,15 @@ const PreferencesContextProvider = ({ children }) => {
 
     useMemo(() => {
 
+        if (doShadowDepthDebug === null) {
+            return
+        }
+
+        updateStoredPreferences('doShadowDepthDebug', doShadowDepthDebug);
+    }, [doShadowDepthDebug]);
+
+    useMemo(() => {
+
         if (drawInteractions === null) {
             return
         }
@@ -623,7 +647,7 @@ const PreferencesContextProvider = ({ children }) => {
         modificationCountBackupThreshold, setModificationCountBackupThreshold, isMounted, contourWheelSensitivityFactor,
         drawInteractions, setDrawInteractions, clipCap, setClipCap, enableTimeCapsule, setEnableTimeCapsule, 
         doPerspectiveProjection, setDoPerspectiveProjection, useOffScreenBuffers, setUseOffScreenBuffers, drawAxes,
-        setDrawAxes
+        setDrawAxes, devMode, setDevMode, doShadowDepthDebug, setDoShadowDepthDebug
     }
 
     return (

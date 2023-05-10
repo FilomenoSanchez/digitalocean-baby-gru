@@ -80,8 +80,10 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
                 const cidSplit0 = residueCid.split(" ")[0]
                 const cidSplit = cidSplit0.replace(/\/+$/, "").split("/")
                 const resnum = cidSplit[cidSplit.length-1]
+                const chainID = cidSplit[cidSplit.length-2]
                 const oneCid = cidSplit.join("/")+"-"+resnum
-                mol.drawHBonds(glRef, oneCid, 'originNeighbours', true)
+                //mol.drawHBonds(glRef, oneCid, 'originNeighbours', true)
+                mol.drawEnvironment(glRef, chainID, parseInt(resnum), "", true)
             }
             
             busyDrawingHBonds.current = false
@@ -93,7 +95,8 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
     const clearHBonds = useCallback(async (e) => {
         if(!props.drawInteractions) {
             props.molecules.forEach(mol => {
-                mol.drawGemmiAtomPairs(glRef, [], "originNeighbours", [1.0, 0.0, 0.0, 1.0], true, true)
+                mol.drawGemmiAtomPairs(glRef, [], "originNeighboursBump", [1.0, 0.0, 0.0, 1.0], true, true)
+                mol.drawGemmiAtomPairs(glRef, [], "originNeighboursHBond", [1.0, 0.0, 0.0, 1.0], true, true)
             })
         }
     }, [props.drawInteractions, props.molecules])
@@ -121,6 +124,11 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
         glRef.current.clearTextPositionBuffers()
         glRef.current.drawScene()
     }, [props.doPerspectiveProjection])
+
+    useEffect(() => {
+        glRef.current.setShadowDepthDebug(props.doShadowDepthDebug)
+        glRef.current.drawScene()
+    }, [props.doShadowDepthDebug])
 
     useEffect(() => {
         glRef.current.useOffScreenBuffers = props.useOffScreenBuffers

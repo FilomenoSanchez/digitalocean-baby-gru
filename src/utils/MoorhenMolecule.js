@@ -61,6 +61,8 @@ export function MoorhenMolecule(commandCentre, monomerLibraryPath) {
         hover: [],
         selection: [],
         originNeighbours: [],
+        originNeighboursHBond: [],
+        originNeighboursBump: [],
         transformation: { origin: [0, 0, 0], quat: null, centre: [0, 0, 0] }
     }
     this.uniqueId = guid()
@@ -953,9 +955,13 @@ MoorhenMolecule.prototype.clearBuffersOfStyle = function (style, glRef) {
     const $this = this
     //Empty existing buffers of this type
     $this.displayObjects[style].forEach((buffer) => {
-        buffer.clearBuffers()
-        if (glRef.current.displayBuffers) {
-            glRef.current.displayBuffers = glRef.current.displayBuffers.filter(glBuffer => glBuffer !== buffer)
+        if("clearBuffers" in buffer){
+            buffer.clearBuffers()
+            if (glRef.current.displayBuffers) {
+                glRef.current.displayBuffers = glRef.current.displayBuffers.filter(glBuffer => glBuffer !== buffer)
+            }
+        } else if("labels" in buffer){
+            glRef.current.newTextLabels = glRef.current.newTextLabels.filter(tlBuffer => tlBuffer !== buffer.labels)
         }
     })
     glRef.current.buildBuffers()
@@ -1071,7 +1077,7 @@ MoorhenMolecule.prototype.drawGemmiAtomPairs = async function (glRef, gemmiAtomP
     const atomColours = {}
     gemmiAtomPairs.forEach(atom => { atomColours[`${atom[0].serial}`] = colour; atomColours[`${atom[1].serial}`] = colour })
     let objects = [
-        gemmiAtomPairsToCylindersInfo(gemmiAtomPairs, 0.1, atomColours, labelled) 
+        gemmiAtomPairsToCylindersInfo(gemmiAtomPairs, 0.07, atomColours, labelled) 
     ]
     if (clearBuffers){
         $this.clearBuffersOfStyle(style, glRef)
@@ -1655,6 +1661,65 @@ MoorhenMolecule.prototype.unhideAll = async function(glRef) {
     return Promise.resolve(result)
 }
 
+MoorhenMolecule.prototype.drawEnvironment = async function(glRef, chainID, resNo,  altLoc, labelled=false) {
+    
+    const response = await this.commandCentre.current.cootCommand({
+        returnType: "generic_3d_lines_bonds_box",
+        command: "make_exportable_environment_bond_box",
+        commandArgs: [this.molNo, chainID, resNo,  altLoc]
+    })
+    const envDistances = response.data.result.result
+
+    const bumps = envDistances[0];
+    const hbonds = envDistances[1];
+
+    const bumpAtomsPairs = bumps.map(bump => {
+        const start = bump.start
+        const end = bump.end
+        
+        const startAtomInfo = {
+            pos: [start.x, start.y, start.z],
+            x: start.x,
+            y: start.y,
+            z: start.z,
+        }
+
+        const endAtomInfo = {
+            pos: [end.x, end.y, end.z],
+            x: end.x,
+            y: end.y,
+            z: end.z,
+        }
+
+        const pair = [startAtomInfo, endAtomInfo]
+        return pair
+    })
+    this.drawGemmiAtomPairs(glRef, bumpAtomsPairs, "originNeighboursBump", [0.7, 0.4, 0.25, 1.0], labelled, true)
+
+    const hbondAtomsPairs = hbonds.map(hbond => {
+        const start = hbond.start
+        const end = hbond.end
+        
+        const startAtomInfo = {
+            pos: [start.x, start.y, start.z],
+            x: start.x,
+            y: start.y,
+            z: start.z,
+        }
+
+        const endAtomInfo = {
+            pos: [end.x, end.y, end.z],
+            x: end.x,
+            y: end.y,
+            z: end.z,
+        }
+
+        const pair = [startAtomInfo, endAtomInfo]
+        return pair
+    })
+    this.drawGemmiAtomPairs(glRef, hbondAtomsPairs, "originNeighboursHBond", [0.7, 0.2, 0.7, 1.0], labelled, true)
+}
+
 MoorhenMolecule.prototype.drawHBonds = async function(glRef, oneCid, style, labelled=false) {
     const response = await this.commandCentre.current.cootCommand({
         returnType: "vector_hbond",
@@ -1699,7 +1764,7 @@ MoorhenMolecule.prototype.drawHBonds = async function(glRef, oneCid, style, labe
         return pair
     })
 
-    this.drawGemmiAtomPairs(glRef, selectedGemmiAtomsPairs, style, [1.0, 0.0, 0.0, 1.0], labelled, true)
+    this.drawGemmiAtomPairs(glRef, selectedGemmiAtomsPairs, style, [0.7, 0.2, 0.7, 1.0], labelled, true)
 }
 
 MoorhenMolecule.prototype.generateSelfRestraints = function(maxRadius=4.2) {
