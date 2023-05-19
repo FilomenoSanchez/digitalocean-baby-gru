@@ -177,6 +177,7 @@ MoorhenMolecule.prototype.getUnitCellParams = function () {
 
     return unitCellParams
 }
+
 MoorhenMolecule.prototype.parseSequences = function () {
     if (this.gemmiStructure === null) {
         return
@@ -418,11 +419,12 @@ MoorhenMolecule.prototype.setAtomsDirty = function (state) {
     this.atomsDirty = state
 }
 
-MoorhenMolecule.prototype.getAtoms = function () {
+MoorhenMolecule.prototype.getAtoms = function (format='pdb') {
     const $this = this;
     return $this.commandCentre.current.postMessage({
         message: "get_atoms",
-        molNo: $this.molNo
+        molNo: $this.molNo,
+        format: format
     })
 }
 
@@ -1540,6 +1542,8 @@ MoorhenMolecule.prototype.gemmiAtomsForCid = async function (cid) {
                                     b_iso: atomTempFactor,
                                     serial: atomSerial,
                                     name: atomName,
+                                    has_altloc: atomHasAltLoc,
+                                    alt_loc: atomHasAltLoc ? '' : String.fromCharCode(atomAltLoc),
                                     label: `/${modelName}/${chainName}/${resNum}(${residueName})/${atomName}${atomHasAltLoc ? ':' + String.fromCharCode(atomAltLoc) : ''}`
                                 }
                                 result.push(atomInfo)
