@@ -1,6 +1,53 @@
 import React, { createContext, useState, useEffect, useMemo, useReducer } from "react";
 import localforage from 'localforage';
 
+export type MoorhenShortcutType = {
+    modifiers: string[];
+    keyPress: string;
+    label: string;
+    viewOnly: boolean;
+}
+export interface MoorhenPreferencesInterface {
+    version?: string;
+    defaultBackgroundColor: [number, number, number, number];
+    atomLabelDepthMode: boolean; 
+    enableTimeCapsule: boolean;
+    defaultExpandDisplayCards: boolean;
+    defaultMapLitLines: boolean;
+    refineAfterMod: boolean; 
+    drawCrosshairs: boolean; 
+    drawAxes: boolean; 
+    drawFPS: boolean; 
+    drawMissingLoops: boolean; 
+    drawInteractions: boolean; 
+    doPerspectiveProjection: boolean; 
+    useOffScreenBuffers: boolean; 
+    doShadowDepthDebug: boolean; 
+    doShadow: boolean; 
+    GLLabelsFontFamily: string;
+    GLLabelsFontSize: number;
+    doSpinTest: boolean;
+    mouseSensitivity: number;
+    zoomWheelSensitivityFactor: number;
+    contourWheelSensitivityFactor: number;
+    mapLineWidth: number;
+    makeBackups: boolean; 
+    showShortcutToast: boolean; 
+    defaultMapSurface: boolean; 
+    defaultBondSmoothness: number,
+    showScoresToast: boolean; 
+    shortcutOnHoveredAtom: boolean; 
+    resetClippingFogging: boolean; 
+    clipCap: boolean; 
+    defaultUpdatingScores: string[],
+    maxBackupCount: number;
+    modificationCountBackupThreshold: number;
+    devMode: boolean; 
+    shortCuts: {
+        [label: string]: MoorhenShortcutType;
+    };
+}
+
 const itemReducer = (oldList, change) => {
     if (change.action === 'Add') {
         return [...oldList, change.item]
@@ -13,7 +60,7 @@ const itemReducer = (oldList, change) => {
     }
 }
 
-const updateStoredPreferences = async (key, value) => {
+const updateStoredPreferences = async (key: string, value: any): Promise<void> => {
     try {
         await localforage.setItem(key, value)
     } catch (err) {
@@ -21,9 +68,9 @@ const updateStoredPreferences = async (key, value) => {
     }
 }
 
-const getDefaultValues = () => {
+const getDefaultValues = (): MoorhenPreferencesInterface => {
     return {
-        version: 'v26',
+        version: 'v27',
         defaultBackgroundColor: [1, 1, 1, 1], 
         atomLabelDepthMode: true, 
         enableTimeCapsule: true, 
@@ -39,6 +86,9 @@ const getDefaultValues = () => {
         useOffScreenBuffers: false,
         doShadowDepthDebug: false,
         doShadow: false,
+        GLLabelsFontFamily: "Arial",
+        GLLabelsFontSize: 18,
+        doSpinTest: false,
         mouseSensitivity: 0.3,
         zoomWheelSensitivityFactor: 1.0,
         contourWheelSensitivityFactor: 0.05,
@@ -48,7 +98,7 @@ const getDefaultValues = () => {
         defaultMapSurface: false,
         defaultBondSmoothness: 1,
         showScoresToast: true,
-        shortcutOnHoveredAtom: true,
+        shortcutOnHoveredAtom: false,
         resetClippingFogging: true,
         clipCap: true,
         defaultUpdatingScores: ['Rfree', 'Rfactor', 'Moorhen Points'],
@@ -222,7 +272,7 @@ const getDefaultValues = () => {
                 modifiers: ["shiftKey"],
                 keyPress: " ",
                 label: "Jump to the previous residue",
-                viewOnly: true
+                viewOnly: true,
             },
             "increase_map_radius": {
                 modifiers: [],
@@ -240,42 +290,45 @@ const getDefaultValues = () => {
     }
 }
 
-const PreferencesContext = createContext();
+const PreferencesContext = createContext(undefined);
 
 const PreferencesContextProvider = ({ children }) => {
-    const [isMounted, setIsMounted] = useState(false)
-    const [defaultBackgroundColor, setDefaultBackgroundColor] = useState(null)
-    const [enableTimeCapsule, setEnableTimeCapsule] = useState(null)
-    const [atomLabelDepthMode, setAtomLabelDepthMode] = useState(null)
-    const [defaultExpandDisplayCards, setDefaultExpandDisplayCards] = useState(null)
-    const [shortCuts, setShortCuts] = useState(null)
-    const [defaultMapLitLines, setDefaultMapLitLines] = useState(null)
-    const [refineAfterMod, setRefineAfterMod] = useState(null)
-    const [mouseSensitivity, setMouseSensitivity] = useState(null)
-    const [zoomWheelSensitivityFactor, setZoomWheelSensitivityFactor] = useState(null)
-    const [contourWheelSensitivityFactor, setContourWheelSensitivityFactor] = useState(null)
-    const [drawCrosshairs, setDrawCrosshairs] = useState(null)
-    const [drawAxes, setDrawAxes] = useState(null)
-    const [drawFPS, setDrawFPS] = useState(null)
-    const [drawMissingLoops, setDrawMissingLoops] = useState(null)
-    const [drawInteractions, setDrawInteractions] = useState(null)
-    const [doPerspectiveProjection, setDoPerspectiveProjection] = useState(null)
-    const [useOffScreenBuffers, setUseOffScreenBuffers] = useState(null)
-    const [doShadowDepthDebug, setDoShadowDepthDebug] = useState(null)
-    const [doShadow, setDoShadow] = useState(null)
-    const [mapLineWidth, setMapLineWidth] = useState(null)
-    const [makeBackups, setMakeBackups] = useState(null)
-    const [showShortcutToast, setShowShortcutToast] = useState(null)
-    const [defaultMapSurface, setDefaultMapSurface] = useState(null)
-    const [defaultBondSmoothness, setDefaultBondSmoothness] = useState(null)
-    const [showScoresToast, setShowScoresToast] = useState(null)
-    const [shortcutOnHoveredAtom, setShortcutOnHoveredAtom] = useState(null)
-    const [resetClippingFogging, setResetClippingFogging] = useState(null)
-    const [clipCap, setClipCap] = useState(null)
-    const [maxBackupCount, setMaxBackupCount] = useState(null)
-    const [modificationCountBackupThreshold, setModificationCountBackupThreshold] = useState(null)
+    const [isMounted, setIsMounted] = useState<boolean>(false)
+    const [defaultBackgroundColor, setDefaultBackgroundColor] = useState<null | [number, number, number, number]>(null)
+    const [enableTimeCapsule, setEnableTimeCapsule] = useState<null | boolean>(null)
+    const [atomLabelDepthMode, setAtomLabelDepthMode] = useState<null | boolean>(null)
+    const [defaultExpandDisplayCards, setDefaultExpandDisplayCards] = useState<null | boolean>(null)
+    const [shortCuts, setShortCuts] = useState<null | string>(null)
+    const [defaultMapLitLines, setDefaultMapLitLines] = useState<null | boolean>(null)
+    const [refineAfterMod, setRefineAfterMod] = useState<null | boolean>(null)
+    const [mouseSensitivity, setMouseSensitivity] = useState<null | number>(null)
+    const [zoomWheelSensitivityFactor, setZoomWheelSensitivityFactor] = useState<null | number>(null)
+    const [contourWheelSensitivityFactor, setContourWheelSensitivityFactor] = useState<null | number>(null)
+    const [drawCrosshairs, setDrawCrosshairs] = useState<null | boolean>(null)
+    const [drawAxes, setDrawAxes] = useState<null | boolean>(null)
+    const [drawFPS, setDrawFPS] = useState<null | boolean>(null)
+    const [drawMissingLoops, setDrawMissingLoops] = useState<null | boolean>(null)
+    const [drawInteractions, setDrawInteractions] = useState<null | boolean>(null)
+    const [doPerspectiveProjection, setDoPerspectiveProjection] = useState<null | boolean>(null)
+    const [useOffScreenBuffers, setUseOffScreenBuffers] = useState<null | boolean>(null)
+    const [doShadowDepthDebug, setDoShadowDepthDebug] = useState<null | boolean>(null)
+    const [doShadow, setDoShadow] = useState<null | boolean>(null)
+    const [GLLabelsFontFamily, setGLLabelsFontFamily] = useState<null | string>(null)
+    const [GLLabelsFontSize, setGLLabelsFontSize] = useState<null | number>(null)
+    const [doSpinTest, setDoSpinTest] = useState<null | number>(null)
+    const [mapLineWidth, setMapLineWidth] = useState<null | number>(null)
+    const [makeBackups, setMakeBackups] = useState<null | boolean>(null)
+    const [showShortcutToast, setShowShortcutToast] = useState<null | boolean>(null)
+    const [defaultMapSurface, setDefaultMapSurface] = useState<null | boolean>(null)
+    const [defaultBondSmoothness, setDefaultBondSmoothness] = useState<null | number>(null)
+    const [showScoresToast, setShowScoresToast] = useState<null | boolean>(null)
+    const [shortcutOnHoveredAtom, setShortcutOnHoveredAtom] = useState<null | boolean>(null)
+    const [resetClippingFogging, setResetClippingFogging] = useState<null | boolean>(null)
+    const [clipCap, setClipCap] = useState<null | boolean>(null)
+    const [maxBackupCount, setMaxBackupCount] = useState<null | number>(null)
+    const [modificationCountBackupThreshold, setModificationCountBackupThreshold] = useState<null | number>(null)
     const [defaultUpdatingScores, setDefaultUpdatingScores] = useReducer(itemReducer, null)
-    const [devMode, setDevMode] = useState(null)
+    const [devMode, setDevMode] = useState<null | boolean>(null)
 
     const preferencesMap = {
         1: { label: "defaultBackgroundColor", value: defaultBackgroundColor, valueSetter: setDefaultBackgroundColor},
@@ -310,6 +363,9 @@ const PreferencesContextProvider = ({ children }) => {
         30: { label: "devMode", value: devMode, valueSetter: setDevMode},
         31: { label: "doShadowDepthDebug", value: doShadowDepthDebug, valueSetter: setDoShadowDepthDebug},
         32: { label: "doShadow", value: doShadow, valueSetter: setDoShadow},
+        33: { label: "GLLabelsFontFamily", value: GLLabelsFontFamily, valueSetter: setGLLabelsFontFamily},
+        34: { label: "GLLabelsFontSize", value: GLLabelsFontSize, valueSetter: setGLLabelsFontSize},
+        35: { label: "doSpinTest", value: doSpinTest, valueSetter: setDoSpinTest},
     }
 
     const restoreDefaults = (defaultValues)=> {
@@ -591,6 +647,33 @@ const PreferencesContextProvider = ({ children }) => {
 
     useMemo(() => {
 
+        if (GLLabelsFontFamily === null) {
+            return
+        }
+
+        updateStoredPreferences('GLLabelsFontFamily', GLLabelsFontFamily);
+    }, [GLLabelsFontFamily]);
+
+    useMemo(() => {
+
+        if (GLLabelsFontSize === null) {
+            return
+        }
+
+        updateStoredPreferences('GLLabelsFontSize', GLLabelsFontSize);
+    }, [GLLabelsFontSize]);
+
+    useMemo(() => {
+
+        if (doSpinTest === null) {
+            return
+        }
+
+        updateStoredPreferences('doSpinTest', doSpinTest);
+    }, [doSpinTest]);
+
+    useMemo(() => {
+
         if (drawInteractions === null) {
             return
         }
@@ -665,7 +748,9 @@ const PreferencesContextProvider = ({ children }) => {
         modificationCountBackupThreshold, setModificationCountBackupThreshold, isMounted, contourWheelSensitivityFactor,
         drawInteractions, setDrawInteractions, clipCap, setClipCap, enableTimeCapsule, setEnableTimeCapsule, 
         doPerspectiveProjection, setDoPerspectiveProjection, useOffScreenBuffers, setUseOffScreenBuffers, drawAxes,
-        setDrawAxes, devMode, setDevMode, doShadowDepthDebug, setDoShadowDepthDebug, doShadow, setDoShadow
+        setDrawAxes, devMode, setDevMode, doShadowDepthDebug, setDoShadowDepthDebug, doShadow, setDoShadow,
+        GLLabelsFontFamily, setGLLabelsFontFamily, GLLabelsFontSize, setGLLabelsFontSize, doSpinTest,
+        setDoSpinTest
     }
 
     return (

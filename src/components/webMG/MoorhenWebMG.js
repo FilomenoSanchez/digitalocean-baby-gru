@@ -3,7 +3,7 @@ import { Toast, ToastContainer } from 'react-bootstrap';
 import { MGWebGL } from '../../WebGLgComponents/mgWebGL.js';
 import { MoorhenColourRules } from "../modal/MoorhenColourRules.js"
 import { MoorhenContextMenu } from "../context-menu/MoorhenContextMenu.js"
-import { convertViewtoPx } from '../../utils/MoorhenUtils.js';
+import { convertViewtoPx } from '../../utils/MoorhenUtils';
 
 export const MoorhenWebMG = forwardRef((props, glRef) => {
     const scores = useRef({})
@@ -134,6 +134,11 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
         glRef.current.setShadowsOn(props.preferences.doShadow)
         glRef.current.drawScene()
     }, [props.preferences.doShadow])
+
+    useEffect(() => {
+        glRef.current.setSpinTestState(props.preferences.doSpinTest)
+        glRef.current.drawScene()
+    }, [props.preferences.doSpinTest])
 
     useEffect(() => {
         glRef.current.useOffScreenBuffers = props.preferences.useOffScreenBuffers
@@ -398,6 +403,15 @@ export const MoorhenWebMG = forwardRef((props, glRef) => {
         }
     }, [
         props.preferences.clipCap,
+        glRef.current
+    ])
+
+    useEffect(() => {
+        if (glRef.current) {
+            glRef.current.setTextFont(props.preferences.GLLabelsFontFamily,props.preferences.GLLabelsFontSize)
+        }
+    }, [
+        props.preferences.GLLabelsFontSize, props.preferences.GLLabelsFontFamily,
         glRef.current
     ])
 

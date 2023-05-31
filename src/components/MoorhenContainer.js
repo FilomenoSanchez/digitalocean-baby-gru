@@ -1,8 +1,9 @@
 import { useEffect, useCallback, useReducer, useRef, useState, useContext } from 'react';
 import { Container, Col, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap';
 import { MoorhenWebMG } from './webMG/MoorhenWebMG';
-import { MoorhenCommandCentre, convertRemToPx, convertViewtoPx, getTooltipShortcutLabel, createLocalStorageInstance } from '../utils/MoorhenUtils';
+import { convertRemToPx, convertViewtoPx, getTooltipShortcutLabel, createLocalStorageInstance, allFontsSet } from '../utils/MoorhenUtils';
 import { historyReducer, initialHistoryState } from './navbar-menus/MoorhenHistoryMenu';
+import { MoorhenCommandCentre } from "../utils/MoorhenCommandCentre"
 import { PreferencesContext } from "../utils/MoorhenPreferences";
 import { MoorhenTimeCapsule } from '../utils/MoorhenTimeCapsule';
 import { MoorhenButtonBar } from './button/MoorhenButtonBar';
@@ -62,10 +63,27 @@ export const MoorhenContainer = (props) => {
     const [innerShowToast, setInnerShowToast] = useState(false)
     const [innerToastContent, setInnerToastContent] = useState("")
     const [innerShowColourRulesToast, setInnerShowColourRulesToast] = useState(false)
+    const [innerAvailableFonts, setInnerAvailableFonts] = useState([])
     
     innerMoleculesRef.current = innerMolecules
     innerMapsRef.current = innerMaps
     innerActiveMapRef.current = innerActiveMap
+
+    useEffect(() => {
+        const fetchAvailableFonts = async () => {
+            await document.fonts.ready;
+            const fontAvailable = []
+            allFontsSet.forEach(font => {
+                if (document.fonts.check(`12px "${font}"`)) {
+                    fontAvailable.push(font);
+                }    
+            })
+            setInnerAvailableFonts(Array.from(fontAvailable))  
+        }
+
+        fetchAvailableFonts()
+
+    }, [])
 
     const innerStatesMap = {
         glRef: innerGlRef, timeCapsuleRef: innerTimeCapsuleRef, commandCentre: innnerCommandCentre,
@@ -85,7 +103,9 @@ export const MoorhenContainer = (props) => {
         setCootInitialized: setInnerCootInitialized, theme: innerTheme, setTheme: setInnerTheme,
         showToast: innerShowToast, setShowToast: setInnerShowToast, toastContent: innerToastContent, 
         setToastContent: setInnerToastContent, showColourRulesToast: innerShowColourRulesToast, 
-        setShowColourRulesToast: setInnerShowColourRulesToast 
+        setShowColourRulesToast: setInnerShowColourRulesToast,
+        availableFonts: innerAvailableFonts,
+        setAvailableFonts: setInnerAvailableFonts,
     }
 
     const states = {}
@@ -102,7 +122,7 @@ export const MoorhenContainer = (props) => {
         backgroundColor, setBackgroundColor, currentDropdownId, setCurrentDropdownId,
         appTitle, setAppTitle, cootInitialized, setCootInitialized, theme, setTheme,
         showToast, setShowToast, toastContent, setToastContent, showColourRulesToast,
-        setShowColourRulesToast
+        setShowColourRulesToast, availableFonts, setAvailableFonts,
     } = states
 
     const {
@@ -345,7 +365,7 @@ export const MoorhenContainer = (props) => {
         setToastContent, currentDropdownId, setCurrentDropdownId, hoveredAtom, setHoveredAtom, showToast, setShowToast,
         windowWidth, windowHeight, showColourRulesToast, timeCapsuleRef, setShowColourRulesToast, isDark, exportCallback,
         disableFileUploads, urlPrefix, viewOnly, extraNavBarMenus, monomerLibraryPath, moleculesRef, extraFileMenuItems, 
-        mapsRef, allowScripting, extraEditMenuItems, extraDraggableModals, aceDRGInstance, ...preferences
+        mapsRef, allowScripting, extraEditMenuItems, extraDraggableModals, aceDRGInstance, availableFonts, ...preferences
     }
 
     return <> 
