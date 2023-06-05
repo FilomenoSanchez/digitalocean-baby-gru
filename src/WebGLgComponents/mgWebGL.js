@@ -884,7 +884,7 @@ let icosaIndices = icosaIndices2;
 
 let icosaNormals = icosaVertices;
 
-function isDarkBackground(r, g, b) {
+function isDarkBackground(r, g, b, a) {
     const brightness = r * 0.299 + g * 0.587 + b * 0.114
     if (brightness >= 0.5) {
         return false
@@ -1554,6 +1554,7 @@ class MGWebGL extends Component {
         this.fpsText = "";
         this.showShortCutHelp = null;
         this.mspfArray = [];
+        this.mouseTrackPoints = [];
 
         const frameCounterTimer = setInterval(() => {
             if(!self.context) return;
@@ -1573,6 +1574,7 @@ class MGWebGL extends Component {
         this.previousTextColour = "";
         this.atomLabelDepthMode = true;
         this.showCrosshairs = false
+        this.trackMouse = false
         this.showAxes = false;
         this.reContourMapOnlyOnMouseUp = true;
         this.mapLineWidth = 1.0
@@ -1678,6 +1680,8 @@ class MGWebGL extends Component {
         this.canvas = this.canvasRef.current;
         const self = this;
         this.activeMolecule = null;
+        this.draggableMolecule = null;
+        this.currentlyClickedAtom = null;
         /*
         window.addEventListener('resize',
                 function(evt){
@@ -5396,6 +5400,7 @@ class MGWebGL extends Component {
         this.shaderDepthShadowProgramPerfectSpheres.pMatrixUniform = this.gl.getUniformLocation(this.shaderDepthShadowProgramPerfectSpheres, "uPMatrix");
         this.shaderDepthShadowProgramPerfectSpheres.mvMatrixUniform = this.gl.getUniformLocation(this.shaderDepthShadowProgramPerfectSpheres, "uMVMatrix");
         this.shaderDepthShadowProgramPerfectSpheres.mvInvMatrixUniform = this.gl.getUniformLocation(this.shaderDepthShadowProgramPerfectSpheres, "uMVINVMatrix");
+        this.shaderDepthShadowProgramPerfectSpheres.invSymMatrixUniform = this.gl.getUniformLocation(this.shaderDepthShadowProgramPerfectSpheres, "uINVSymmMatrix");
 
         this.shaderDepthShadowProgramPerfectSpheres.fog_start = this.gl.getUniformLocation(this.shaderDepthShadowProgramPerfectSpheres, "fog_start");
         this.shaderDepthShadowProgramPerfectSpheres.fog_end = this.gl.getUniformLocation(this.shaderDepthShadowProgramPerfectSpheres, "fog_end");
@@ -5453,6 +5458,7 @@ class MGWebGL extends Component {
         this.shaderProgramPerfectSpheres.mvMatrixUniform = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "uMVMatrix");
         this.shaderProgramPerfectSpheres.mvInvMatrixUniform = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "uMVINVMatrix");
         this.shaderProgramPerfectSpheres.textureMatrixUniform = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "TextureMatrix");
+        this.shaderProgramPerfectSpheres.invSymMatrixUniform = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "uINVSymmMatrix");
 
         this.shaderProgramPerfectSpheres.fog_start = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "fog_start");
         this.shaderProgramPerfectSpheres.fog_end = this.gl.getUniformLocation(this.shaderProgramPerfectSpheres, "fog_end");
@@ -7150,13 +7156,19 @@ class MGWebGL extends Component {
 
     applySymmetryMatrix(theShader,symmetryMatrix,tempMVMatrix,tempMVInvMatrix){
         let symt = mat4.create();
+        let invsymt = mat4.create();
         mat4.set(symt,
                 symmetryMatrix[0], symmetryMatrix[1], symmetryMatrix[2], symmetryMatrix[3],
                 symmetryMatrix[4], symmetryMatrix[5], symmetryMatrix[6], symmetryMatrix[7],
                 symmetryMatrix[8], symmetryMatrix[9], symmetryMatrix[10], symmetryMatrix[11],
                 symmetryMatrix[12], symmetryMatrix[13], symmetryMatrix[14], symmetryMatrix[15]);
         mat4.multiply(tempMVMatrix, this.mvMatrix, symt);
+        mat4.invert(invsymt, symt);
+        invsymt[12] = 0.0;
+        invsymt[13] = 0.0;
+        invsymt[14] = 0.0;
         this.gl.uniformMatrix4fv(theShader.mvMatrixUniform, false, tempMVMatrix);
+        this.gl.uniformMatrix4fv(theShader.invSymMatrixUniform, false, invsymt);
         tempMVMatrix[12] = 0.0;
         tempMVMatrix[13] = 0.0;
         tempMVMatrix[14] = 0.0;
@@ -7657,6 +7669,9 @@ class MGWebGL extends Component {
 
         //console.log("GLrender",calculatingShadowMap);
 
+        //const theVector = this.calculate3DVectorFrom2DVector([20,20]);
+        //console.log(theVector[0],theVector[1],theVector[2]);
+
         //this.mouseDown = false; ???
         let ratio = 1.0 * this.gl.viewportWidth / this.gl.viewportHeight;
 
@@ -7911,6 +7926,10 @@ class MGWebGL extends Component {
         }
 
         this.drawTextOverlays(invMat);
+
+        if(this.trackMouse&&!this.renderToTexture){
+            this.drawMouseTrack();
+        }
 
         this.mouseDown = oldMouseDown;
 
@@ -8355,12 +8374,20 @@ class MGWebGL extends Component {
                 this.gl.disableVertexAttribArray(i);
 
             if (this.frag_depth_ext) {
+                let invsymt = mat4.create();
                 let program = this.shaderProgramPerfectSpheres;
                 if (calculatingShadowMap) {
                     program = this.shaderDepthShadowProgramPerfectSpheres;
                 }
 
+                mat4.set(invsymt,
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+                );
                 this.gl.useProgram(program);
+                this.gl.uniformMatrix4fv(program.invSymMatrixUniform, false, invsymt);
                 this.setMatrixUniforms(program);
                 this.gl.disableVertexAttribArray(program.vertexColourAttribute);
                 this.gl.enableVertexAttribArray(program.vertexPositionAttribute);
@@ -8409,6 +8436,25 @@ class MGWebGL extends Component {
                         //Instanced colour
                         //Instanced size
                         //Instanced offset
+                        if (this.displayBuffers[idx].transformMatrixInteractive) {
+                            const t = Date.now();
+                            const tdiff = (Math.round(t/1000) - t/1000);
+                            let sfrac;
+                            if(tdiff<0){
+                                sfrac = Math.sin(Math.PI+tdiff*Math.PI);
+                            } else {
+                                sfrac = Math.sin(tdiff*Math.PI);
+                            }
+                            this.gl.uniform4fv(program.light_colours_ambient, [sfrac,sfrac,sfrac,1.0]);
+                            //FIXME - Looks like several unused arguments in this function.
+                            this.setupModelViewTransformMatrixInteractive(this.displayBuffers[idx].transformMatrixInteractive, this.displayBuffers[idx].transformOriginInteractive, null, program, null, null, null);
+                            let invsymt2 = mat4.create();
+                            mat4.invert(invsymt2, this.displayBuffers[idx].transformMatrixInteractive);
+                            invsymt2[12] = 0.0;
+                            invsymt2[13] = 0.0;
+                            invsymt2[14] = 0.0;
+                            this.gl.uniformMatrix4fv(program.invSymMatrixUniform, false, invsymt2);
+                        }
                         this.gl.enableVertexAttribArray(program.offsetAttribute);
                         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.displayBuffers[idx].triangleInstanceOriginBuffer[j]);
                         this.gl.vertexAttribPointer(program.offsetAttribute, this.displayBuffers[idx].triangleInstanceOriginBuffer[j].itemSize, this.gl.FLOAT, false, 0, 0);
@@ -8435,7 +8481,47 @@ class MGWebGL extends Component {
                             this.instanced_ext.vertexAttribDivisorANGLE(program.sizeAttribute, 0);
                             this.instanced_ext.vertexAttribDivisorANGLE(program.offsetAttribute, 0);
                         }
+                        if (this.displayBuffers[idx].transformMatrixInteractive) {
+                            this.gl.uniform4fv(program.light_colours_ambient, this.light_colours_ambient);
+                            this.gl.uniformMatrix4fv(program.mvMatrixUniform, false, this.mvMatrix);
+                            this.gl.uniformMatrix4fv(program.mvInvMatrixUniform, false, this.mvInvMatrix);// All else
+                            this.gl.uniformMatrix4fv(program.invSymMatrixUniform, false, invsymt);
+                        }
+                        if(this.displayBuffers[idx].symmetryMatrices.length>0){
+                            let tempMVMatrix = mat4.create();
+                            let tempMVInvMatrix = mat4.create();
+                            if (this.WEBGL2) {
+                                this.gl.vertexAttribDivisor(program.vertexColourAttribute, 1);
+                                this.gl.vertexAttribDivisor(program.sizeAttribute, 1);
+                                this.gl.vertexAttribDivisor(program.offsetAttribute, 1);
+                            } else {
+                                this.instanced_ext.vertexAttribDivisorANGLE(program.vertexColourAttribute, 1);
+                                this.instanced_ext.vertexAttribDivisorANGLE(program.sizeAttribute, 1);
+                                this.instanced_ext.vertexAttribDivisorANGLE(program.offsetAttribute, 1);
+                            }
+                            for (let isym = 0; isym < this.displayBuffers[idx].symmetryMatrices.length; isym++) {
 
+                                this.applySymmetryMatrix(program,this.displayBuffers[idx].symmetryMatrices[isym],tempMVMatrix,tempMVInvMatrix)
+                                    if (this.WEBGL2) {
+                                        this.gl.drawElementsInstanced(this.gl.TRIANGLE_FAN, buffer.triangleVertexIndexBuffer[0].numItems, this.gl.UNSIGNED_INT, 0, this.displayBuffers[idx].triangleInstanceOriginBuffer[j].numItems);
+                                    } else {
+                                        this.instanced_ext.drawElementsInstancedANGLE(this.gl.TRIANGLE_FAN, buffer.triangleVertexIndexBuffer[0].numItems, this.gl.UNSIGNED_INT, 0, this.displayBuffers[idx].triangleInstanceOriginBuffer[j].numItems);
+                                    }
+
+                            }
+                            if (this.WEBGL2) {
+                                this.gl.vertexAttribDivisor(program.vertexColourAttribute, 0);
+                                this.gl.vertexAttribDivisor(program.sizeAttribute, 0);
+                                this.gl.vertexAttribDivisor(program.offsetAttribute, 0);
+                            } else {
+                                this.instanced_ext.vertexAttribDivisorANGLE(program.vertexColourAttribute, 0);
+                                this.instanced_ext.vertexAttribDivisorANGLE(program.sizeAttribute, 0);
+                                this.instanced_ext.vertexAttribDivisorANGLE(program.offsetAttribute, 0);
+                            }
+                            this.gl.uniformMatrix4fv(program.mvMatrixUniform, false, this.mvMatrix);// All else
+                            this.gl.uniformMatrix4fv(program.mvInvMatrixUniform, false, this.mvInvMatrix);// All else
+
+                        }
                     }
                 }
 
@@ -9620,7 +9706,7 @@ class MGWebGL extends Component {
                     }
                 });
                 document.dispatchEvent(atomClicked);
-
+                this.currentlyClickedAtom = { atom: self.displayBuffers[minidx].atoms[minj], buffer: self.displayBuffers[minidx] }
                 if (self.keysDown['label_atom']) {
                     updateLabels = true
                     if (self.labelledAtoms.length === 0 || (self.labelledAtoms[self.labelledAtoms.length - 1].length > 1)) {
@@ -10321,6 +10407,129 @@ class MGWebGL extends Component {
 
         this.gl.depthFunc(this.gl.LESS)
 
+    }
+
+    drawMouseTrack() {
+
+        const c = this.canvasRef.current;
+        const offset = getOffsetRect(c);
+
+        let ratio = 1.0 * this.gl.viewportWidth / this.gl.viewportHeight;
+        const frac_x = (getDeviceScale()*(this.init_x-offset.left)/this.gl.viewportWidth-0.5)  * 48.;
+        const frac_y = -(getDeviceScale()*(this.init_y-offset.top)/this.gl.viewportHeight-0.5) * 48;
+
+        this.gl.depthFunc(this.gl.ALWAYS);
+
+        this.gl.useProgram(this.shaderProgram);
+        this.setMatrixUniforms(this.shaderProgram);
+        this.gl.uniform1f(this.shaderProgram.fog_start, 1000.0);
+        this.gl.uniform1f(this.shaderProgram.fog_end, 1000.0);
+        this.gl.uniform4fv(this.shaderProgram.clipPlane0, [0, 0, -1, 1000]);
+        this.gl.uniform4fv(this.shaderProgram.clipPlane1, [0, 0, 1, 1000]);
+        const pmvMatrix = mat4.create();
+        const tempMVMatrix = mat4.create();
+        mat4.set(tempMVMatrix,
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, -50.0, 1.0,
+        )
+        const tempInvMVMatrix = mat4.create();
+        mat4.set(tempInvMVMatrix,
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        )
+        let pMatrix = mat4.create();
+        mat4.ortho(pMatrix, -24, 24, -24, 24, 0.1, 1000.0);
+        mat4.multiply(pmvMatrix, pMatrix, tempMVMatrix); // Lines
+        this.gl.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, pmvMatrix);
+        this.gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, tempInvMVMatrix);
+        this.gl.uniformMatrix4fv(this.shaderProgram.mvInvMatrixUniform, false, tempInvMVMatrix);
+
+        let size = 1.0;
+
+        this.mouseTrackPoints.push([frac_x,frac_y,performance.now()]);
+        if(this.mouseTrackPoints.length>120) this.mouseTrackPoints.shift();
+
+        let mouseTrackVertices = [];
+        let mouseTrackColours = [];
+        let mouseTrackNormals = [];
+        let mouseTrackIndexs = [];
+
+        let i = 0;
+        let currentIdx = 0;
+        this.mouseTrackPoints.forEach(point => {
+            const this_x = point[0];
+            const this_y = point[1];
+            const timeStamp = point[2];
+            const ifrac = i / this.mouseTrackPoints.length;
+            if((performance.now()-timeStamp)<200){
+            mouseTrackVertices = mouseTrackVertices.concat([
+                this_x-ifrac/ratio, this_y-ifrac, 0.0,
+                this_x+ifrac/ratio, this_y-ifrac, 0.0,
+                this_x+ifrac/ratio, this_y+ifrac, 0.0,
+                this_x-ifrac/ratio, this_y+ifrac, 0.0,
+            ]);
+            mouseTrackColours = mouseTrackColours.concat([
+                1, 0, 0, 1,
+                1, 0, 0, 1,
+                1, 0, 0, 1,
+                1, 0, 0, 1,
+            ]);
+            mouseTrackNormals = mouseTrackNormals.concat([
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+            ]);
+            mouseTrackIndexs = mouseTrackIndexs.concat([
+               currentIdx, currentIdx+1, currentIdx+2,
+               currentIdx, currentIdx+2, currentIdx+3,
+            ])
+               currentIdx += 4;
+            }
+            i += 1;
+        })
+
+        this.gl.depthFunc(this.gl.ALWAYS);
+
+        for(let i = 0; i<16; i++)
+            this.gl.disableVertexAttribArray(i);
+
+        this.gl.enableVertexAttribArray(this.shaderProgram.vertexNormalAttribute);
+        this.gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
+        this.gl.enableVertexAttribArray(this.shaderProgram.vertexColourAttribute);
+
+        if (typeof (this.mouseTrackPositionBuffer) === "undefined") {
+            this.mouseTrackPositionBuffer = this.gl.createBuffer();
+            this.mouseTrackColourBuffer = this.gl.createBuffer();
+            this.mouseTrackIndexBuffer = this.gl.createBuffer();
+            this.mouseTrackNormalBuffer = this.gl.createBuffer();
+        }
+
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.mouseTrackNormalBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(mouseTrackNormals), this.gl.DYNAMIC_DRAW);
+        this.gl.vertexAttribPointer(this.shaderProgram.vertexNormalAttribute, 3, this.gl.FLOAT, false, 0, 0);
+
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.mouseTrackPositionBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(mouseTrackVertices), this.gl.DYNAMIC_DRAW);
+        this.gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, 3, this.gl.FLOAT, false, 0, 0);
+
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.mouseTrackColourBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(mouseTrackColours), this.gl.DYNAMIC_DRAW);
+        this.gl.vertexAttribPointer(this.shaderProgram.vertexColourAttribute, 4, this.gl.FLOAT, false, 0, 0);
+
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.mouseTrackIndexBuffer);
+        if (this.ext) {
+            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(mouseTrackIndexs), this.gl.DYNAMIC_DRAW);
+            this.gl.drawElements(this.gl.TRIANGLES, mouseTrackIndexs.length, this.gl.UNSIGNED_INT, 0);
+        } else {
+            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mouseTrackIndexs), this.gl.DYNAMIC_DRAW);
+            this.gl.drawElements(this.gl.TRIANGLES, mouseTrackIndexs.length, this.gl.UNSIGNED_SHORT, 0);
+        }
+        this.gl.depthFunc(this.gl.LESS)
     }
 
     drawFPSMeter() {
@@ -11235,6 +11444,7 @@ class MGWebGL extends Component {
         const event_x = event.pageX;
         const event_y = event.pageY;
         self.init_y = event.pageY;
+        this.currentlyClickedAtom = null
         if (self.keysDown['center_atom'] || event.which===2) {
             if(Math.abs(event_x-self.mouseDown_x)<5 && Math.abs(event_y-self.mouseDown_y)<5){
                 if(self.displayBuffers.length>0){
@@ -12186,8 +12396,33 @@ class MGWebGL extends Component {
         document.dispatchEvent(goToBlobEvent);
     }
 
-    doMouseMove(event, self) {
+    setDraggableMolecule(molecule) {
+        this.draggableMolecule = molecule
+    }
 
+    mouseMoveAnimateTrack(force,count){
+        if(count==0||(this.cancelMouseTrack&&!force)){
+            return;
+        }
+        this.drawScene()
+        this.cancelMouseTrack = false;
+        requestAnimationFrame(this.mouseMoveAnimateTrack.bind(this,false,count-1));
+    }
+
+    calculate3DVectorFrom2DVector(inp) {
+        const [dx,dy] = inp;
+        const theVector = vec3.create();
+        vec3.set(theVector, dx, dy, 0.0);
+        const invQuat = quat4.create();
+        quat4Inverse(this.myQuat, invQuat);
+        const invMat = quatToMat4(invQuat);
+        vec3.transformMat4(theVector, theVector, invMat);
+        vec3.scale(theVector, theVector, this.zoom*getDeviceScale() * 48. / this.canvas.height);
+        return theVector;
+    }
+
+    doMouseMove(event, self) {
+        const draggableMoleculeMotion = (this.draggableMolecule != null) && (Object.keys(this.draggableMolecule.displayObjects).length > 0) && this.currentlyClickedAtom;
         const activeMoleculeMotion = (this.activeMolecule != null) && (Object.keys(this.activeMolecule.displayObjects).length > 0) && !self.keysDown['residue_camera_wiggle'];
 
         const centreOfMass = function (atoms) {
@@ -12208,6 +12443,10 @@ class MGWebGL extends Component {
         }
 
         self.mouseMoved = true;
+
+        self.cancelMouseTrack = true;
+        if(this.trackMouse)
+            requestAnimationFrame(self.mouseMoveAnimateTrack.bind(self,true,20))
 
         if (true) {
             let x;
@@ -12317,7 +12556,40 @@ class MGWebGL extends Component {
             //console.log(xQ);
             //console.log(yQ);
             quat4.multiply(xQ, xQ, yQ);
-            if (!activeMoleculeMotion) {
+            if (draggableMoleculeMotion) {
+                
+                // ###############
+                // FILO: COPY PASTED FROM ABOVE
+                let invQuat = quat4.create();
+                quat4Inverse(self.myQuat, invQuat);
+                let theMatrix = quatToMat4(invQuat);
+                let xshift = vec3.create();
+                vec3.set(xshift, moveFactor * self.dx, 0, 0);
+                let yshift = vec3.create();
+                vec3.set(yshift, 0, moveFactor * self.dy, 0);
+                vec3.transformMat4(xshift, xshift, theMatrix);
+                vec3.transformMat4(yshift, yshift, theMatrix);
+    
+                const newOrigin = this.draggableMolecule.displayObjects.transformation.origin.map((coord, coordIndex) => {
+                    return coord + (self.zoom * xshift[coordIndex] / 8.) - (self.zoom * yshift[coordIndex] / 8.)
+                })
+                this.draggableMolecule.displayObjects.transformation.origin = newOrigin;
+                if (!this.draggableMolecule.displayObjects.transformation.quat) {
+                    this.draggableMolecule.displayObjects.transformation.quat = quat4.create();
+                    quat4.set(this.draggableMolecule.displayObjects.transformation.quat, 0, 0, 0, -1);
+                }
+                theMatrix = quatToMat4(this.draggableMolecule.displayObjects.transformation.quat);
+                theMatrix[12] = this.draggableMolecule.displayObjects.transformation.origin[0];
+                theMatrix[13] = this.draggableMolecule.displayObjects.transformation.origin[1];
+                theMatrix[14] = this.draggableMolecule.displayObjects.transformation.origin[2];
+
+                // ###############
+
+                const draggedAtomEvent = new CustomEvent("atomDragged", { detail: {atom: this.currentlyClickedAtom} });
+                document.dispatchEvent(draggedAtomEvent);
+                return
+
+            } else if (!activeMoleculeMotion) {
                 quat4.multiply(self.myQuat, self.myQuat, xQ);
             } else {
                 // ###############

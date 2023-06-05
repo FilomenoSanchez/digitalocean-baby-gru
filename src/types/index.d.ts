@@ -1,14 +1,45 @@
+import { MoorhenMoleculeInterface } from "../utils/MoorhenMolecule";
+
 export {};
 
 declare global {
     interface Window {
-        CCP4Module: any;
+        CCP4Module: {
+            check_polymer_type(polymerConst: emscriptemInstanceInterface<number>): {value: number};
+            remove_ligands_and_waters_chain(chain: GemmiChainInterface): void;
+            gemmi_setup_entities(gemmiStructure: GemmiStructureInterface): void;
+            remove_ligands_and_waters_structure(gemmiStructure: GemmiStructureInterface): void;
+            read_structure_from_string(pdbData: string | ArrayBuffer, molName: string): GemmiStructureInterface;
+            get_mtz_columns(fileName: string): emscriptemVectorInterface<string>;
+            FS_createDataFile(arg0: string, fileName: string, byteArray: Uint8Array, arg3: boolean, arg4: boolean): void;
+            getElementNameAsString: (arg0: emscriptemInstanceInterface<string>) => string;
+            FS_unlink: (arg0: string) => void;
+            Selection: { new(cid: string): GemmiSelectionInterface };
+        }
     }
-    type HoverHoveredAtomType = {
+    type HoveredAtomType = {
         molecule: MoorhenMoleculeInterface | null,
         cid: string | null
     }
     type mgWebGLType = {
+        setDiffuseLightNoUpdate(arg0: number, arg1: number, arg2: number): void;
+        atomLabelDepthMode: boolean;
+        setTextFont(GLLabelsFontFamily: string, GLLabelsFontSize: number): void;
+        setBackground(backgroundColor: [number, number, number, number]): void;
+        clipCapPerfectSpheres: boolean;
+        setLightPositionNoUpdate(arg0: number, arg1: number, arg2: number): void;
+        setDiffuseLight(arg0: number, arg1: number, arg2: number): void;
+        setSpecularLightNoUpdate(arg0: number, arg1: number, arg2: number): void;
+        setAmbientLightNoUpdate(arg0: number, arg1: number, arg2: number): void;
+        useOffScreenBuffers: boolean;
+        setSpinTestState(doSpinTest: boolean): void;
+        setShadowsOn(doShadow: boolean): void;
+        setShadowDepthDebug(doShadowDepthDebug: boolean): void;
+        doPerspectiveProjection: boolean;
+        clearTextPositionBuffers(): void;
+        set_clip_range(arg0: number, arg1: number, arg2?: boolean): void;
+        set_fog_range(arg0: number, arg1: number, arg2?: boolean): void;
+        setQuat(arg0: any): void;
         myQuat: any;
         gl_fog_start: null | number;
         doDrawClickedAtomLines: any;
@@ -46,9 +77,11 @@ declare global {
             width: number;
             height: number;
         };
+        resize(arg0: number, arg1: number): void;
+        setActiveMolecule: (activeMolecule: MoorhenMoleculeInterface) => void;
         drawScene: () => void;
         initTextureFramebuffer: () => void;
-        setZoom: (arg0: number) => void;
+        setZoom: (arg0: number, arg1?: boolean) => void;
         clearMeasureCylinderBuffers: () => void;
         reContourMaps: () => void;
         drawScene: () => void;
@@ -62,6 +95,20 @@ declare global {
             removeBigTextureTextImages: (labels: string[]) => void;
         }
     }
+    type MoorhenConnectMapsEventType = CustomEvent<MoorhenConnectMapsInfoType>
+    type MoorhenConnectMapsInfoType = {
+        molecule: number;
+        maps: [number, number, number];
+        uniqueMaps: number[];
+    }
+    type MoorhenNewMapContourEventType = CustomEven<{
+        molNo: map.molNo,
+        mapRadius: storedMapData.radius,
+        cootContour: storedMapData.cootContour,
+        contourLevel: storedMapData.contourLevel,
+        mapColour: storedMapData.colour,
+        litLines: storedMapData.litLines,
+    }>
     type emscriptemInstanceInterface<T> = {
         clone: () => T;
         delete: () => void;
@@ -71,6 +118,59 @@ declare global {
         size: () => number;
         get: (idx: number) => T;
         at: (idx: number) => T;
+    }
+    interface GemmiSelectionInterface extends emscriptemInstanceInterface<GemmiSelectionInterface> {
+        matches_model: (model: GemmiModelInterface) => boolean;
+        matches_chain: (chain: GemmiChainInterface) => boolean;
+        matches_residue: (residue: GemmiResidueInterface) => boolean;
+        matches_atom: (atom: GemmiAtomInterface) => boolean;
+    }
+    interface GemmiAtomInterface extends emscriptemInstanceInterface<GemmiAtomInterface> {
+        name: string;
+        element: emscriptemInstanceInterface<string>;
+        pos: { x: number, y: number, z: number, delete: () => void };
+        altloc: number;
+        charge: number;
+        b_iso: number;
+        serial: string;
+        has_altloc: () => boolean;
+    }
+
+    interface GemmiResidueSeqIdInterface extends emscriptemInstanceInterface<GemmiResidueSeqIdInterface> {
+        str: () => string;
+    }
+
+    interface GemmiResidueInterface extends emscriptemInstanceInterface<GemmiResidueInterface> {
+        name: string;
+        seqid: GemmiResidueSeqIdInterface;
+        atoms: emscriptemVectorInterface<GemmiAtomInterface>;
+    }
+
+    interface GemmiChainInterface extends emscriptemInstanceInterface<GemmiChainInterface> {
+        residues: emscriptemVectorInterface<GemmiResidueInterface>;
+        name: string;
+        get_polymer_const: () => emscriptemInstanceInterface<number>;
+        get_ligands_const: () => emscriptemVectorInterface<GemmiResidueInterface>
+    }
+
+    interface GemmiModelInterface extends emscriptemInstanceInterface<GemmiModelInterface> {
+        name: string;
+        chains: emscriptemVectorInterface<GemmiChainInterface>;
+    }
+
+    interface GemmiUnitCellInterface extends emscriptemInstanceInterface<GemmiUnitCellInterface> {
+        a: number;
+        b: number;
+        c: number;
+        alpha: number;
+        beta: number;
+        gamma: number;
+    }
+
+    interface GemmiStructureInterface extends emscriptemInstanceInterface<GemmiStructureInterface> {
+        models: emscriptemVectorInterface<GemmiModelInterface>;
+        cell: GemmiUnitCellInterface;
+        first_model: () => GemmiModelInterface;
     }
 }
 

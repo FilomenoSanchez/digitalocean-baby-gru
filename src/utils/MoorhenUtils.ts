@@ -1,9 +1,10 @@
-import { GemmiStructureInterface, MoorhenResidueType, MoorhenAtomInfoType, BufferATomsType, MoorhenResidueSpecType, MoorhenMolecule, MoorhenMoleculeInterface } from "./MoorhenMolecule";
+import { MoorhenResidueInfoType, MoorhenAtomInfoType, BufferATomsType, MoorhenResidueSpecType, MoorhenMolecule, MoorhenMoleculeInterface } from "./MoorhenMolecule";
 import { hexToRgb } from "@mui/material";
 import localforage from 'localforage';
 import * as vec3 from 'gl-matrix/vec3';
 import * as mat3 from 'gl-matrix/mat3';
 import { LocalStorageInstanceInterface } from "./MoorhenTimeCapsule";
+import { MoorhenShortcutType } from "./MoorhenPreferences";
 
 export function guid(): string {
     var d = Date.now();
@@ -15,7 +16,7 @@ export function guid(): string {
     return uuid;
 }
 
-export function sequenceIsValid(sequence: MoorhenResidueType[]): boolean {
+export function sequenceIsValid(sequence: MoorhenResidueInfoType[]): boolean {
     // If no sequence is present
     if (!sequence || sequence.length === 0) {
         return false
@@ -224,7 +225,7 @@ export const doDownloadText = (text: string, filename: string) => {
 }
 
 export const readGemmiStructure = (pdbData: ArrayBuffer | string, molName: string): GemmiStructureInterface => {
-    const structure = window.CCP4Module.read_structure_from_string(pdbData, molName)
+    const structure: GemmiStructureInterface = window.CCP4Module.read_structure_from_string(pdbData, molName)
     return structure
 }
 
@@ -247,6 +248,7 @@ export const centreOnGemmiAtoms = (atoms: MoorhenAtomInfoType[]): [number, numbe
     return [-xtot/atomCount, -ytot/atomCount, -ztot/atomCount]
 }
 
+// FIXME: We have multiple functions looping through all residues multiple times when paring a molecule. Let's do it only once...
 export const getBufferAtoms = (gemmiStructure: GemmiStructureInterface, exclude_ligands_and_waters: boolean = false): BufferATomsType[] => {
         if (exclude_ligands_and_waters) {
             window.CCP4Module.remove_ligands_and_waters_structure(gemmiStructure)
@@ -363,13 +365,6 @@ export const getResidueInfo = (molecules: MoorhenMolecule[], selectedMolNo: numb
     }
 }
 
-type MoorhenShortcutType = {
-    modifiers: string[];
-    keyPress: string;
-    label: string;
-    viewOnly: boolean;
-}
-
 export const getTooltipShortcutLabel = (shortCut: MoorhenShortcutType): string => {
     let modifiers = []
     if (shortCut.modifiers.includes('shiftKey')) modifiers.push("Shift")
@@ -380,6 +375,7 @@ export const getTooltipShortcutLabel = (shortCut: MoorhenShortcutType): string =
     return modifiers.length > 0 ? `<${modifiers.join(" ")} ${shortCut.keyPress.toUpperCase()}>` : `<${shortCut.keyPress.toUpperCase()}>`
 }
 
+// FIXME: Again looping thourhg atoms every where...
 const getMoleculeBfactors = (gemmiStructure: GemmiStructureInterface): { cid: string, bFactor: number }[]=> {
     let bFactors: { cid: string, bFactor: number }[] = []
     try {

@@ -46,7 +46,7 @@ const instancedMeshToMeshData = (instanceMesh, perm, toSpheres = false, maxZSize
         let thisInstance_origins = []
         let thisInstance_orientations = []
         const inst = geom.get(i);
-        if(inst.name==="spherical-atoms") thisToSpheres = true;
+        if (inst.name === "spherical-atoms") thisToSpheres = true;
         const vertices = inst.vertices;
         const triangles = inst.triangles;
         const trianglesSize = triangles.size()
@@ -467,17 +467,17 @@ const linesBoxToJSArray = (BoxData) => {
     let envdata = []
     const segments = BoxData.line_segments;
     const nSeg = segments.size()
-    for(let i=0; i<nSeg; i++){
+    for (let i = 0; i < nSeg; i++) {
         let thisEnvdata = []
         const segsI = segments.get(i)
         const nSegI = segsI.size()
-        for(let j=0; j<nSegI; j++){
+        for (let j = 0; j < nSegI; j++) {
             const seg = segsI.get(j)
             const start = seg.getStart()
             const end = seg.getFinish()
             const ampl = seg.amplitude()
-            const startJS = {x:start.x(), y: start.y(), z: start.z()}
-            const endJS   = {x:end.x(),   y: end.y(),   z: end.z()}
+            const startJS = { x: start.x(), y: start.y(), z: start.z() }
+            const endJS = { x: end.x(), y: end.y(), z: end.z() }
             thisEnvdata.push({
                 start: startJS,
                 end: endJS,
@@ -665,20 +665,25 @@ const replace_map_by_mtz_from_file = (imol, mtzData, selectedColumns) => {
 
 const new_positions_for_residue_atoms = (molToUpDate, residues) => {
     let success = 0
+    const movedResidueVector  = new cootModule.Vectormoved_residue_t()
     residues.forEach(atoms => {
         if (atoms.length > 0) {
-            const cid = atoms[0].resCid
-            const movedVector = new cootModule.Vectormoved_atom_t()
+            const cidFields = atoms[0].resCid.split('/')
+            let [resNoStr, insCode] = cidFields[3].split(".")
+            insCode = insCode ? insCode : ""
+            const movedResidue = new cootModule.moved_residue_t(cidFields[2], parseInt(resNoStr), insCode)
             atoms.forEach(atom => {
                 const movedAtom = new cootModule.moved_atom_t(atom.name, atom.altLoc, atom.x, atom.y, atom.z, -1)
-                movedVector.push_back(movedAtom)
+                movedResidue.add_atom(movedAtom)
                 movedAtom.delete()
             })
-            const thisSuccess = molecules_container.new_positions_for_residue_atoms(molToUpDate, cid, movedVector)
-            success += thisSuccess
-            movedVector.delete()
+            movedResidueVector.push_back(movedResidue)
+            movedResidue.delete()
         }
     })
+    const thisSuccess = molecules_container.new_positions_for_atoms_in_residues(molToUpDate, movedResidueVector)
+    success += thisSuccess
+    movedResidueVector.delete()
     return success
 }
 
@@ -793,7 +798,7 @@ onmessage = function (e) {
         } else {
             console.log(`Unrecognised format... ${e.data.format}`)
         }
-        
+
         const pdbData = cootModule.FS.readFile(tempFilename, { encoding: 'utf8' });
         cootModule.FS_unlink(tempFilename)
         postMessage({
@@ -1029,6 +1034,9 @@ onmessage = function (e) {
                     break;
                 case 'vector_hbond':
                     returnResult = vectorHBondToJSArray(cootResult)
+                    break;
+                case 'status_instanced_mesh_pair':
+                    returnResult = { status: cootResult.first, mesh: instancedMeshToMeshData(cootResult.second, false, false, 5) }
                     break;
                 case 'status':
                 default:

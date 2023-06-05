@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useMemo, useReducer } from "react";
+import { createContext, useState, useEffect, useMemo, useReducer } from "react";
 import localforage from 'localforage';
 
 export type MoorhenShortcutType = {
@@ -8,7 +8,38 @@ export type MoorhenShortcutType = {
     viewOnly: boolean;
 }
 export interface MoorhenPreferencesInterface {
+    setDefaultBackgroundColor?: (backgroundColor: [number, number, number, number]) => void;
+    setDoShadow?: (arg0: boolean) => void;
+    setDoSpinTest?: (arg0: boolean) => void;
+    setUseOffScreenBuffers?: (arg0: boolean) => void;
+    setDoPerspectiveProjection?: (arg0: boolean) => void;
+    setDrawInteractions?: (arg0: boolean) => void;
+    setDrawMissingLoops?: (arg0: boolean) => void;
+    setDrawAxes?: (arg0: boolean) => void;
+    setDrawCrosshairs?: (arg0: boolean) => void;
+    setDrawFPS?: (arg0: boolean) => void;
+    setDefaultExpandDisplayCards?: (arg0: boolean) => void;
+    setRefineAfterMod?: (arg0: boolean) => void;
+    setDefaultMapLitLines?: (arg0: boolean) => void;
+    setMapLineWidth?: (arg0: number) => void;
+    setAtomLabelDepthMode?: (arg0: boolean) => void;
+    setMouseSensitivity?: (arg0: number) => void;
+    setShowShortcutToast?: (arg0: boolean) => void;
+    setMakeBackups?: (arg0: boolean) => void;
+    setContourWheelSensitivityFactor?: (arg0: number) => void;
+    setDevMode?: (arg0: boolean) => void;
+    setEnableTimeCapsule?: (arg0: boolean) => void;
+    setShowScoresToast?: (arg0: boolean) => void;
+    setDefaultMapSurface?: (arg0: boolean) => void;
+    setDefaultBondSmoothness?: (arg0: number) => void;
+    setDefaultUpdatingScores?: (arg0: string[]) => void;
+    setMaxBackupCount?: (arg0: number) => void;
+    setModificationCountBackupThreshold?: (arg0: number) => void;
+    setShortcutOnHoveredAtom?: (arg0: boolean) => void;
+    setZoomWheelSensitivityFactor?: (arg0: number) => void;
+    setShortCuts?: (arg0: string) =>void;
     version?: string;
+    isMounted?: boolean;
     defaultBackgroundColor: [number, number, number, number];
     atomLabelDepthMode: boolean; 
     enableTimeCapsule: boolean;
@@ -43,7 +74,7 @@ export interface MoorhenPreferencesInterface {
     maxBackupCount: number;
     modificationCountBackupThreshold: number;
     devMode: boolean; 
-    shortCuts: {
+    shortCuts: string | {
         [label: string]: MoorhenShortcutType;
     };
 }
@@ -368,7 +399,7 @@ const PreferencesContextProvider = ({ children }) => {
         35: { label: "doSpinTest", value: doSpinTest, valueSetter: setDoSpinTest},
     }
 
-    const restoreDefaults = (defaultValues)=> {
+    const restoreDefaults = (defaultValues: MoorhenPreferencesInterface)=> {
         updateStoredPreferences('version', defaultValues.version)
         Object.keys(preferencesMap).forEach(key => {
             if (preferencesMap[key].label === 'shortCuts') {

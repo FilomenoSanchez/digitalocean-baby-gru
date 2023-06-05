@@ -5,6 +5,7 @@ import { Button, Overlay, Container, Row, FormSelect, FormGroup, FormLabel, Card
 import { MoorhenMoleculeSelect } from "../select/MoorhenMoleculeSelect";
 import { MoorhenCidInputForm } from "../form/MoorhenCidInputForm";
 import { cidToSpec, getTooltipShortcutLabel, residueCodesThreeToOne, convertViewtoPx } from "../../utils/MoorhenUtils";
+import { MoorhenMolecule } from "../../utils/MoorhenMolecule";
 
 const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
     const target = useRef(null)
@@ -25,7 +26,7 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
 
     const atomClickedCallback = useCallback(async (event) => {
         let awaitMoreAtomClicks
-        if (typeof(props.awaitMoreAtomClicksRef.current) !== 'undefined'){
+        if (typeof (props.awaitMoreAtomClicksRef.current) !== 'undefined') {
             awaitMoreAtomClicks = JSON.parse(JSON.stringify(props.awaitMoreAtomClicksRef.current))
         }
 
@@ -38,7 +39,7 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
                     await props.commandCentre.current.cootCommand({
                         returnType: "status",
                         command: 'refine_residues_using_atom_cid',
-                        commandArgs: [ molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`, 'TRIPLE'],
+                        commandArgs: [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`, 'TRIPLE'],
                         changesMolecules: [molecule.molNo]
                     }, true)
                 }
@@ -98,15 +99,15 @@ const MoorhenSimpleEditButton = forwardRef((props, buttonRef) => {
         props.setCursorStyle("crosshair")
         if (props.awaitAtomClick && props.selectedButtonIndex === props.buttonIndex) {
             props.setCursorStyle("crosshair")
-            document.addEventListener('atomClicked', atomClickedCallback, { once: true })
+            document.addEventListener('atomClicked', atomClickedCallback, { once: false })
         }
 
         return () => {
             props.setCursorStyle("default")
-            document.removeEventListener('atomClicked', atomClickedCallback, { once: true })
+            document.removeEventListener('atomClicked', atomClickedCallback, { once: false })
         }
     }, [props.selectedButtonIndex, atomClickedCallback])
-    
+
     const buttonSize = Math.max(convertViewtoPx(5, props.windowHeight), 40)
 
     return <>
@@ -178,7 +179,7 @@ export const MoorhenAutofitRotamerButton = (props) => {
         needsMapData={true}
         cootCommand="fill_partial_residue"
         prompt="Click atom in residue to fit rotamer"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/auto-fit-rotamer.svg`} alt='Auto-Fit rotamer' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/auto-fit-rotamer.svg`} alt='Auto-Fit rotamer' />}
         formatArgs={(molecule, chosenAtom) => {
             return [
                 molecule.molNo,
@@ -208,10 +209,10 @@ export const MoorhenFlipPeptideButton = (props) => {
         needsMapData={false}
         cootCommand="flipPeptide_cid"
         prompt="Click atom in residue to flip"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/flip-peptide.svg`} alt='Flip Peptide' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/flip-peptide.svg`} alt='Flip Peptide' />}
         formatArgs={(molecule, chosenAtom) => {
             return [
-                molecule.molNo, 
+                molecule.molNo,
                 `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`,
                 chosenAtom.alt_conf === "" ? "" : chosenAtom.alt_conf
             ]
@@ -228,7 +229,7 @@ export const MoorhenConvertCisTransButton = (props) => {
         needsMapData={false}
         cootCommand="cis_trans_convert"
         prompt="Click atom in residue to convert"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" alt="Cis/Trans" src={`${props.urlPrefix}/baby-gru/pixmaps/cis-trans.svg`} />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" alt="Cis/Trans" src={`${props.urlPrefix}/baby-gru/pixmaps/cis-trans.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`]
         }} />
@@ -244,7 +245,7 @@ export const MoorhenSideChain180Button = (props) => {
         needsMapData={false}
         cootCommand="side_chain_180"
         prompt="Click atom in residue to flip sidechain"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/side-chain-180.svg`} alt='Rotate Side-chain' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/side-chain-180.svg`} alt='Rotate Side-chain' />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`]
         }} />
@@ -282,7 +283,7 @@ export const MoorhenRefineResiduesUsingAtomCidButton = (props) => {
             molecule.drawSelection(props.glRef, chosenAtom.cid)
             return
         } else if (modeSelectRef.current.value === 'RESIDUE RANGE') {
-            const [start, stop] = [parseInt(selectedResidueRef.current.chosenAtom.res_no), parseInt(chosenAtom.res_no)].sort((a, b) => {return a - b})
+            const [start, stop] = [parseInt(selectedResidueRef.current.chosenAtom.res_no), parseInt(chosenAtom.res_no)].sort((a, b) => { return a - b })
             molecule.clearBuffersOfStyle('selection', props.glRef)
             await props.commandCentre.current.cootCommand({
                 returnType: 'status',
@@ -310,13 +311,13 @@ export const MoorhenRefineResiduesUsingAtomCidButton = (props) => {
                     <FormLabel>Refinement mode</FormLabel>
                     <FormSelect ref={ref} defaultValue={props.panelParameters}
                         onChange={(e) => {
-                            if(e.target.value === 'RESIDUE RANGE'){
+                            if (e.target.value === 'RESIDUE RANGE') {
                                 awaitMoreAtomClicksRef.current = true
                             } else {
                                 awaitMoreAtomClicksRef.current = false
                                 if (selectedResidueRef.current) {
                                     const { molecule, chosenAtom } = selectedResidueRef.current
-                                    molecule.clearBuffersOfStyle('selection', props.glRef)    
+                                    molecule.clearBuffersOfStyle('selection', props.glRef)
                                     selectedResidueRef.current = null
                                 }
                             }
@@ -342,13 +343,13 @@ export const MoorhenRefineResiduesUsingAtomCidButton = (props) => {
         panelParameters={panelParameters}
         awaitMoreAtomClicksRef={awaitMoreAtomClicksRef}
         refineAfterMod={false}
-        formatArgs={() => {}}
+        formatArgs={() => { }}
         prompt={<MoorhenRefinementPanel
             ref={modeSelectRef}
             glRef={props.glRef}
             setPanelParameters={setPanelParameters}
             panelParameters={panelParameters} />}
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/refine-1.svg`} alt='Refine Residues' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/refine-1.svg`} alt='Refine Residues' />}
     />
 }
 
@@ -362,7 +363,7 @@ export const MoorhenAddSideChainButton = (props) => {
         needsMapData={true}
         cootCommand="fill_partial_residue"
         prompt="Click atom in residue to add a side chain"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-side-chain.svg`} />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-side-chain.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, chosenAtom.chain_id, chosenAtom.res_no, chosenAtom.ins_code]
         }} />
@@ -379,7 +380,7 @@ export const MoorhenAddAltConfButton = (props) => {
         cootCommand="add_alternative_conformation"
         prompt="Click atom in residue to add alternative conformation"
         refineAfterMod={false}
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-alt-conf.svg`} />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" alt="Add side chain" src={`${props.urlPrefix}/baby-gru/pixmaps/add-alt-conf.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `/1/${chosenAtom.chain_id}/${chosenAtom.res_no}/*${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`]
         }} />
@@ -407,7 +408,7 @@ export const deleteFormatArgs = (molecule, chosenAtom, pp) => {
 
 export const MoorhenDeleteUsingCidButton = (props) => {
     const [toolTip, setToolTip] = useState("Delete Item")
-    const [panelParameters, setPanelParameters] = useState('ATOM' )
+    const [panelParameters, setPanelParameters] = useState('ATOM')
 
     useEffect(() => {
         if (props.shortCuts) {
@@ -457,7 +458,7 @@ export const MoorhenDeleteUsingCidButton = (props) => {
         prompt={<MoorhenDeletePanel
             setPanelParameters={setPanelParameters}
             panelParameters={panelParameters} />}
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/delete.svg`} alt="delete-item"/>}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/delete.svg`} alt="delete-item" />}
         formatArgs={(m, c, p) => deleteFormatArgs(m, c, p)}
         refineAfterMod={false} />
 }
@@ -521,7 +522,7 @@ export const MoorhenMutateButton = (props) => {
         prompt={<MoorhenMutatePanel
             setPanelParameters={setPanelParameters}
             panelParameters={panelParameters} />}
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/mutate.svg`} alt='Mutate' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/mutate.svg`} alt='Mutate' />}
         formatArgs={(m, c, p) => mutateFormatArgs(m, c, p)} />
 }
 
@@ -543,7 +544,7 @@ export const MoorhenAddTerminalResidueDirectlyUsingCidButton = (props) => {
         needsMapData={true}
         cootCommand="add_terminal_residue_directly_using_cid"
         prompt="Click atom in residue to add a residue to that residue"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/add-peptide-1.svg`} alt='Add Residue' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/add-peptide-1.svg`} alt='Add Residue' />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`]
         }} />
@@ -568,7 +569,7 @@ export const MoorhenEigenFlipLigandButton = (props) => {
         needsMapData={false}
         cootCommand="eigen_flip_ligand"
         prompt="Click atom in residue to eigen flip it"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/spin-view.svg`} alt='Eigen flip' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/spin-view.svg`} alt='Eigen flip' />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`]
         }} />
@@ -583,7 +584,7 @@ export const MoorhenJedFlipFalseButton = (props) => {
         needsMapData={false}
         cootCommand="jed_flip"
         prompt="Click atom in residue to flip around that rotatable bond - wag the tail"
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/edit-chi.svg`} alt='jed-flip'/>}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/edit-chi.svg`} alt='jed-flip' />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`, false]
         }} />
@@ -598,7 +599,7 @@ export const MoorhenJedFlipTrueButton = (props) => {
         needsMapData={false}
         cootCommand="jed_flip"
         prompt="Click atom in residue to flip around that rotatable bond - wag the dog"
-        icon={<img style={{width:'100%', height: '100%'}} alt="jed-flip-reverse" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/jed-flip-reverse.svg`} />}
+        icon={<img style={{ width: '100%', height: '100%' }} alt="jed-flip-reverse" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/jed-flip-reverse.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`, true]
         }} />
@@ -612,7 +613,7 @@ export const MoorhenRotamerChangeButton = (props) => {
     const [rotamerName, setRotamerName] = useState('')
     const [rotamerRank, setRotamerRank] = useState('')
     const [rotamerProbability, setRotamerProbability] = useState('')
-    const selectedFragmentRef = useRef({cid: '', alt_conf: ''})
+    const selectedFragmentRef = useRef({ cid: '', alt_conf: '' })
     const { changeMolecules, backgroundColor, glRef, defaultBondSmoothness } = props
 
     const changeRotamer = useCallback(async (command) => {
@@ -626,7 +627,7 @@ export const MoorhenRotamerChangeButton = (props) => {
         setRotamerProbability(rotamerInfo.data.result.result.richardson_probability)
         fragmentMolecule.current.atomsDirty = true
         fragmentMolecule.current.clearBuffersOfStyle('selection', glRef)
-        fragmentMolecule.current.drawSelection(glRef, selectedFragmentRef.current.cid)  
+        fragmentMolecule.current.drawSelection(glRef, selectedFragmentRef.current.cid)
         await fragmentMolecule.current.redraw(glRef)
     }, [props.commandCentre, glRef])
 
@@ -676,7 +677,7 @@ export const MoorhenRotamerChangeButton = (props) => {
         newMolecule.drawSelection(glRef, selectedFragmentRef.current.cid)
         await newMolecule.updateAtoms()
         Object.keys(molecule.displayObjects)
-            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases','VdwSpheres','allHBonds'].includes(style) })
+            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases', 'VdwSpheres', 'allHBonds'].includes(style) })
             .forEach(async style => {
                 if (molecule.displayObjects[style].length > 0 &&
                     molecule.displayObjects[style][0].visible) {
@@ -696,8 +697,8 @@ export const MoorhenRotamerChangeButton = (props) => {
         needsMapData={false}
         nonCootCommand={nonCootCommand}
         prompt="Click atom in residue to change rotamers"
-        icon={<img style={{width:'100%', height: '100%'}} alt="change rotamer" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rotamers.svg`}/>}
-        formatArgs={() => {}} />
+        icon={<img style={{ width: '100%', height: '100%' }} alt="change rotamer" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rotamers.svg`} />}
+        formatArgs={() => { }} />
         <Overlay target={theButton.current} show={showAccept} placement="top">
             {({ placement, arrowProps, show: _show, popper, ...props }) => (
                 <div
@@ -711,15 +712,15 @@ export const MoorhenRotamerChangeButton = (props) => {
                     <Card className="mx-2">
                         <Card.Header >Accept rotamer ?</Card.Header>
                         <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
-                            <span>Current rotamer: {rotamerName} ({rotamerRank+1}<sup>{rotamerRank === 0 ? 'st' : rotamerRank === 1 ? 'nd' : rotamerRank === 2 ? 'rd' : 'th'}</sup>)</span>
+                            <span>Current rotamer: {rotamerName} ({rotamerRank + 1}<sup>{rotamerRank === 0 ? 'st' : rotamerRank === 1 ? 'nd' : rotamerRank === 2 ? 'rd' : 'th'}</sup>)</span>
                             <br></br>
                             <span>Probability: {rotamerProbability}%</span>
-                            <Stack gap={2} direction='horizontal' style={{paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
-                                <Button onClick={() => changeRotamer('change_to_first_rotamer')}><FirstPageOutlined/></Button>
-                                <Button onClick={() => changeRotamer('change_to_previous_rotamer')}><ArrowBackIosOutlined/></Button>
-                                <Button onClick={() => changeRotamer('change_to_next_rotamer')}><ArrowForwardIosOutlined/></Button>
+                            <Stack gap={2} direction='horizontal' style={{ paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
+                                <Button onClick={() => changeRotamer('change_to_first_rotamer')}><FirstPageOutlined /></Button>
+                                <Button onClick={() => changeRotamer('change_to_previous_rotamer')}><ArrowBackIosOutlined /></Button>
+                                <Button onClick={() => changeRotamer('change_to_next_rotamer')}><ArrowForwardIosOutlined /></Button>
                             </Stack>
-                            <Stack gap={2} direction='horizontal' style={{paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
+                            <Stack gap={2} direction='horizontal' style={{ paddingTop: '0.5rem', alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
                                 <Button onClick={acceptTransform}><CheckOutlined /></Button>
                                 <Button className="mx-2" onClick={rejectTransform}><CloseOutlined /></Button>
                             </Stack>
@@ -762,8 +763,8 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
                 </FormGroup>
             </Row>
             <Row>
-                {localRotateTranslateMode === 'CUSTOM' && 
-                    <MoorhenCidInputForm defaultValue={customCid.current} onChange={(e) => { customCid.current = e.target.value }} placeholder={customCid.current ? "" : "Input custom cid e.g. //A,B"}/>
+                {localRotateTranslateMode === 'CUSTOM' &&
+                    <MoorhenCidInputForm defaultValue={customCid.current} onChange={(e) => { customCid.current = e.target.value }} placeholder={customCid.current ? "" : "Input custom cid e.g. //A,B"} />
                 }
             </Row>
         </Container>
@@ -786,6 +787,7 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
     const acceptTransform = useCallback(async (e) => {
         glRef.current.setActiveMolecule(null)
         const transformedAtoms = fragmentMolecule.current.transformedCachedAtomsAsMovedAtoms(glRef)
+        console.log('Calling updateWithMovedAtoms')
         await chosenMolecule.current.updateWithMovedAtoms(transformedAtoms, glRef)
         changeMolecules({ action: 'Remove', item: fragmentMolecule.current })
         fragmentMolecule.current.delete(glRef)
@@ -827,7 +829,7 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
                 break;
             default:
                 console.log('Unrecognised rotate/translate selection...')
-                break;        
+                break;
         }
         if (!fragmentCid.current) {
             return
@@ -839,7 +841,7 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
         )
         await newMolecule.updateAtoms()
         Object.keys(molecule.displayObjects)
-            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases','VdwSpheres','allHBonds'].includes(style) })
+            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases', 'VdwSpheres', 'allHBonds'].includes(style) })
             .forEach(async style => {
                 if (molecule.displayObjects[style].length > 0 &&
                     molecule.displayObjects[style][0].visible) {
@@ -861,7 +863,7 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
         needsMapData={false}
         nonCootCommand={nonCootCommand}
         prompt={<MoorhenRotateTranslatePanel />}
-        icon={<img style={{width:'100%', height: '100%'}} alt="rotate/translate" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rtz.svg`}/>}
+        icon={<img style={{ width: '100%', height: '100%' }} alt="rotate/translate" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rtz.svg`} />}
         formatArgs={(molecule, chosenAtom) => {
             return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}`, true]
         }} />
@@ -889,6 +891,468 @@ export const MoorhenRotateTranslateZoneButton = (props) => {
     </>
 }
 
+export const MoorhenDragZoneButtonOption1 = (props) => {
+    const [showAccept, setShowAccept] = useState(false)
+    const theButton = useRef(null)
+    const fragmentMolecule = useRef(null)
+    const chosenMolecule = useRef(null)
+    const dragMode = useRef('SINGLE')
+    const fragmentCid = useRef(null)
+    const transformedCachedAtoms = useRef('')
+    const { changeMolecules, backgroundColor, glRef, defaultBondSmoothness } = props
+
+    const MoorhenDragPanel = () => {
+        const dragModes = ['SINGLE', 'TRIPLE', 'QUINTUPLE', 'HEPTUPLE']
+        return <Container>
+            <Row>Please click an atom to define object</Row>
+            <Row>
+                <FormGroup>
+                    <FormLabel>Dragging atom mode</FormLabel>
+                    <FormSelect defaultValue={dragMode.current}
+                        onChange={(e) => {
+                            dragMode.current = e.target.value
+                        }}>
+                        {dragModes.map(optionName => {
+                            return <option key={optionName} value={optionName}>{optionName}</option>
+                        })}
+                    </FormSelect>
+                </FormGroup>
+            </Row>
+        </Container>
+    }
+
+    const acceptTransform = useCallback(async (e) => {
+        document.removeEventListener('atomDragged', atomDraggedCallback)
+        glRef.current.setDraggableMolecule(null)
+        changeMolecules({ action: 'Remove', item: fragmentMolecule.current })
+        fragmentMolecule.current.delete(glRef)
+        chosenMolecule.current.unhideAll(glRef)
+        setShowAccept(false)
+    }, [changeMolecules, glRef])
+
+    const rejectTransform = useCallback(async (e) => {
+        document.removeEventListener('atomDragged', atomDraggedCallback)
+        glRef.current.setDraggableMolecule(null)
+        changeMolecules({ action: 'Remove', item: fragmentMolecule.current })
+        fragmentMolecule.current.delete(glRef)
+        chosenMolecule.current.unhideAll(glRef)
+        setShowAccept(false)
+    }, [changeMolecules, glRef])
+
+    const refineNewPosition = async (chosenMolecule, chosenAtom, doRefine = true, nextTimeout = 200) => {
+        // Check if the position of the fragment has changed
+        let transformedAtoms = fragmentMolecule.current.transformedCachedAtomsAsMovedAtoms(glRef)
+        let transformedAtomsString = JSON.stringify(transformedAtoms)
+        if (transformedCachedAtoms.current !== transformedAtomsString) {
+
+            // Tell coot where the new fragment is located at so that it can be refined
+            await props.commandCentre.current.cootCommand({
+                returnType: "status",
+                command: "shim_new_positions_for_residue_atoms",
+                commandArgs: [fragmentMolecule.current.molNo, transformedAtoms],
+            })
+
+            // Refine the fragment
+            await props.commandCentre.current.cootCommand({
+                returnType: 'status',
+                command: 'refine_residues_using_atom_cid',
+                commandArgs: [fragmentMolecule.current.molNo, chosenAtom.cid, 'MOLECULE'],
+            }, true)
+
+            // Redraw the fragment after refinement based on the new coordinates held in coot
+            fragmentMolecule.current.setAtomsDirty(true)
+            await fragmentMolecule.current.redraw(glRef)
+
+            // Reset things for the next cycle
+            transformedCachedAtoms.current = JSON.stringify(transformedAtoms)
+            fragmentMolecule.current.displayObjects.transformation.origin = [0, 0, 0]
+            fragmentMolecule.current.displayObjects.transformation.quat = null
+        }
+        setTimeout(() => {
+            refineNewPosition(chosenMolecule, chosenAtom, doRefine, nextTimeout)
+        }, nextTimeout)
+    }
+
+    const nonCootCommand = async (molecule, chosenAtom, p) => {
+        const selectedSequence = molecule.sequences.find(sequence => sequence.chain === chosenAtom.chain_id)
+        let selectedResidueIndex
+        let start
+        let stop
+
+        if (typeof selectedSequence === 'undefined') {
+            dragMode.current = 'SINGLE'
+        } else {
+            selectedResidueIndex = selectedSequence.sequence.findIndex(residue => residue.resNum === chosenAtom.res_no)
+        }
+
+        switch (dragMode.current) {
+            case 'SINGLE':
+                start = chosenAtom.res_no
+                stop = chosenAtom.res_no
+                break;
+            case 'TRIPLE':
+                start = selectedResidueIndex !== 0 ? selectedSequence.sequence[selectedResidueIndex - 1].resNum : chosenAtom.res_no
+                stop = selectedResidueIndex < selectedSequence.sequence.length - 1 ? selectedSequence.sequence[selectedResidueIndex + 1].resNum : chosenAtom.res_no
+                break;
+            case 'QUINTUPLE':
+                start = selectedResidueIndex !== 0 ? selectedSequence.sequence[selectedResidueIndex - 2].resNum : chosenAtom.res_no
+                stop = selectedResidueIndex < selectedSequence.sequence.length - 2 ? selectedSequence.sequence[selectedResidueIndex + 2].resNum : selectedSequence.sequence[selectedResidueIndex - 1].resNum
+                break;
+            case 'HEPTUPLE':
+                start = selectedResidueIndex !== 0 ? selectedSequence.sequence[selectedResidueIndex - 3].resNum : chosenAtom.res_no
+                stop = selectedResidueIndex < selectedSequence.sequence.length - 3 ? selectedSequence.sequence[selectedResidueIndex + 3].resNum : selectedSequence.sequence[selectedResidueIndex - 1].resNum
+                break;
+            default:
+                console.log('Unrecognised rotate/translate selection...')
+                break;
+        }
+        if (!start || !stop) {
+            return
+        }
+
+        fragmentCid.current = `//${chosenAtom.chain_id}/${start}-${stop}/*`
+        chosenMolecule.current = molecule
+        chosenMolecule.current.hideCid(fragmentCid.current, glRef)
+        /* Copy the component to move into a new molecule */
+        const newMolecule = await molecule.copyFragmentUsingCid(
+            fragmentCid.current, backgroundColor, defaultBondSmoothness, glRef, false
+        )
+        await newMolecule.updateAtoms()
+        Object.keys(molecule.displayObjects)
+            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases', 'VdwSpheres', 'allHBonds'].includes(style) })
+            .forEach(async style => {
+                if (molecule.displayObjects[style].length > 0 &&
+                    molecule.displayObjects[style][0].visible) {
+                    await newMolecule.drawWithStyleFromAtoms(style, glRef)
+                }
+            })
+        fragmentMolecule.current = newMolecule
+        /* redraw */
+        changeMolecules({ action: "Add", item: newMolecule })
+        glRef.current.setDraggableMolecule(newMolecule)
+        setShowAccept(true)
+    }
+
+    const atomDraggedCallback = (evt) => {
+        const movedAtoms = fragmentMolecule.current.transformedCachedAtomsAsMovedAtoms(glRef, evt.detail.atom.atom.label)
+        console.log('SEND TO WORKER')
+        console.log(movedAtoms)
+    }
+
+    useEffect(() => {
+        if (setShowAccept) {
+            document.addEventListener('atomDragged', atomDraggedCallback)
+        } else {
+            document.removeEventListener('atomDragged', atomDraggedCallback)
+        }
+    }, [setShowAccept])
+
+
+    return <><MoorhenSimpleEditButton ref={theButton} {...props}
+        toolTip="Drag zone"
+        buttonIndex={props.buttonIndex}
+        refineAfterMod={false}
+        selectedButtonIndex={props.selectedButtonIndex}
+        setSelectedButtonIndex={props.setSelectedButtonIndex}
+        needsMapData={false}
+        nonCootCommand={nonCootCommand}
+        prompt={<MoorhenDragPanel />}
+        icon={<img style={{ width: '100%', height: '100%' }} alt="drag atoms F" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/drag.svg`} />}
+        formatArgs={(molecule, chosenAtom) => {
+            return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}`, true]
+        }} />
+        <Overlay target={theButton.current} show={showAccept} placement="top">
+            {({ placement, arrowProps, show: _show, popper, ...props }) => (
+                <div
+                    {...props}
+                    style={{
+                        position: 'absolute', padding: '2px 10px', borderRadius: 3,
+                        backgroundColor: backgroundColor, zIndex: 99999,
+                        ...props.style,
+                    }}
+                >
+                    <Card className="mx-2">
+                        <Card.Header >Accept dragging ?</Card.Header>
+                        <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
+                            <Button onClick={acceptTransform}><CheckOutlined /></Button>
+                            <Button className="mx-2" onClick={rejectTransform}><CloseOutlined /></Button>
+                        </Card.Body>
+                    </Card>
+                </div>
+            )}
+        </Overlay>
+    </>
+}
+
+export const MoorhenDragZoneButtonOption2 = (props) => {
+    const [showAccept, setShowAccept] = useState(false)
+    const theButton = useRef(null)
+    const movingAtomMolecule = useRef(null)
+    const chosenMolecule = useRef(null)
+    const moltenMolecule = useRef(null)
+    const dragMode = useRef('SINGLE')
+    const movingAtomCid = useRef(null)
+    const moltenCid = useRef(null)
+    const transformedCachedAtoms = useRef('')
+    const findMolecule = useRef(null)
+    const { changeMolecules, backgroundColor, glRef, defaultBondSmoothness, molecules } = props
+    const movementTimeout = useRef(null)
+
+    const MoorhenDragPanel = () => {
+        const dragModes = ['SINGLE', 'TRIPLE', 'QUINTUPLE', 'HEPTUPLE']
+        return <Container>
+            <Row>Please click an atom to define object</Row>
+            <Row>
+                <FormGroup>
+                    <FormLabel>Dragging atom mode</FormLabel>
+                    <FormSelect defaultValue={dragMode.current}
+                        onChange={(e) => {
+                            dragMode.current = e.target.value
+                        }}>
+                        {dragModes.map(optionName => {
+                            return <option key={optionName} value={optionName}>{optionName}</option>
+                        })}
+                    </FormSelect>
+                </FormGroup>
+            </Row>
+        </Container>
+    }
+
+    useEffect(() => {
+        findMolecule.current = (buffer) => {
+            return props.molecules.find(molecule => molecule.buffersInclude(buffer))
+        }
+    }, [props.molecules])
+
+    const acceptTransform = useCallback(async (e) => {
+        glRef.current.setActiveMolecule(null)
+        const transformedAtoms = moltenMolecule.current.cachedAtomsAsMovedAtoms(glRef)
+        await chosenMolecule.current.updateWithMovedAtoms(transformedAtoms, glRef)
+
+        changeMolecules({ action: 'Remove', item: moltenMolecule.current })
+        moltenMolecule.current.delete(glRef)
+        changeMolecules({ action: 'Remove', item: movingAtomMolecule.current })
+        movingAtomMolecule.current.delete(glRef)
+
+        chosenMolecule.current.unhideAll(glRef)
+
+        setShowAccept(false)
+        document.removeEventListener('atomClicked', moltenMoleculeMaybeClicked, { once: true })
+        const scoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: { origin: glRef.current.origin, modifiedMolecule: chosenMolecule.current.molNo } })
+        document.dispatchEvent(scoresUpdateEvent)
+    }, [changeMolecules, glRef])
+
+    const rejectTransform = useCallback(async (e) => {
+        glRef.current.setActiveMolecule(null)
+        changeMolecules({ action: 'Remove', item: moltenMolecule.current })
+        moltenMolecule.current.delete(glRef)
+        changeMolecules({ action: 'Remove', item: movingAtomMolecule.current })
+        movingAtomMolecule.current.delete(glRef)
+        chosenMolecule.current.unhideAll(glRef)
+        setShowAccept(false)
+        document.removeEventListener('atomClicked', moltenMoleculeMaybeClicked, { once: true })
+
+    }, [changeMolecules, glRef])
+
+    const refineNewPosition = async (chosenMolecule, chosenAtom, doRefine = true, nextTimeout = 10) => {
+
+        // Check if the position of the fragment has changed
+        let transformedAtoms = movingAtomMolecule.current.transformedCachedAtomsAsMovedAtoms(glRef)
+        let transformedAtomsString = JSON.stringify(transformedAtoms)
+        if (transformedCachedAtoms.current !== transformedAtomsString) {
+
+            try {
+                const commandArgs = [
+                    moltenMolecule.current.molNo,
+                    movingAtomCid.current,
+                    transformedAtoms[0][0].x,
+                    transformedAtoms[0][0].y,
+                    transformedAtoms[0][0].z,
+                    50]
+                console.log(commandArgs)
+                //Add restraint to fix the pointer atom in place
+                const newMeshResult = await props.commandCentre.current.cootCommand({
+                    returnType: 'instanced_mesh_t',
+                    command: 'wrapped_add_target_position_restraint',
+                    commandArgs
+                }, true)
+            }
+            catch (err) {
+                console.log({ ta: transformedAtoms[0][0], err })
+            }
+
+            // Redraw the fragment after refinement based on the new coordinates held in coot
+            moltenMolecule.current.setAtomsDirty(true)
+            await moltenMolecule.current.redraw(glRef)
+
+            // Reset things for the next cycle
+            transformedCachedAtoms.current = JSON.stringify(transformedAtoms)
+        }
+        movementTimeout.current = setTimeout(() => {
+            refineNewPosition(movingAtomMolecule, chosenAtom, doRefine, nextTimeout)
+        }, nextTimeout)
+    }
+
+    const moltenMoleculeMaybeClicked = async (ev1) => {
+        console.log(ev1)
+        let newMolecule = findMolecule.current(ev1.detail.buffer)
+        if (newMolecule === moltenMolecule.current ||
+            newMolecule === chosenMolecule.current) {
+            changeMolecules({ action: 'Remove', item: movingAtomMolecule.current })
+            movingAtomMolecule.current.delete(glRef)
+            const chosenAtom = cidToSpec(ev1.detail.atom.label)
+            setDraggedAtom(chosenAtom)
+        }
+    }
+
+    const setDraggedAtom = async (chosenAtom) => {
+
+        clearTimeout(movementTimeout.current)
+        /* Excise the draggy atom */
+        movingAtomCid.current = `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`
+        movingAtomMolecule.current = await moltenMolecule.current.copyFragmentUsingCid(
+            movingAtomCid.current, backgroundColor, defaultBondSmoothness, glRef, false
+        )
+        await movingAtomMolecule.current.updateAtoms()
+        await movingAtomMolecule.current.drawWithStyleFromAtoms('CBs', glRef)
+        /* redraw */
+        changeMolecules({ action: "Add", item: movingAtomMolecule.current })
+        glRef.current.setActiveMolecule(movingAtomMolecule.current)
+        movementTimeout.current = setTimeout(() => {
+            refineNewPosition(movingAtomMolecule, chosenAtom, true, 10)
+        }, 500)
+
+    }
+
+    const nonCootCommand = async (molecule, chosenAtom, p) => {
+        console.log(chosenAtom)
+        const selectedSequence = molecule.sequences.find(sequence => sequence.chain === chosenAtom.chain_id)
+        let selectedResidueIndex
+        let start
+        let stop
+
+        if (typeof selectedSequence === 'undefined') {
+            dragMode.current = 'SINGLE'
+        } else {
+            selectedResidueIndex = selectedSequence.sequence.findIndex(residue => residue.resNum === chosenAtom.res_no)
+        }
+
+        switch (dragMode.current) {
+            case 'SINGLE':
+                start = chosenAtom.res_no
+                stop = chosenAtom.res_no
+                break;
+            case 'TRIPLE':
+                start = selectedResidueIndex !== 0 ? selectedSequence.sequence[selectedResidueIndex - 1].resNum : chosenAtom.res_no
+                stop = selectedResidueIndex < selectedSequence.sequence.length - 1 ? selectedSequence.sequence[selectedResidueIndex + 1].resNum : chosenAtom.res_no
+                break;
+            case 'QUINTUPLE':
+                start = selectedResidueIndex !== 0 ? selectedSequence.sequence[selectedResidueIndex - 2].resNum : chosenAtom.res_no
+                stop = selectedResidueIndex < selectedSequence.sequence.length - 2 ? selectedSequence.sequence[selectedResidueIndex + 2].resNum : selectedSequence.sequence[selectedResidueIndex - 1].resNum
+                break;
+            case 'HEPTUPLE':
+                start = selectedResidueIndex !== 0 ? selectedSequence.sequence[selectedResidueIndex - 3].resNum : chosenAtom.res_no
+                stop = selectedResidueIndex < selectedSequence.sequence.length - 3 ? selectedSequence.sequence[selectedResidueIndex + 3].resNum : selectedSequence.sequence[selectedResidueIndex - 1].resNum
+                break;
+            default:
+                console.log('Unrecognised rotate/translate selection...')
+                break;
+        }
+        if (!start || !stop) {
+            return
+        }
+        moltenCid.current = `//${chosenAtom.chain_id}/${start}-${stop}/*`
+
+        chosenMolecule.current = molecule
+        /* Excise the molten part of the molecule */
+        
+        const copyResult = await props.commandCentre.current.cootCommand({
+            returnType: 'int',
+            command: 'copy_fragment_for_refinement_using_cid',
+            commandArgs: [chosenMolecule.current.molNo, moltenCid.current]
+        }, true)
+        console.log({copyResult})
+        moltenMolecule.current = new MoorhenMolecule(props.commandCentre, props.monomerLibraryPath)
+        moltenMolecule.current.molNo = copyResult.data.result.result
+
+        changeMolecules({ action: "Add", item: moltenMolecule.current })
+
+        moltenMolecule.current = await molecule.copyFragmentUsingCid(
+            moltenCid.current, backgroundColor, defaultBondSmoothness, glRef, false
+        )
+
+        console.log(`Using map ${props.activeMap.molNo}`)
+        const initResult = await props.commandCentre.current.cootCommand({
+            returnType: 'status',
+            command: 'init_refinement_of_molecule_as_fragment_based_on_reference',
+            commandArgs: [moltenMolecule.current.molNo, chosenMolecule.current.molNo, props.activeMap.molNo]
+        }, true)
+
+        const refineResult = await props.commandCentre.current.cootCommand({
+            returnType: 'status_instanced_mesh_pair',
+            command: 'refine',
+            commandArgs: [moltenMolecule.current.molNo, 100]
+        }, true)
+        console.log('REfine result status',refineResult.data.result.result.status)
+        moltenMolecule.current.setAtomsDirty(true)
+        await moltenMolecule.current.redraw(glRef)
+
+        await moltenMolecule.current.updateAtoms()
+        Object.keys(molecule.displayObjects)
+            .filter(style => { return ['CRs', 'CBs', 'ligands', 'gaussian', 'MolecularSurface', 'VdWSurface', 'DishyBases', 'VdwSpheres', 'allHBonds'].includes(style) })
+            .forEach(async style => {
+                if (molecule.displayObjects[style].length > 0 &&
+                    molecule.displayObjects[style][0].visible) {
+                    await moltenMolecule.current.drawWithStyleFromAtoms(style, glRef)
+                }
+            })
+
+        /* redraw */
+        await chosenMolecule.current.hideCid(moltenCid.current, glRef)
+        chosenMolecule.current.redraw(glRef)
+        setDraggedAtom(chosenAtom)
+
+        setShowAccept(true)
+
+        document.addEventListener('atomClicked', moltenMoleculeMaybeClicked, { once: false })
+    }
+
+    return <><MoorhenSimpleEditButton ref={theButton} {...props}
+        toolTip="Drag zone"
+        buttonIndex={props.buttonIndex}
+        refineAfterMod={false}
+        selectedButtonIndex={props.selectedButtonIndex}
+        setSelectedButtonIndex={props.setSelectedButtonIndex}
+        needsMapData={false}
+        nonCootCommand={nonCootCommand}
+        prompt={<MoorhenDragPanel />}
+        icon={<img style={{ width: '100%', height: '100%' }} alt="drag atoms M" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/drag.svg`} />}
+        formatArgs={(molecule, chosenAtom) => {
+            return [molecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}`, true]
+        }} />
+        <Overlay target={theButton.current} show={showAccept} placement="top">
+            {({ placement, arrowProps, show: _show, popper, ...props }) => (
+                <div
+                    {...props}
+                    style={{
+                        position: 'absolute', padding: '2px 10px', borderRadius: 3,
+                        backgroundColor: backgroundColor, zIndex: 99999,
+                        ...props.style,
+                    }}
+                >
+                    <Card className="mx-2">
+                        <Card.Header >Accept dragging ?</Card.Header>
+                        <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
+                            <Button onClick={acceptTransform}><CheckOutlined /></Button>
+                            <Button className="mx-2" onClick={rejectTransform}><CloseOutlined /></Button>
+                        </Card.Body>
+                    </Card>
+                </div>
+            )}
+        </Overlay>
+    </>
+}
+
 export const rigidBodyFitFormatArgs = (molecule, chosenAtom, selectedMode, activeMapMolNo) => {
     const selectedSequence = molecule.sequences.find(sequence => sequence.chain === chosenAtom.chain_id)
     let selectedResidueIndex
@@ -901,7 +1365,7 @@ export const rigidBodyFitFormatArgs = (molecule, chosenAtom, selectedMode, activ
     } else {
         selectedResidueIndex = selectedSequence.sequence.findIndex(residue => residue.resNum === chosenAtom.res_no)
     }
-    
+
     switch (selectedMode) {
         case 'SINGLE':
             commandArgs = [
@@ -964,7 +1428,7 @@ export const MoorhenRigidBodyFitButton = (props) => {
     const awaitMoreAtomClicksRef = useRef(false)
     const [panelParameters, setPanelParameters] = useState('TRIPLE')
     const [randomJiggleMode, setRandomJiggleMode] = useState(false)
-    
+
     useEffect(() => {
         if (props.selectedButtonIndex === props.buttonIndex && !awaitMoreAtomClicksRef.current && modeSelectRef.current?.value === 'RESIDUE RANGE' && !selectedResidueRef.current) {
             awaitMoreAtomClicksRef.current = true
@@ -984,7 +1448,7 @@ export const MoorhenRigidBodyFitButton = (props) => {
             return
         } else if (modeSelectRef.current.value === 'RESIDUE RANGE') {
             molecule.clearBuffersOfStyle('selection', props.glRef)
-            const residueRange = [parseInt(selectedResidueRef.current.chosenAtom.res_no), parseInt(chosenAtom.res_no)].sort((a, b) => {return a - b})
+            const residueRange = [parseInt(selectedResidueRef.current.chosenAtom.res_no), parseInt(chosenAtom.res_no)].sort((a, b) => { return a - b })
             const commandArgs = [
                 molecule.molNo,
                 `//${chosenAtom.chain_id}/${residueRange[0]}-${residueRange[1]}`,
@@ -993,7 +1457,7 @@ export const MoorhenRigidBodyFitButton = (props) => {
             await props.commandCentre.current.cootCommand({
                 returnType: 'status',
                 command: randomJiggleMode ? 'fit_to_map_by_random_jiggle_using_cid' : 'rigid_body_fit',
-                commandArgs: randomJiggleMode ?  [...commandArgs.slice(0, 2), 0, -1] : commandArgs,
+                commandArgs: randomJiggleMode ? [...commandArgs.slice(0, 2), 0, -1] : commandArgs,
                 changesMolecules: [molecule.molNo]
             }, true)
         } else {
@@ -1001,7 +1465,7 @@ export const MoorhenRigidBodyFitButton = (props) => {
             await props.commandCentre.current.cootCommand({
                 returnType: 'status',
                 command: randomJiggleMode ? 'fit_to_map_by_random_jiggle_using_cid' : 'rigid_body_fit',
-                commandArgs: randomJiggleMode ?  [...commandArgs.slice(0, 2), 0, -1] : commandArgs,
+                commandArgs: randomJiggleMode ? [...commandArgs.slice(0, 2), 0, -1] : commandArgs,
                 changesMolecules: [molecule.molNo]
             }, true)
         }
@@ -1017,13 +1481,13 @@ export const MoorhenRigidBodyFitButton = (props) => {
                     <FormLabel>Residue selection</FormLabel>
                     <FormSelect ref={ref} defaultValue={props.panelParameters}
                         onChange={(e) => {
-                            if(e.target.value === 'RESIDUE RANGE'){
+                            if (e.target.value === 'RESIDUE RANGE') {
                                 awaitMoreAtomClicksRef.current = true
                             } else {
                                 awaitMoreAtomClicksRef.current = false
                                 if (selectedResidueRef.current) {
                                     const { molecule, chosenAtom } = selectedResidueRef.current
-                                    molecule.clearBuffersOfStyle('selection', props.glRef)    
+                                    molecule.clearBuffersOfStyle('selection', props.glRef)
                                     selectedResidueRef.current = null
                                 }
                             }
@@ -1034,11 +1498,11 @@ export const MoorhenRigidBodyFitButton = (props) => {
                         })}
                     </FormSelect>
                     <Form.Check
-                        style={{paddingTop: '0.1rem'}} 
+                        style={{ paddingTop: '0.1rem' }}
                         type="switch"
                         checked={randomJiggleMode}
                         onChange={() => { setRandomJiggleMode(!randomJiggleMode) }}
-                    label="Use random jiggle fit"/>
+                        label="Use random jiggle fit" />
                 </FormGroup>
             </Row>
         </Container>
@@ -1060,9 +1524,9 @@ export const MoorhenRigidBodyFitButton = (props) => {
             glRef={props.glRef}
             setPanelParameters={setPanelParameters}
             panelParameters={panelParameters} />}
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rigid-body.svg`} alt='Rigid body fit' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rigid-body.svg`} alt='Rigid body fit' />}
         formatArgs={(m, c, p) => rigidBodyFitFormatArgs(m, c, p)}
-        />
+    />
 }
 
 export const MoorhenAddSimpleButton = (props) => {
@@ -1073,7 +1537,7 @@ export const MoorhenAddSimpleButton = (props) => {
         return <Container>
             <MenuList>
                 {molTypes.map(molType => {
-                    return <MenuItem key={molType} onClick={() => {props.onTypeSelectedCallback(molType)}}>{molType}</MenuItem>
+                    return <MenuItem key={molType} onClick={() => { props.onTypeSelectedCallback(molType) }}>{molType}</MenuItem>
                 })}
             </MenuList>
             <MoorhenMoleculeSelect {...props} allowAny={false} ref={props.selectRef} />
@@ -1086,7 +1550,7 @@ export const MoorhenAddSimpleButton = (props) => {
             await selectedMolecule.addLigandOfType(value, props.glRef)
             props.setSelectedButtonIndex(null)
             const scoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: { origin: props.glRef.current.origin, modifiedMolecule: selectedMolecule.molNo } })
-            document.dispatchEvent(scoresUpdateEvent)    
+            document.dispatchEvent(scoresUpdateEvent)
         }
     }, [props.molecules, props.glRef])
 
@@ -1102,6 +1566,6 @@ export const MoorhenAddSimpleButton = (props) => {
             onTypeSelectedCallback={onTypeSelectedCallback}
             selectRef={selectRef}
         />}
-        icon={<img style={{width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/atom-at-pointer.svg`} alt='add...' />}
+        icon={<img style={{ width: '100%', height: '100%' }} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/atom-at-pointer.svg`} alt='add...' />}
     />
 }
