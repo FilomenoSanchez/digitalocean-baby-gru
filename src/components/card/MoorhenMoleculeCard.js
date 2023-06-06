@@ -31,6 +31,7 @@ export const MoorhenMoleculeCard = (props) => {
     const [surfaceRadius, setSurfaceRadius] = useState(5.0)
     const [surfaceGridScale, setSurfaceGridScale] = useState(0.7)
     const [symmetryRadius, setSymmetryRadius] = useState(25.0)
+    const [ligandListKey, setLigandListKey] = useState(0)
 
     const bondSettingsProps = {
         bondWidth, setBondWidth, atomRadiusBondRatio,
@@ -414,6 +415,7 @@ export const MoorhenMoleculeCard = (props) => {
         </Card.Header>
         <Card.Body style={{ display: isCollapsed ? 'none' : '', padding: '0.25rem', justifyContent:'center' }}>
             <Stack gap={2} direction='vertical'>
+                <Button onCLick={()=>{setLigandListKey(ligandListKey+1)}}>Reevaluate ligands</Button>
                 <Col  style={{ width:'100%', height: '100%' }}>
                     <div style={{margin: '1px', paddingTop: '0.5rem', paddingBottom: '0.25rem',  border: '1px solid', borderRadius:'0.33rem', borderColor:
                 "#CCC"}}>
@@ -470,7 +472,7 @@ export const MoorhenMoleculeCard = (props) => {
                 <Accordion.Item eventKey="ligands" style={{ padding: '0', margin: '0' }} >
                     <Accordion.Header style={{ padding: '0', margin: '0' }}>Ligands</Accordion.Header>
                     <Accordion.Body style={{ padding: '0.5rem' }}>
-                        <MoorhenLigandList commandCentre={props.commandCentre} molecule={props.molecule} glRef={props.glRef} isDark={props.isDark}/>
+                        <MoorhenLigandList key={ligandListKey} commandCentre={props.commandCentre} molecule={props.molecule} glRef={props.glRef} isDark={props.isDark}/>
                     </Accordion.Body>
                 </Accordion.Item>
             </Accordion>
