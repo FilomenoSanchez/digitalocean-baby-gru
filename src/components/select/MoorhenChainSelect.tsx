@@ -1,13 +1,14 @@
 import { forwardRef } from "react";
 import { Form, FormSelect } from "react-bootstrap";
-import { MoorhenMoleculeInterface } from "../../utils/MoorhenMolecule";
+import { moorhen } from "../../types/moorhen";
 
 type MoorhenChainSelectPropsType = {
-    allowedTypes: number[];
-    height: string;
-    width: string;
-    label: string;
-    molecules: MoorhenMoleculeInterface[];
+    allowedTypes?: number[];
+    height?: string;
+    width?: string;
+    margin?: string;
+    label?: string;
+    molecules: moorhen.Molecule[];
     selectedCoordMolNo: number;
     onChange?: (arg0: React.ChangeEvent<HTMLSelectElement>) => void;
 }
@@ -29,7 +30,7 @@ export const MoorhenChainSelect = forwardRef<HTMLSelectElement, MoorhenChainSele
         
     }
 
-    return <Form.Group style={{ width: props.width, margin: '0.5rem', height:props.height }}>
+    return <Form.Group style={{ width: props.width, margin: props.margin, height:props.height }}>
         <Form.Label>{props.label}</Form.Label>
         <FormSelect size="sm" ref={selectRef} defaultValue={''} onChange={handleChange}>
             {props.selectedCoordMolNo !== null ? getChainOptions(props.selectedCoordMolNo) :  null}
@@ -38,4 +39,4 @@ export const MoorhenChainSelect = forwardRef<HTMLSelectElement, MoorhenChainSele
 })
 
 // props.allowedTypes refers to gemmi::PolymerType member values -> https://project-gemmi.github.io/python-api/gemmi.html#PolymerType
-MoorhenChainSelect.defaultProps = { allowedTypes: [1, 2, 3, 4, 5], height: '4rem', width: '20rem', label: "Chain" }
+MoorhenChainSelect.defaultProps = { allowedTypes: [1, 2, 3, 4, 5], height: '4rem', width: '20rem', label: "Chain", margin: '0.5rem' }

@@ -1,11 +1,22 @@
-importScripts('./wasm/moorhen.js')
-importScripts('./wasm/web_example.js')
-
-let cootModule;
-let molecules_container;
-let ccp4Module;
-
-const guid = () => {
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+// @ts-ignore
+importScripts('./wasm/moorhen.js');
+// @ts-ignore
+importScripts('./wasm/web_example.js');
+var cootModule;
+var molecules_container;
+var ccp4Module;
+var guid = function () {
     var d = Date.now();
     var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         var r = (d + Math.random() * 16) % 16 | 0;
@@ -13,178 +24,158 @@ const guid = () => {
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
     });
     return uuid;
-}
-
-let print = (stuff) => {
-    console.log(stuff)
-    postMessage({ consoleMessage: JSON.stringify(stuff) })
-}
-
-const instancedMeshToMeshData = (instanceMesh, perm, toSpheres = false, maxZSize = 10000.) => {
+};
+// @ts-ignore
+var print = function (stuff) {
+    console.log(stuff);
+    postMessage({ consoleMessage: JSON.stringify(stuff) });
+};
+var instancedMeshToMeshData = function (instanceMesh, perm, toSpheres, maxZSize) {
     //maxZSize is arguably a hack to deal with overlong bonds. It is set to 5 incall to this function.
-
-    let totIdxs = []
-    let totPos = []
-    let totNorm = []
-    let totInstance_sizes = []
-    let totInstance_colours = []
-    let totInstance_origins = []
-    let totInstance_orientations = []
-    let totInstanceUseColours = []
-    let totInstancePrimTypes = []
-
-    const geom = instanceMesh.geom
-    const markup = instanceMesh.markup
-    const geomSize = geom.size()
-    for (let i = 0; i < geomSize; i++) {
-        let thisToSpheres = toSpheres;
-        let thisIdxs = []
-        let thisPos = []
-        let thisNorm = []
-        let thisInstance_sizes = []
-        let thisInstance_colours = []
-        let thisInstance_origins = []
-        let thisInstance_orientations = []
-        const inst = geom.get(i);
-        if (inst.name === "spherical-atoms") thisToSpheres = true;
-        const vertices = inst.vertices;
-        const triangles = inst.triangles;
-        const trianglesSize = triangles.size()
-        for (let i = 0; i < trianglesSize; i++) {
-            const triangle = triangles.get(i)
-            const idxs = triangle.point_id
+    if (toSpheres === void 0) { toSpheres = false; }
+    if (maxZSize === void 0) { maxZSize = 10000.; }
+    var totIdxs = [];
+    var totPos = [];
+    var totNorm = [];
+    var totInstance_sizes = [];
+    var totInstance_colours = [];
+    var totInstance_origins = [];
+    var totInstance_orientations = [];
+    var totInstanceUseColours = [];
+    var totInstancePrimTypes = [];
+    var geom = instanceMesh.geom;
+    var markup = instanceMesh.markup;
+    var geomSize = geom.size();
+    for (var i = 0; i < geomSize; i++) {
+        var thisToSpheres = toSpheres;
+        var thisIdxs = [];
+        var thisPos = [];
+        var thisNorm = [];
+        var thisInstance_sizes = [];
+        var thisInstance_colours = [];
+        var thisInstance_origins = [];
+        var thisInstance_orientations = [];
+        var inst = geom.get(i);
+        if (inst.name === "spherical-atoms")
+            thisToSpheres = true;
+        var vertices = inst.vertices;
+        var triangles = inst.triangles;
+        var trianglesSize = triangles.size();
+        for (var i_1 = 0; i_1 < trianglesSize; i_1++) {
+            var triangle = triangles.get(i_1);
+            var idxs = triangle.point_id;
             if (perm) {
-                thisIdxs.push(idxs[0])
-                thisIdxs.push(idxs[2])
-                thisIdxs.push(idxs[1])
-            } else {
-                thisIdxs.push(idxs[0])
-                thisIdxs.push(idxs[1])
-                thisIdxs.push(idxs[2])
+                thisIdxs.push(idxs[0]);
+                thisIdxs.push(idxs[2]);
+                thisIdxs.push(idxs[1]);
+            }
+            else {
+                thisIdxs.push(idxs[0]);
+                thisIdxs.push(idxs[1]);
+                thisIdxs.push(idxs[2]);
             }
         }
-        triangles.delete()
-
-        const verticesSize = vertices.size()
-        for (let i = 0; i < verticesSize; i++) {
-            const vert = vertices.get(i);
-            const vertPos = vert.pos
-            thisPos.push(vertPos[0])
-            thisPos.push(vertPos[1])
-            thisPos.push(vertPos[2])
-            const vertNormal = vert.normal
-            thisNorm.push(vertNormal[0])
-            thisNorm.push(vertNormal[1])
-            thisNorm.push(vertNormal[2])
-            vert.delete()
+        triangles["delete"]();
+        var verticesSize = vertices.size();
+        for (var i_2 = 0; i_2 < verticesSize; i_2++) {
+            var vert = vertices.get(i_2);
+            var vertPos = vert.pos;
+            thisPos.push(vertPos[0]);
+            thisPos.push(vertPos[1]);
+            thisPos.push(vertPos[2]);
+            var vertNormal = vert.normal;
+            thisNorm.push(vertNormal[0]);
+            thisNorm.push(vertNormal[1]);
+            thisNorm.push(vertNormal[2]);
+            vert["delete"]();
         }
-        vertices.delete()
-
-        const As = inst.instancing_data_A;
-        const Asize = As.size();
-
+        vertices["delete"]();
+        var As = inst.instancing_data_A;
+        var Asize = As.size();
         if (Asize > 0) {
-            for (let j = 0; j < Asize; j++) {
-                const inst_data = As.get(j)
-
-                const instDataPosition = inst_data.position
-                thisInstance_origins.push(instDataPosition[0])
-                thisInstance_origins.push(instDataPosition[1])
-                thisInstance_origins.push(instDataPosition[2])
-
-                const instDataColour = inst_data.colour
-                thisInstance_colours.push(instDataColour[0])
-                thisInstance_colours.push(instDataColour[1])
-                thisInstance_colours.push(instDataColour[2])
-                thisInstance_colours.push(instDataColour[3])
-
-                const instDataSize = inst_data.size
-                thisInstance_sizes.push(instDataSize[0])
-                thisInstance_sizes.push(instDataSize[1])
-                thisInstance_sizes.push(instDataSize[2])
-
-                thisInstance_orientations.push(...[
+            for (var j = 0; j < Asize; j++) {
+                var inst_data = As.get(j);
+                var instDataPosition = inst_data.position;
+                thisInstance_origins.push(instDataPosition[0]);
+                thisInstance_origins.push(instDataPosition[1]);
+                thisInstance_origins.push(instDataPosition[2]);
+                var instDataColour = inst_data.colour;
+                thisInstance_colours.push(instDataColour[0]);
+                thisInstance_colours.push(instDataColour[1]);
+                thisInstance_colours.push(instDataColour[2]);
+                thisInstance_colours.push(instDataColour[3]);
+                var instDataSize = inst_data.size;
+                thisInstance_sizes.push(instDataSize[0]);
+                thisInstance_sizes.push(instDataSize[1]);
+                thisInstance_sizes.push(instDataSize[2]);
+                thisInstance_orientations.push.apply(thisInstance_orientations, [
                     1.0, 0.0, 0.0, 0.0,
                     0.0, 1.0, 0.0, 0.0,
                     0.0, 0.0, 1.0, 0.0,
                     0.0, 0.0, 0.0, 1.0,
-                ])
-
-                inst_data.delete()
+                ]);
+                inst_data["delete"]();
             }
         }
-        As.delete()
-
-        const Bs = inst.instancing_data_B;
-        const Bsize = Bs.size();
+        As["delete"]();
+        var Bs = inst.instancing_data_B;
+        var Bsize = Bs.size();
         if (Bsize > 0) {
-            for (let j = 0; j < Bsize; j++) {
-                const inst_data = Bs.get(j)
-
-                const instDataSize = inst_data.size
-                if (instDataSize[2] > maxZSize) continue;
-                thisInstance_sizes.push(instDataSize[0])
-                thisInstance_sizes.push(instDataSize[1])
-                thisInstance_sizes.push(instDataSize[2])
-
-                const instDataPosition = inst_data.position
-                thisInstance_origins.push(instDataPosition[0])
-                thisInstance_origins.push(instDataPosition[1])
-                thisInstance_origins.push(instDataPosition[2])
-
-                const instDataColour = inst_data.colour
-                thisInstance_colours.push(instDataColour[0])
-                thisInstance_colours.push(instDataColour[1])
-                thisInstance_colours.push(instDataColour[2])
-                thisInstance_colours.push(instDataColour[3])
-
-                const instDataOrientation = inst_data.orientation
-
-                thisInstance_orientations.push(instDataOrientation[0][0])
-                thisInstance_orientations.push(instDataOrientation[0][1])
-                thisInstance_orientations.push(instDataOrientation[0][2])
-                thisInstance_orientations.push(instDataOrientation[0][3])
-
-                thisInstance_orientations.push(instDataOrientation[1][0])
-                thisInstance_orientations.push(instDataOrientation[1][1])
-                thisInstance_orientations.push(instDataOrientation[1][2])
-                thisInstance_orientations.push(instDataOrientation[1][3])
-
-                thisInstance_orientations.push(instDataOrientation[2][0])
-                thisInstance_orientations.push(instDataOrientation[2][1])
-                thisInstance_orientations.push(instDataOrientation[2][2])
-                thisInstance_orientations.push(instDataOrientation[2][3])
-
-                thisInstance_orientations.push(instDataOrientation[3][0])
-                thisInstance_orientations.push(instDataOrientation[3][1])
-                thisInstance_orientations.push(instDataOrientation[3][2])
-                thisInstance_orientations.push(instDataOrientation[3][3])
-
-                inst_data.delete()
+            for (var j = 0; j < Bsize; j++) {
+                var inst_data = Bs.get(j);
+                var instDataSize = inst_data.size;
+                if (instDataSize[2] > maxZSize)
+                    continue;
+                thisInstance_sizes.push(instDataSize[0]);
+                thisInstance_sizes.push(instDataSize[1]);
+                thisInstance_sizes.push(instDataSize[2]);
+                var instDataPosition = inst_data.position;
+                thisInstance_origins.push(instDataPosition[0]);
+                thisInstance_origins.push(instDataPosition[1]);
+                thisInstance_origins.push(instDataPosition[2]);
+                var instDataColour = inst_data.colour;
+                thisInstance_colours.push(instDataColour[0]);
+                thisInstance_colours.push(instDataColour[1]);
+                thisInstance_colours.push(instDataColour[2]);
+                thisInstance_colours.push(instDataColour[3]);
+                var instDataOrientation = inst_data.orientation;
+                thisInstance_orientations.push(instDataOrientation[0][0]);
+                thisInstance_orientations.push(instDataOrientation[0][1]);
+                thisInstance_orientations.push(instDataOrientation[0][2]);
+                thisInstance_orientations.push(instDataOrientation[0][3]);
+                thisInstance_orientations.push(instDataOrientation[1][0]);
+                thisInstance_orientations.push(instDataOrientation[1][1]);
+                thisInstance_orientations.push(instDataOrientation[1][2]);
+                thisInstance_orientations.push(instDataOrientation[1][3]);
+                thisInstance_orientations.push(instDataOrientation[2][0]);
+                thisInstance_orientations.push(instDataOrientation[2][1]);
+                thisInstance_orientations.push(instDataOrientation[2][2]);
+                thisInstance_orientations.push(instDataOrientation[2][3]);
+                thisInstance_orientations.push(instDataOrientation[3][0]);
+                thisInstance_orientations.push(instDataOrientation[3][1]);
+                thisInstance_orientations.push(instDataOrientation[3][2]);
+                thisInstance_orientations.push(instDataOrientation[3][3]);
+                inst_data["delete"]();
             }
         }
-        Bs.delete()
-        inst.delete()
-
-        totNorm.push(thisNorm)
-        totPos.push(thisPos)
-        totIdxs.push(thisIdxs)
-        totInstance_sizes.push(thisInstance_sizes)
-        totInstance_origins.push(thisInstance_origins)
-        totInstance_orientations.push(thisInstance_orientations)
-        totInstance_colours.push(thisInstance_colours)
-        totInstanceUseColours.push(true)
+        Bs["delete"]();
+        inst["delete"]();
+        totNorm.push(thisNorm);
+        totPos.push(thisPos);
+        totIdxs.push(thisIdxs);
+        totInstance_sizes.push(thisInstance_sizes);
+        totInstance_origins.push(thisInstance_origins);
+        totInstance_orientations.push(thisInstance_orientations);
+        totInstance_colours.push(thisInstance_colours);
+        totInstanceUseColours.push(true);
         if (thisToSpheres)
-            totInstancePrimTypes.push("PERFECT_SPHERES")
+            totInstancePrimTypes.push("PERFECT_SPHERES");
         else
-            totInstancePrimTypes.push("TRIANGLES")
-
+            totInstancePrimTypes.push("TRIANGLES");
     }
-
-    geom.delete()
-    const simpleMeshData = simpleMeshToMeshData(markup) // simpleMeshToMeshData should do the "delete"
-    instanceMesh.delete()
-
+    geom["delete"]();
+    var simpleMeshData = simpleMeshToMeshData(markup); // simpleMeshToMeshData should do the "delete"
+    instanceMesh["delete"]();
     if (simpleMeshData.idx_tri.length > 0 && simpleMeshData.idx_tri[0].length > 0 && simpleMeshData.idx_tri[0][0].length > 0) {
         if (toSpheres) {
             return {
@@ -197,8 +188,9 @@ const instancedMeshToMeshData = (instanceMesh, perm, toSpheres = false, maxZSize
                 instance_sizes: [totInstance_sizes, null],
                 instance_origins: [totInstance_origins, null],
                 instance_orientations: [totInstance_orientations, null]
-            }
-        } else {
+            };
+        }
+        else {
             return {
                 prim_types: [totInstancePrimTypes, simpleMeshData.prim_types[0]],
                 idx_tri: [totIdxs, simpleMeshData.idx_tri[0]],
@@ -209,9 +201,10 @@ const instancedMeshToMeshData = (instanceMesh, perm, toSpheres = false, maxZSize
                 instance_sizes: [totInstance_sizes, null],
                 instance_origins: [totInstance_origins, null],
                 instance_orientations: [totInstance_orientations, null]
-            }
+            };
         }
-    } else {
+    }
+    else {
         return {
             prim_types: [totInstancePrimTypes],
             idx_tri: [totIdxs],
@@ -222,47 +215,43 @@ const instancedMeshToMeshData = (instanceMesh, perm, toSpheres = false, maxZSize
             instance_sizes: [totInstance_sizes],
             instance_origins: [totInstance_origins],
             instance_orientations: [totInstance_orientations]
-        }
+        };
     }
-}
-
-const simpleMeshToMeshData = (simpleMesh, perm) => {
-    const vertices = simpleMesh.vertices;
-    const triangles = simpleMesh.triangles;
-    let totIdxs = [];
-    let totPos = [];
-    let totNorm = [];
-    let totCol = [];
-
-    const trianglesSize = triangles.size()
-    for (let i = 0; i < trianglesSize; i++) {
-        const triangle = triangles.get(i)
-        const idxs = triangle.point_id;
+};
+var simpleMeshToMeshData = function (simpleMesh, perm) {
+    if (perm === void 0) { perm = false; }
+    var vertices = simpleMesh.vertices;
+    var triangles = simpleMesh.triangles;
+    var totIdxs = [];
+    var totPos = [];
+    var totNorm = [];
+    var totCol = [];
+    var trianglesSize = triangles.size();
+    for (var i = 0; i < trianglesSize; i++) {
+        var triangle = triangles.get(i);
+        var idxs = triangle.point_id;
         if (perm)
-            totIdxs.push(...[idxs[0], idxs[2], idxs[1]]);
+            totIdxs.push.apply(totIdxs, [idxs[0], idxs[2], idxs[1]]);
         else
-            totIdxs.push(...idxs);
+            totIdxs.push.apply(totIdxs, idxs);
     }
-    triangles.delete()
-
-    const verticesSize = vertices.size()
-    for (let i = 0; i < verticesSize; i++) {
-        const vert = vertices.get(i);
-        const vertPos = vert.pos
-        const vertNormal = vert.normal
-        const vertColor = vert.color
-        totPos.push(...vertPos);
+    triangles["delete"]();
+    var verticesSize = vertices.size();
+    for (var i = 0; i < verticesSize; i++) {
+        var vert = vertices.get(i);
+        var vertPos = vert.pos;
+        var vertNormal = vert.normal;
+        var vertColor = vert.color;
+        totPos.push.apply(totPos, vertPos);
         if (perm)
-            totNorm.push(...[-vertNormal[0], -vertNormal[1], -vertNormal[2]]);
+            totNorm.push.apply(totNorm, [-vertNormal[0], -vertNormal[1], -vertNormal[2]]);
         else
-            totNorm.push(...vertNormal);
-        totCol.push(...vertColor);
-        vert.delete()
+            totNorm.push.apply(totNorm, vertNormal);
+        totCol.push.apply(totCol, vertColor);
+        vert["delete"]();
     }
-    vertices.delete()
-
-    simpleMesh.delete()
-
+    vertices["delete"]();
+    simpleMesh["delete"]();
     return {
         prim_types: [["TRIANGLES"]],
         idx_tri: [[totIdxs]],
@@ -270,92 +259,117 @@ const simpleMeshToMeshData = (simpleMesh, perm) => {
         norm_tri: [[totNorm]],
         col_tri: [[totCol]]
     };
-}
-
-const SuperposeResultsToJSArray = (superposeResults) => {
-    const alignmentInfo = superposeResults.alignment_info
+};
+var SuperposeResultsToJSArray = function (superposeResults) {
+    var alignedPairsVec = superposeResults.aligned_pairs;
+    var alignedPairsVecSize = alignedPairsVec.size();
+    var alignedPairsData = [];
+    for (var i = 0; i < alignedPairsVecSize; i++) {
+        var alignedPairs = alignedPairsVec.get(i);
+        var refResidueData = alignedPairs.first;
+        var refResidueSpec = refResidueData.residue_spec;
+        var movResidueData = alignedPairs.second;
+        var movResidueSpec = movResidueData.residue_spec;
+        var currentPairData = {
+            reference: {
+                chainId: refResidueSpec.chain_id,
+                insCode: refResidueSpec.ins_code,
+                seqNum: refResidueSpec.res_no,
+                restype: "UNK",
+                value: refResidueData.function_value,
+                label: refResidueData.label
+            },
+            moving: {
+                chainId: movResidueSpec.chain_id,
+                insCode: movResidueSpec.ins_code,
+                seqNum: movResidueSpec.res_no,
+                restype: "UNK",
+                value: movResidueData.function_value,
+                label: movResidueData.label
+            }
+        };
+        movResidueData["delete"]();
+        movResidueSpec["delete"]();
+        refResidueData["delete"]();
+        refResidueSpec["delete"]();
+        alignedPairsData.push(currentPairData);
+    }
+    alignedPairsVec["delete"]();
     return {
         referenceSequence: superposeResults.alignment.first,
         movingSequence: superposeResults.alignment.second,
-        supperposeInfo: superposeResults.suppose_info,
-        validationData: validationDataToJSArray(alignmentInfo)
+        supperposeInfo: superposeResults.superpose_info,
+        alignedPairsData: alignedPairsData
+    };
+};
+var colourRulesToJSArray = function (colourRulesArray) {
+    var returnResult = [];
+    var colourRulesSize = colourRulesArray.size();
+    for (var i = 0; i < colourRulesSize; i++) {
+        var rule = colourRulesArray.get(i);
+        returnResult.push(rule);
     }
-}
-
-const colourRulesToJSArray = (colourRulesArray) => {
-    let returnResult = []
-    const colourRulesSize = colourRulesArray.size()
-    for (let i = 0; i < colourRulesSize; i++) {
-        const rule = colourRulesArray.get(i)
-        returnResult.push(rule)
-    }
-    colourRulesArray.delete()
+    colourRulesArray["delete"]();
     return returnResult;
-}
-
-const floatArrayToJSArray = (floatArray) => {
-    let returnResult = []
-    const floatArraySize = floatArray.size()
-    for (let i = 0; i < floatArraySize; i++) {
-        const f = floatArray.get(i)
+};
+var floatArrayToJSArray = function (floatArray) {
+    var returnResult = [];
+    var floatArraySize = floatArray.size();
+    for (var i = 0; i < floatArraySize; i++) {
+        var f = floatArray.get(i);
         returnResult.push(f);
     }
-    floatArray.delete()
+    floatArray["delete"]();
     return returnResult;
-}
-
-const mapMoleculeCentreInfoToJSObject = (mapMoleculeCentreInfo) => {
+};
+var mapMoleculeCentreInfoToJSObject = function (mapMoleculeCentreInfo) {
     //Takes a coot::util::map_molecule_centre_info and returns a javascript object that resembles it
     //Disposes of the coordOrth
-    const updatedCentre = mapMoleculeCentreInfo.updated_centre
-    let returnResult = {
+    var updatedCentre = mapMoleculeCentreInfo.updated_centre;
+    var returnResult = {
         updated_centre: [
             updatedCentre.x(),
             updatedCentre.y(),
-            updatedCentre.z()],
+            updatedCentre.z()
+        ],
         success: mapMoleculeCentreInfo.success,
         suggested_contour_level: mapMoleculeCentreInfo.suggested_contour_level
-    }
-    updatedCentre.delete()
+    };
+    updatedCentre["delete"]();
     return returnResult;
-}
-
-const intArrayToJSArray = (intArray) => {
-    let returnResult = []
-    const intArraySize = intArray.size()
-    for (let i = 0; i < intArraySize; i++) {
-        const f = intArray.get(i)
+};
+var intArrayToJSArray = function (intArray) {
+    var returnResult = [];
+    var intArraySize = intArray.size();
+    for (var i = 0; i < intArraySize; i++) {
+        var f = intArray.get(i);
         returnResult.push(f);
     }
-    intArray.delete()
+    intArray["delete"]();
     return returnResult;
-}
-
-const stringArrayToJSArray = (stringArray) => {
-    let returnResult = []
-    const stringArraySize = stringArray.size()
-    for (let i = 0; i < stringArraySize; i++) {
-        const s = stringArray.get(i)
+};
+var stringArrayToJSArray = function (stringArray) {
+    var returnResult = [];
+    var stringArraySize = stringArray.size();
+    for (var i = 0; i < stringArraySize; i++) {
+        var s = stringArray.get(i);
         returnResult.push(s);
     }
-    stringArray.delete()
+    stringArray["delete"]();
     return returnResult;
-}
-
-const symmetryToJSData = (symmetryDataPair) => {
-    let result = []
-    const symmetryData = symmetryDataPair.first
-    const symmetryMatrices = symmetryDataPair.second
-    const cell = symmetryData.cell
-    const symm_trans = symmetryData.symm_trans
-    const symmetrySize = symm_trans.size()
-
-    for (let i = 0; i < symmetrySize; i++) {
-        const currentSymmetry = symm_trans.get(i)
-        const symTransT = currentSymmetry.first
-        const cellTranslation = currentSymmetry.second
-        const currentSymmMat = symmetryMatrices.get(i)
-
+};
+var symmetryToJSData = function (symmetryDataPair) {
+    var result = [];
+    var symmetryData = symmetryDataPair.first;
+    var symmetryMatrices = symmetryDataPair.second;
+    var cell = symmetryData.cell;
+    var symm_trans = symmetryData.symm_trans;
+    var symmetrySize = symm_trans.size();
+    for (var i = 0; i < symmetrySize; i++) {
+        var currentSymmetry = symm_trans.get(i);
+        var symTransT = currentSymmetry.first;
+        var cellTranslation = currentSymmetry.second;
+        var currentSymmMat = symmetryMatrices.get(i);
         result.push({
             x: symTransT.x(),
             y: symTransT.y(),
@@ -366,25 +380,23 @@ const symmetryToJSData = (symmetryDataPair) => {
             ws: cellTranslation.ws,
             vs: cellTranslation.vs,
             matrix: currentSymmMat
-        })
-        symTransT.delete()
+        });
+        symTransT["delete"]();
     }
-
-    cell.delete()
-    symm_trans.delete()
-    symmetryMatrices.delete()
-    symmetryData.delete()
-    return result
-}
-
-const mmrrccStatsToJSArray = (mmrrccStats) => {
-    const parseStats = (stats) => {
-        let result = []
-        const residueSpecs = stats.keys()
-        const mapSize = residueSpecs.size()
-        for (let i = 0; i < mapSize; i++) {
-            const residueSpec = residueSpecs.get(i)
-            const densityCorrStat = stats.get(residueSpec)
+    cell["delete"]();
+    symm_trans["delete"]();
+    symmetryMatrices["delete"]();
+    symmetryData["delete"]();
+    return result;
+};
+var mmrrccStatsToJSArray = function (mmrrccStats) {
+    var parseStats = function (stats) {
+        var result = [];
+        var residueSpecs = stats.keys();
+        var mapSize = residueSpecs.size();
+        for (var i = 0; i < mapSize; i++) {
+            var residueSpec = residueSpecs.get(i);
+            var densityCorrStat = stats.get(residueSpec);
             result.push({
                 resNum: residueSpec.res_no,
                 insCode: residueSpec.ins_code,
@@ -392,115 +404,109 @@ const mmrrccStatsToJSArray = (mmrrccStats) => {
                 chainId: residueSpec.chain_id,
                 n: densityCorrStat.n,
                 correlation: densityCorrStat.correlation()
-            })
-            residueSpec.delete()
-            densityCorrStat.delete()
+            });
+            residueSpec["delete"]();
+            densityCorrStat["delete"]();
         }
-        residueSpecs.delete()
-        return result
-    }
-
-    const first = mmrrccStats.first
-    const second = mmrrccStats.second
-
-    const returnResult = {
+        residueSpecs["delete"]();
+        return result;
+    };
+    var first = mmrrccStats.first;
+    var second = mmrrccStats.second;
+    var returnResult = {
         "All atoms": parseStats(first),
         "Side-chains": parseStats(second)
-    }
-
-    first.delete()
-    second.delete()
-    return returnResult
-}
-
-const residueSpecToJSArray = (residueSpecs) => {
-    let returnResult = []
-    const residuesSize = residueSpecs.size()
-    for (let ic = 0; ic < residuesSize; ic++) {
-        const residue = residueSpecs.get(ic)
+    };
+    first["delete"]();
+    second["delete"]();
+    return returnResult;
+};
+var residueSpecToJSArray = function (residueSpecs) {
+    var returnResult = [];
+    var residuesSize = residueSpecs.size();
+    for (var ic = 0; ic < residuesSize; ic++) {
+        var residue = residueSpecs.get(ic);
         returnResult.push({
             resNum: residue.res_no,
             insCode: residue.ins_code,
             modelNumber: residue.model_number,
             chainId: residue.chain_id
-        })
-        residue.delete()
+        });
+        residue["delete"]();
     }
-    residueSpecs.delete()
-    return returnResult
-}
-
-const validationDataToJSArray = (validationData, chainID = null) => {
-    let returnResult = []
-    const cviv = validationData.cviv
-    const chainSize = cviv.size()
-    for (let chainIndex = 0; chainIndex < chainSize; chainIndex++) {
-        const chain = cviv.get(chainIndex)
+    residueSpecs["delete"]();
+    return returnResult;
+};
+var validationDataToJSArray = function (validationData, chainID) {
+    if (chainID === void 0) { chainID = null; }
+    var returnResult = [];
+    var cviv = validationData.cviv;
+    var chainSize = cviv.size();
+    for (var chainIndex = 0; chainIndex < chainSize; chainIndex++) {
+        var chain = cviv.get(chainIndex);
         if (chainID !== null && chain.chain_id !== chainID) {
             // pass
-        } else {
-            const resInfo = chain.rviv;
-            const resInfoSize = resInfo.size()
-            for (let ir = 0; ir < resInfoSize; ir++) {
-                const residue = resInfo.get(ir)
-                const residueSpec = residue.residue_spec
+        }
+        else {
+            var resInfo = chain.rviv;
+            var resInfoSize = resInfo.size();
+            for (var ir = 0; ir < resInfoSize; ir++) {
+                var residue = resInfo.get(ir);
+                var residueSpec = residue.residue_spec;
                 returnResult.push({
                     chainId: residueSpec.chain_id,
                     insCode: residueSpec.ins_code,
                     seqNum: residueSpec.res_no,
                     restype: "UNK",
                     value: residue.function_value
-                })
-                residue.delete()
-                residueSpec.delete()
+                });
+                residue["delete"]();
+                residueSpec["delete"]();
             }
-            resInfo.delete()
+            resInfo["delete"]();
         }
-        chain.delete()
+        chain["delete"]();
     }
-    cviv.delete()
-    validationData.delete()
-    return returnResult
-}
-
-const linesBoxToJSArray = (BoxData) => {
-    let envdata = []
-    const segments = BoxData.line_segments;
-    const nSeg = segments.size()
-    for (let i = 0; i < nSeg; i++) {
-        let thisEnvdata = []
-        const segsI = segments.get(i)
-        const nSegI = segsI.size()
-        for (let j = 0; j < nSegI; j++) {
-            const seg = segsI.get(j)
-            const start = seg.getStart()
-            const end = seg.getFinish()
-            const ampl = seg.amplitude()
-            const startJS = { x: start.x(), y: start.y(), z: start.z() }
-            const endJS = { x: end.x(), y: end.y(), z: end.z() }
+    cviv["delete"]();
+    validationData["delete"]();
+    return returnResult;
+};
+var linesBoxToJSArray = function (BoxData) {
+    var envdata = [];
+    var segments = BoxData.line_segments;
+    var nSeg = segments.size();
+    for (var i = 0; i < nSeg; i++) {
+        var thisEnvdata = [];
+        var segsI = segments.get(i);
+        var nSegI = segsI.size();
+        for (var j = 0; j < nSegI; j++) {
+            var seg = segsI.get(j);
+            var start = seg.getStart();
+            var end = seg.getFinish();
+            var ampl = seg.amplitude();
+            var startJS = { x: start.x(), y: start.y(), z: start.z() };
+            var endJS = { x: end.x(), y: end.y(), z: end.z() };
             thisEnvdata.push({
                 start: startJS,
                 end: endJS,
-                dist: ampl,
-            })
-            start.delete()
-            end.delete()
-            seg.delete()
+                dist: ampl
+            });
+            start["delete"]();
+            end["delete"]();
+            seg["delete"]();
         }
-        segsI.delete()
-        envdata.push(thisEnvdata)
+        segsI["delete"]();
+        envdata.push(thisEnvdata);
     }
-    segments.delete()
-    BoxData.delete()
-
-    return envdata
-}
-
-const vectorHBondToJSArray = (HBondData) => {
-    let hbdata = []
-    const hbondDataSize = HBondData.size()
-    for (let ib = 0; ib < hbondDataSize; ib++) {
-        const hb = HBondData.get(ib)
+    segments["delete"]();
+    BoxData["delete"]();
+    return envdata;
+};
+var vectorHBondToJSArray = function (HBondData) {
+    var hbdata = [];
+    var hbondDataSize = HBondData.size();
+    for (var ib = 0; ib < hbondDataSize; ib++) {
+        var hb = HBondData.get(ib);
         hbdata.push({
             hb_hydrogen: hb.hb_hydrogen,
             donor: hb.donor,
@@ -513,23 +519,23 @@ const vectorHBondToJSArray = (HBondData) => {
             dist: hb.dist,
             ligand_atom_is_donor: hb.ligand_atom_is_donor,
             hydrogen_is_ligand_atom: hb.hydrogen_is_ligand_atom,
-            bond_has_hydrogen_flag: hb.bond_has_hydrogen_flag,
-        })
+            bond_has_hydrogen_flag: hb.bond_has_hydrogen_flag
+        });
     }
-    HBondData.delete()
-    return hbdata
-}
-
-const interestingPlaceDataToJSArray = (interestingPlaceData) => {
-    let returnResult = [];
-    const interestingPlaceDataSize = interestingPlaceData.size()
-    for (let ir = 0; ir < interestingPlaceDataSize; ir++) {
-        const residue = interestingPlaceData.get(ir)
-        const residueSpec = residue.residue_spec
+    HBondData["delete"]();
+    return hbdata;
+};
+var interestingPlaceDataToJSArray = function (interestingPlaceData) {
+    var returnResult = [];
+    var interestingPlaceDataSize = interestingPlaceData.size();
+    for (var ir = 0; ir < interestingPlaceDataSize; ir++) {
+        var residue = interestingPlaceData.get(ir);
+        var residueSpec = residue.residue_spec;
         returnResult.push({
+            modelNumber: residueSpec.model_number,
             chainId: residueSpec.chain_id,
             insCode: residueSpec.ins_code,
-            seqNum: residueSpec.res_no,
+            resNum: residueSpec.res_no,
             featureType: residue.feature_type,
             featureValue: residue.feature_value,
             buttonLabel: residue.button_label,
@@ -537,535 +543,493 @@ const interestingPlaceDataToJSArray = (interestingPlaceData) => {
             coordX: residue.x,
             coordY: residue.y,
             coordZ: residue.z
-        })
-        residue.delete()
-        residueSpec.delete()
+        });
+        residue["delete"]();
+        residueSpec["delete"]();
     }
-    interestingPlaceData.delete()
-    return returnResult
-}
-
-const ramachandranDataToJSArray = (ramachandraData, chainID) => {
-    let returnResult = [];
-    const ramachandraDataSize = ramachandraData.size()
-    for (let ir = 0; ir < ramachandraDataSize; ir++) {
-        const residue = ramachandraData.get(ir)
-        const phiPsi = residue.phi_psi
+    interestingPlaceData["delete"]();
+    return returnResult;
+};
+var ramachandranDataToJSArray = function (ramachandraData, chainID) {
+    var returnResult = [];
+    var ramachandraDataSize = ramachandraData.size();
+    for (var ir = 0; ir < ramachandraDataSize; ir++) {
+        var residue = ramachandraData.get(ir);
+        var phiPsi = residue.phi_psi;
         if (phiPsi.chain_id === chainID) {
             returnResult.push({
                 chainId: phiPsi.chain_id,
                 insCode: phiPsi.ins_code,
                 seqNum: phiPsi.residue_number,
-                restype: residue.residue_name,
+                restype: residue.residue_name(),
                 isOutlier: !residue.is_allowed_flag,
                 phi: phiPsi.phi(),
                 psi: phiPsi.psi(),
-                is_pre_pro: residue.residue_name === 'PRO'
-            })
+                is_pre_pro: residue.residue_name() === 'PRO'
+            });
         }
-        residue.delete()
-        phiPsi.delete()
+        residue["delete"]();
+        phiPsi["delete"]();
     }
-    ramachandraData.delete()
-    return returnResult
-}
-
-const simpleMeshToLineMeshData = (simpleMesh, normalLighting) => {
-    const vertices = simpleMesh.vertices;
-    const triangles = simpleMesh.triangles;
-    let totIdxs = [];
-    let totPos = [];
-    let totNorm = [];
-    let totCol = [];
-
-    const trianglesSize = triangles.size()
-    for (let i = 0; i < trianglesSize; i++) {
-        const triangle = triangles.get(i)
-        const idxs = triangle.point_id;
-        totIdxs.push(...[idxs[0], idxs[1], idxs[0], idxs[2], idxs[1], idxs[2]]);
+    ramachandraData["delete"]();
+    return returnResult;
+};
+var simpleMeshToLineMeshData = function (simpleMesh, normalLighting) {
+    var vertices = simpleMesh.vertices;
+    var triangles = simpleMesh.triangles;
+    var totIdxs = [];
+    var totPos = [];
+    var totNorm = [];
+    var totCol = [];
+    var trianglesSize = triangles.size();
+    for (var i = 0; i < trianglesSize; i++) {
+        var triangle = triangles.get(i);
+        var idxs = triangle.point_id;
+        totIdxs.push.apply(totIdxs, [idxs[0], idxs[1], idxs[0], idxs[2], idxs[1], idxs[2]]);
     }
-    triangles.delete()
-
-    const verticesSize = vertices.size()
-    for (let i = 0; i < verticesSize; i++) {
-        const vert = vertices.get(i);
-        totPos.push(...vert.pos);
-        totNorm.push(...vert.normal);
-        totCol.push(...vert.color);
-        vert.delete()
+    triangles["delete"]();
+    var verticesSize = vertices.size();
+    for (var i = 0; i < verticesSize; i++) {
+        var vert = vertices.get(i);
+        totPos.push.apply(totPos, vert.pos);
+        totNorm.push.apply(totNorm, vert.normal);
+        totCol.push.apply(totCol, vert.color);
+        vert["delete"]();
     }
-    vertices.delete()
-
-    simpleMesh.delete()
-
+    vertices["delete"]();
+    simpleMesh["delete"]();
     if (normalLighting)
         return { prim_types: [["NORMALLINES"]], useIndices: [[true]], idx_tri: [[totIdxs]], vert_tri: [[totPos]], additional_norm_tri: [[totNorm]], norm_tri: [[totNorm]], col_tri: [[totCol]] };
     else
         return { prim_types: [["LINES"]], useIndices: [[true]], idx_tri: [[totIdxs]], vert_tri: [[totPos]], norm_tri: [[totNorm]], col_tri: [[totCol]] };
-
-}
-
-const read_pdb = (coordData, name) => {
-    const theGuid = guid()
-    cootModule.FS_createDataFile(".", `${theGuid}.pdb`, coordData, true, true);
-    const tempFilename = `./${theGuid}.pdb`
-    const molNo = molecules_container.read_pdb(tempFilename)
-    cootModule.FS_unlink(tempFilename)
-    return molNo
-}
-
-const auto_open_mtz = (mtzData) => {
-    const theGuid = guid()
-    const asUint8Array = new Uint8Array(mtzData)
-    cootModule.FS_createDataFile(".", `${theGuid}.mtz`, asUint8Array, true, true);
-    const tempFilename = `./${theGuid}.mtz`
-    const result = molecules_container.auto_read_mtz(tempFilename)
-    cootModule.FS_unlink(tempFilename)
-    return result
-}
-
-const read_dictionary = (coordData, associatedMolNo) => {
-    const theGuid = guid()
-    cootModule.FS_createDataFile(".", `${theGuid}.cif`, coordData, true, true);
-    const tempFilename = `./${theGuid}.cif`
-    const returnVal = molecules_container.import_cif_dictionary(tempFilename, associatedMolNo)
-    cootModule.FS_unlink(tempFilename)
-    return returnVal
-}
-
-function base64ToArrayBuffer(base64) {
-    var binary_string = window.atob(base64);
-    var len = binary_string.length;
-    var bytes = new Uint8Array(len);
-    for (var i = 0; i < len; i++) {
-        bytes[i] = binary_string.charCodeAt(i);
+};
+var read_pdb = function (coordData, name) {
+    var theGuid = guid();
+    var theSuffix;
+    if (coordData.startsWith("data_")) {
+        theSuffix = "mmcif";
     }
-    return bytes.buffer;
-}
-
-const replace_molecule_by_model_from_file = (imol, coordData) => {
-    const theGuid = guid()
-    const tempFilename = `./${theGuid}.pdb`
-    cootModule.FS_createDataFile(".", tempFilename, coordData, true, true)
-    const result = molecules_container.replace_molecule_by_model_from_file(imol, tempFilename)
-    cootModule.FS_unlink(tempFilename)
-    return result
-}
-
-const replace_map_by_mtz_from_file = (imol, mtzData, selectedColumns) => {
-    const theGuid = guid()
-    const tempFilename = `./${theGuid}.mtz`
-    const asUint8Array = new Uint8Array(mtzData)
+    else {
+        theSuffix = "pdb";
+    }
+    cootModule.FS_createDataFile(".", "".concat(theGuid, ".").concat(theSuffix), coordData, true, true);
+    var tempFilename = "./".concat(theGuid, ".").concat(theSuffix);
+    var molNo = molecules_container.read_pdb(tempFilename);
+    cootModule.FS_unlink(tempFilename);
+    return molNo;
+};
+var auto_open_mtz = function (mtzData) {
+    var theGuid = guid();
+    var asUint8Array = new Uint8Array(mtzData);
+    cootModule.FS_createDataFile(".", "".concat(theGuid, ".mtz"), asUint8Array, true, true);
+    var tempFilename = "./".concat(theGuid, ".mtz");
+    var result = molecules_container.auto_read_mtz(tempFilename);
+    cootModule.FS_unlink(tempFilename);
+    return result;
+};
+var read_dictionary = function (coordData, associatedMolNo) {
+    var theGuid = guid();
+    cootModule.FS_createDataFile(".", "".concat(theGuid, ".cif"), coordData, true, true);
+    var tempFilename = "./".concat(theGuid, ".cif");
+    var returnVal = molecules_container.import_cif_dictionary(tempFilename, associatedMolNo);
+    cootModule.FS_unlink(tempFilename);
+    return returnVal;
+};
+var replace_molecule_by_model_from_file = function (imol, coordData) {
+    var theGuid = guid();
+    var tempFilename = "./".concat(theGuid, ".pdb");
+    cootModule.FS_createDataFile(".", tempFilename, coordData, true, true);
+    var result = molecules_container.replace_molecule_by_model_from_file(imol, tempFilename);
+    cootModule.FS_unlink(tempFilename);
+    return result;
+};
+var replace_map_by_mtz_from_file = function (imol, mtzData, selectedColumns) {
+    var theGuid = guid();
+    var tempFilename = "./".concat(theGuid, ".mtz");
+    var asUint8Array = new Uint8Array(mtzData);
     cootModule.FS_createDataFile(".", tempFilename, asUint8Array, true, true);
-    const readMtzArgs = [imol, tempFilename, selectedColumns.F, selectedColumns.PHI, "", false]
-    const result = molecules_container.replace_map_by_mtz_from_file(...readMtzArgs)
-    cootModule.FS_unlink(tempFilename)
-    return result
-}
-
-const new_positions_for_residue_atoms = (molToUpDate, residues) => {
-    let success = 0
-    const movedResidueVector  = new cootModule.Vectormoved_residue_t()
-    residues.forEach(atoms => {
+    var readMtzArgs = [imol, tempFilename, selectedColumns.F, selectedColumns.PHI, "", false];
+    var result = molecules_container.replace_map_by_mtz_from_file.apply(molecules_container, readMtzArgs);
+    cootModule.FS_unlink(tempFilename);
+    return result;
+};
+var new_positions_for_residue_atoms = function (molToUpDate, residues) {
+    var success = 0;
+    var movedResidueVector = new cootModule.Vectormoved_residue_t();
+    residues.forEach(function (atoms) {
         if (atoms.length > 0) {
-            const cidFields = atoms[0].label.split('/')
-            let [resNoStr, insCode] = cidFields[3].split(".")
-            insCode = insCode ? insCode : ""
-            const movedResidue = new cootModule.moved_residue_t(cidFields[2], parseInt(resNoStr), insCode)
-            atoms.forEach(atom => {
-                const movedAtom = new cootModule.moved_atom_t(atom.name, atom.alt_loc, atom.x, atom.y, atom.z, -1)
-                movedResidue.add_atom(movedAtom)
-                movedAtom.delete()
-            })
-            movedResidueVector.push_back(movedResidue)
-            movedResidue.delete()
+            var cidFields = atoms[0].label.split('/');
+            var _a = cidFields[3].split("."), resNoStr = _a[0], insCode = _a[1];
+            insCode = insCode ? insCode : "";
+            var movedResidue_1 = new cootModule.moved_residue_t(cidFields[2], parseInt(resNoStr), insCode);
+            atoms.forEach(function (atom) {
+                var movedAtom = new cootModule.moved_atom_t(atom.name, atom.alt_loc, atom.x, atom.y, atom.z, -1);
+                movedResidue_1.add_atom(movedAtom);
+                movedAtom["delete"]();
+            });
+            movedResidueVector.push_back(movedResidue_1);
+            movedResidue_1["delete"]();
         }
-    })
-    const thisSuccess = molecules_container.new_positions_for_atoms_in_residues(molToUpDate, movedResidueVector)
-    success += thisSuccess
-    movedResidueVector.delete()
-    return success
-}
-
-const read_mtz = (mapData, name, selectedColumns) => {
-    const theGuid = guid()
-    const asUint8Array = new Uint8Array(mapData)
-    cootModule.FS_createDataFile(".", `${theGuid}.mtz`, asUint8Array, true, true);
-    const tempFilename = `./${theGuid}.mtz`
-    const read_mtz_args = [tempFilename, selectedColumns.F,
-        selectedColumns.PHI, "", false, selectedColumns.isDifference]
-    const molNo = molecules_container.read_mtz(...read_mtz_args)
-    cootModule.FS_unlink(tempFilename)
-    return molNo
-}
-
-const associate_data_mtz_file_with_map = (iMol, mtzData, F, SIGF, FREE) => {
-    const asUint8Array = new Uint8Array(mtzData.data)
-    cootModule.FS_createDataFile(".", `${mtzData.fileName}.mtz`, asUint8Array, true, true);
-    const mtzFilename = `./${mtzData.fileName}.mtz`
-    const args = [iMol, mtzFilename, F, SIGF, FREE]
-    molecules_container.associate_data_mtz_file_with_map(...args)
-    return mtzFilename
-}
-
-const read_ccp4_map = (mapData, name, isDiffMap) => {
-    const theGuid = guid()
-    const asUint8Array = new Uint8Array(mapData)
-    cootModule.FS_createDataFile(".", `${theGuid}.map`, asUint8Array, true, true);
-    const tempFilename = `./${theGuid}.map`
-    const read_map_args = [tempFilename, isDiffMap]
-    const molNo = molecules_container.read_ccp4_map(...read_map_args)
-    cootModule.FS_unlink(tempFilename)
-    return molNo
-}
-
-const doColourTest = (imol) => {
-    console.log('DEBUG: Start test...')
-
-    const colours = {
-        0: { cid: '//A/1-10/', rgb: [255., 0., 0.] },
-        1: { cid: '//A/11-20/', rgb: [0., 255., 0.] },
-        2: { cid: '//A/21-30/', rgb: [0., 0., 255.] },
+    });
+    var thisSuccess = molecules_container.new_positions_for_atoms_in_residues(molToUpDate, movedResidueVector);
+    success += thisSuccess;
+    movedResidueVector["delete"]();
+    return success;
+};
+var read_mtz = function (mapData, name, selectedColumns) {
+    var theGuid = guid();
+    var asUint8Array = new Uint8Array(mapData);
+    cootModule.FS_createDataFile(".", "".concat(theGuid, ".mtz"), asUint8Array, true, true);
+    var tempFilename = "./".concat(theGuid, ".mtz");
+    var read_mtz_args = [tempFilename, selectedColumns.F,
+        selectedColumns.PHI, "", false, selectedColumns.isDifference];
+    var molNo = molecules_container.read_mtz.apply(molecules_container, read_mtz_args);
+    cootModule.FS_unlink(tempFilename);
+    return molNo;
+};
+var associate_data_mtz_file_with_map = function (iMol, mtzData, F, SIGF, FREE) {
+    var asUint8Array = new Uint8Array(mtzData.data);
+    cootModule.FS_createDataFile(".", "".concat(mtzData.fileName, ".mtz"), asUint8Array, true, true);
+    var mtzFilename = "./".concat(mtzData.fileName, ".mtz");
+    var args = [iMol, mtzFilename, F, SIGF, FREE];
+    molecules_container.associate_data_mtz_file_with_map.apply(molecules_container, args);
+    return mtzFilename;
+};
+var read_ccp4_map = function (mapData, name, isDiffMap) {
+    var theGuid = guid();
+    var asUint8Array = new Uint8Array(mapData);
+    cootModule.FS_createDataFile(".", "".concat(theGuid, ".map"), asUint8Array, true, true);
+    var tempFilename = "./".concat(theGuid, ".map");
+    var read_map_args = [tempFilename, isDiffMap];
+    var molNo = molecules_container.read_ccp4_map.apply(molecules_container, read_map_args);
+    cootModule.FS_unlink(tempFilename);
+    return molNo;
+};
+var setUserDefinedBondColours = function (imol, colours) {
+    var colourMap = new cootModule.MapIntFloat3();
+    var indexedResiduesVec = new cootModule.VectorStringUInt_pair();
+    colours.forEach(function (colour, index) {
+        colourMap.set(index + 51, colour.rgb);
+        var i = { first: colour.cid, second: index + 51 };
+        indexedResiduesVec.push_back(i);
+    });
+    molecules_container.set_user_defined_bond_colours(imol, colourMap);
+    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, false);
+    indexedResiduesVec["delete"]();
+    colourMap["delete"]();
+};
+var doColourTest = function (imol) {
+    console.log('DEBUG: Start test...');
+    var colourMap = new cootModule.MapIntFloat3();
+    colourMap[20] = [1., 0., 0.];
+    colourMap[21] = [0., 1., 0.];
+    colourMap[22] = [0., 0., 1.];
+    var indexedResiduesVec = new cootModule.VectorStringUInt_pair();
+    var a = { first: '//A/1-10/', second: 20 };
+    indexedResiduesVec.push_back(a);
+    var b = { first: '//A/11-20/', second: 21 };
+    indexedResiduesVec.push_back(b);
+    var c = { first: '//A/21-30/', second: 22 };
+    indexedResiduesVec.push_back(c);
+    console.log('DEBUG: Running molecules_container.set_user_defined_bond_colours');
+    molecules_container.set_user_defined_bond_colours(imol, colourMap);
+    console.log('DEBUG: Running molecules_container.set_user_defined_atom_colour_by_selection');
+    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, false);
+    indexedResiduesVec["delete"]();
+    colourMap["delete"]();
+};
+var doCootCommand = function (messageData) {
+    var returnType = messageData.returnType, command = messageData.command, commandArgs = messageData.commandArgs, messageId = messageData.messageId, myTimeStamp = messageData.myTimeStamp, message = messageData.message;
+    try {
+        var cootResult = void 0;
+        switch (command) {
+            case 'shim_read_pdb':
+                cootResult = read_pdb.apply(void 0, commandArgs);
+                break;
+            case 'shim_new_positions_for_residue_atoms':
+                cootResult = new_positions_for_residue_atoms.apply(void 0, commandArgs);
+                break;
+            case 'shim_read_mtz':
+                cootResult = read_mtz.apply(void 0, commandArgs);
+                break;
+            case 'shim_auto_open_mtz':
+                cootResult = auto_open_mtz.apply(void 0, commandArgs);
+                break;
+            case 'shim_read_ccp4_map':
+                cootResult = read_ccp4_map.apply(void 0, commandArgs);
+                break;
+            case 'shim_read_dictionary':
+                cootResult = read_dictionary.apply(void 0, commandArgs);
+                break;
+            case 'shim_associate_data_mtz_file_with_map':
+                cootResult = associate_data_mtz_file_with_map.apply(void 0, commandArgs);
+                break;
+            case 'shim_replace_molecule_by_model_from_file':
+                cootResult = replace_molecule_by_model_from_file.apply(void 0, commandArgs);
+                break;
+            case 'shim_replace_map_by_mtz_from_file':
+                cootResult = replace_map_by_mtz_from_file.apply(void 0, commandArgs);
+                break;
+            case 'shim_do_colour_test':
+                cootResult = doColourTest.apply(void 0, commandArgs);
+                break;
+            case 'shim_set_bond_colours':
+                cootResult = setUserDefinedBondColours.apply(void 0, commandArgs);
+                break;
+            case 'shim_smiles_to_pdb':
+                cootResult = cootModule.SmilesToPDB.apply(cootModule, commandArgs);
+                break;
+            default:
+                cootResult = molecules_container[command].apply(molecules_container, commandArgs);
+                break;
+        }
+        var returnResult = void 0;
+        switch (returnType) {
+            case 'instanced_mesh_perm':
+                returnResult = instancedMeshToMeshData(cootResult, true);
+                break;
+            case 'symmetry':
+                returnResult = symmetryToJSData(cootResult);
+                break;
+            case 'mmrrcc_stats':
+                returnResult = mmrrccStatsToJSArray(cootResult);
+                break;
+            case 'colour_rules':
+                returnResult = colourRulesToJSArray(cootResult);
+                break;
+            case 'instanced_mesh_perfect_spheres':
+                returnResult = instancedMeshToMeshData(cootResult, false, true);
+                break;
+            case 'instanced_mesh':
+                returnResult = instancedMeshToMeshData(cootResult, false, false, 5);
+                break;
+            case 'mesh_perm':
+                returnResult = simpleMeshToMeshData(cootResult, true);
+                break;
+            case 'mesh':
+                returnResult = simpleMeshToMeshData(cootResult);
+                break;
+            case 'lit_lines_mesh':
+                returnResult = simpleMeshToLineMeshData(cootResult, true);
+                break;
+            case 'lines_mesh':
+                returnResult = simpleMeshToLineMeshData(cootResult, false);
+                break;
+            case 'float_array':
+                returnResult = floatArrayToJSArray(cootResult);
+                break;
+            case 'int_array':
+                returnResult = intArrayToJSArray(cootResult);
+                break;
+            case 'map_molecule_centre_info_t':
+                returnResult = mapMoleculeCentreInfoToJSObject(cootResult);
+                break;
+            case 'string_array':
+                returnResult = stringArrayToJSArray(cootResult);
+                break;
+            case 'residue_specs':
+                returnResult = residueSpecToJSArray(cootResult);
+                break;
+            case 'ramachandran_data':
+                returnResult = ramachandranDataToJSArray(cootResult, messageData.chainID);
+                break;
+            case 'validation_data':
+                returnResult = validationDataToJSArray(cootResult, messageData.chainID);
+                break;
+            case 'interesting_places_data':
+                returnResult = interestingPlaceDataToJSArray(cootResult);
+                break;
+            case 'superpose_results':
+                returnResult = SuperposeResultsToJSArray(cootResult);
+                break;
+            case 'generic_3d_lines_bonds_box':
+                returnResult = linesBoxToJSArray(cootResult);
+                break;
+            case 'vector_hbond':
+                returnResult = vectorHBondToJSArray(cootResult);
+                break;
+            case 'status_instanced_mesh_pair':
+                returnResult = { status: cootResult.first, mesh: instancedMeshToMeshData(cootResult.second, false, false, 5) };
+                break;
+            case 'status':
+            default:
+                returnResult = cootResult;
+                break;
+        }
+        return {
+            messageId: messageId,
+            messageSendTime: Date.now(),
+            consoleMessage: "Completed ".concat(command, " in ").concat(Date.now() - myTimeStamp, " ms"),
+            result: { status: 'Completed', result: returnResult }
+        };
     }
-
-    let colourMap = new cootModule.MapIntFloat3()
-    for (const key in Object.keys(colours)) {
-        colourMap[key] = colours[key].rgb
+    catch (err) {
+        console.log(err);
+        return {
+            messageId: messageId,
+            myTimeStamp: myTimeStamp,
+            message: message,
+            consoleMessage: "EXCEPTION RAISED IN ".concat(command, ", ").concat(err),
+            result: { status: 'Exception' }
+        };
     }
-
-    let indexedResiduesVec = new cootModule.VectorStringUInt_pair()
-    for (const key in Object.keys(colours)) {
-        const i = { first: colours[key].cid, second: parseInt(key) }
-        indexedResiduesVec.push_back(i)
-    }
-
-    console.log('DEBUG: Running molecules_container.set_user_defined_bond_colours')
-    molecules_container.set_user_defined_bond_colours(imol, colourMap)
-    console.log('DEBUG: Running molecules_container.set_user_defined_atom_colour_by_residue')
-    molecules_container.set_user_defined_atom_colour_by_residue(imol, indexedResiduesVec)
-
-    indexedResiduesVec.delete()
-    colourMap.delete()
-}
-
+};
 onmessage = function (e) {
     if (e.data.message === 'CootInitialize') {
-
         createRSRModule({
-            locateFile: (file) => `./wasm/${file}`,
-            onRuntimeInitialized: () => { },
+            locateFile: function (file) { return "./wasm/".concat(file); },
+            onRuntimeInitialized: function () { },
             mainScriptUrlOrBlob: "moorhen.js",
             print: print,
-            printErr: print,
+            printErr: print
         })
-            .then((returnedModule) => {
-                postMessage({ consoleMessage: 'Initialized molecules_container', message: e.data.message, messageId: e.data.messageId })
-                cootModule = returnedModule;
-                molecules_container = new cootModule.molecules_container_js(false)
-                molecules_container.set_show_timings(false)
-                molecules_container.fill_rotamer_probability_tables()
-                molecules_container.set_map_sampling_rate(1.7)
-                cootModule.FS.mkdir("COOT_BACKUP");
-            })
-            .catch((e) => {
-                console.log(e)
-                print(e);
-            });
-
+            .then(function (returnedModule) {
+            postMessage({ consoleMessage: 'Initialized molecules_container', message: e.data.message, messageId: e.data.messageId });
+            cootModule = returnedModule;
+            molecules_container = new cootModule.molecules_container_js(false);
+            molecules_container.set_show_timings(false);
+            molecules_container.fill_rotamer_probability_tables();
+            molecules_container.set_map_sampling_rate(1.7);
+            cootModule.FS.mkdir("COOT_BACKUP");
+        })["catch"](function (e) {
+            console.log(e);
+            print(e);
+        });
         createCCP4Module({
-            locateFile: (file) => `./wasm/${file}`,
-            onRuntimeInitialized: () => { },
+            locateFile: function (file) { return "./wasm/".concat(file); },
+            onRuntimeInitialized: function () { },
             mainScriptUrlOrBlob: "web_example.js",
             print: print,
-            printErr: print,
+            printErr: print
         })
-            .then((returnedModule) => {
-                ccp4Module = returnedModule;
-            })
-            .catch((e) => {
-                console.log(e)
-                print(e);
-            });
+            .then(function (returnedModule) {
+            ccp4Module = returnedModule;
+        })["catch"](function (e) {
+            console.log(e);
+            print(e);
+        });
     }
-
     else if (e.data.message === 'get_atoms') {
-        const theGuid = guid()
-        const tempFilename = `./${theGuid}.pdb`
+        var theGuid = guid();
+        var tempFilename = "./".concat(theGuid, ".pdb");
         if (e.data.format === 'pdb') {
-            molecules_container.writePDBASCII(e.data.molNo, tempFilename)
-        } else if (e.data.format === 'mmcif') {
-            molecules_container.writeCIFASCII(e.data.molNo, tempFilename)
-        } else {
-            console.log(`Unrecognised format... ${e.data.format}`)
+            molecules_container.writePDBASCII(e.data.molNo, tempFilename);
         }
-
-        const pdbData = cootModule.FS.readFile(tempFilename, { encoding: 'utf8' });
-        cootModule.FS_unlink(tempFilename)
+        else if (e.data.format === 'mmcif') {
+            molecules_container.writeCIFASCII(e.data.molNo, tempFilename);
+        }
+        else {
+            console.log("Unrecognised format... ".concat(e.data.format));
+        }
+        var pdbData = cootModule.FS.readFile(tempFilename, { encoding: 'utf8' });
+        cootModule.FS_unlink(tempFilename);
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
-            consoleMessage: `Fetched coordinates of molecule ${e.data.molNo}`,
+            consoleMessage: "Fetched coordinates of molecule ".concat(e.data.molNo),
             message: e.data.message,
             result: { molNo: e.data.molNo, pdbData: pdbData }
-        })
+        });
     }
-
     else if (e.data.message === 'get_mtz_data') {
-        const mtzData = cootModule.FS.readFile(e.data.fileName, { encoding: 'binary' });
+        var mtzData = cootModule.FS.readFile(e.data.fileName, { encoding: 'binary' });
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
-            consoleMessage: `Fetched mtz data for map ${e.data.molNo}`,
+            consoleMessage: "Fetched mtz data for map ".concat(e.data.molNo),
             message: e.data.message,
             result: { molNo: e.data.molNo, mtzData: mtzData }
-        })
+        });
     }
-
     else if (e.data.message === 'get_map') {
-        const theGuid = guid()
-        const tempFilename = `./${theGuid}.map`
-        molecules_container.writeCCP4Map(e.data.molNo, tempFilename)
-
-        const mapData = cootModule.FS.readFile(tempFilename, { encoding: 'binary' });
-        cootModule.FS_unlink(tempFilename)
+        var theGuid = guid();
+        var tempFilename = "./".concat(theGuid, ".map");
+        molecules_container.writeCCP4Map(e.data.molNo, tempFilename);
+        var mapData = cootModule.FS.readFile(tempFilename, { encoding: 'binary' });
+        cootModule.FS_unlink(tempFilename);
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
-            consoleMessage: `Fetched map of map ${e.data.molNo}`,
+            consoleMessage: "Fetched map of map ".concat(e.data.molNo),
             message: e.data.message,
             result: { molNo: e.data.molNo, mapData: mapData.buffer }
-        })
+        });
     }
-
     else if (e.data.message === 'read_mtz') {
         try {
-            const theGuid = guid()
-            cootModule.FS_createDataFile(".", `${theGuid}.mtz`, e.data.data, true, true, true);
-            const tempFilename = `./${theGuid}.mtz`
-            const molNo = molecules_container.read_mtz(tempFilename, 'FWT', 'PHWT', "", false, false)
-            cootModule.FS_unlink(tempFilename)
+            var theGuid = guid();
+            cootModule.FS_createDataFile(".", "".concat(theGuid, ".mtz"), e.data.data, true, true, true);
+            var tempFilename = "./".concat(theGuid, ".mtz");
+            var molNo = molecules_container.read_mtz(tempFilename, 'FWT', 'PHWT', "", false, false);
+            cootModule.FS_unlink(tempFilename);
             postMessage({
                 messageId: e.data.messageId,
                 myTimeStamp: e.data.myTimeStamp,
-                consoleMessage: `Read map MTZ as molecule ${molNo}`,
+                consoleMessage: "Read map MTZ as molecule ".concat(molNo),
                 message: e.data.message,
                 result: { molNo: molNo, name: e.data.name }
-            })
+            });
         }
         catch (err) {
-            print(err)
+            print(err);
         }
     }
-
     else if (e.data.message === 'get_rama') {
-        const theGuid = guid()
-        const tempFilename = `./${theGuid}.pdb`
-        molecules_container.writePDBASCII(e.data.molNo, tempFilename)
-        const result = cootModule.getRamachandranData(tempFilename, e.data.chainId);
-        cootModule.FS_unlink(tempFilename)
-        let resInfo = [];
-        for (let ir = 0; ir < result.size(); ir++) {
-            const cppres = result.get(ir);
+        var theGuid = guid();
+        var tempFilename = "./".concat(theGuid, ".pdb");
+        molecules_container.writePDBASCII(e.data.molNo, tempFilename);
+        var result = cootModule.getRamachandranData(tempFilename, e.data.chainId);
+        cootModule.FS_unlink(tempFilename);
+        var resInfo = [];
+        for (var ir = 0; ir < result.size(); ir++) {
+            var cppres = result.get(ir);
             //TODO - Is there a nicer way to do this?
-            const jsres = { chainId: cppres.chainId, insCode: cppres.insCode, seqNum: cppres.seqNum, restype: cppres.restype, phi: cppres.phi, psi: cppres.psi, isOutlier: cppres.isOutlier, is_pre_pro: cppres.is_pre_pro };
+            var jsres = { chainId: cppres.chainId, insCode: cppres.insCode, seqNum: cppres.seqNum, restype: cppres.restype, phi: cppres.phi, psi: cppres.psi, isOutlier: cppres.isOutlier, is_pre_pro: cppres.is_pre_pro };
             resInfo.push(jsres);
         }
-
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
             messageTag: "result",
-            result: resInfo,
-        })
+            result: resInfo
+        });
     }
-
     else if (e.data.message === 'copy_fragment') {
-        const newmolNo = molecules_container.copy_fragment_using_residue_range(e.data.molNo, e.data.chainId, e.data.res_no_start, e.data.res_no_end)
-
+        var newmolNo = molecules_container.copy_fragment_using_residue_range(e.data.molNo, e.data.chainId, e.data.res_no_start, e.data.res_no_end);
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
             messageTag: "result",
-            result: newmolNo,
-        })
+            result: newmolNo
+        });
     }
-
     else if (e.data.message === 'delete') {
-        const result = molecules_container.close_molecule(e.data.molNo)
-
+        var result = molecules_container.close_molecule(e.data.molNo);
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
             messageTag: "result",
-            result: result,
-        })
+            result: result
+        });
     }
-
     else if (e.data.message === 'delete_file_name') {
-        const result = cootModule.FS_unlink(e.data.fileName)
-
+        var result = cootModule.FS_unlink(e.data.fileName);
         postMessage({
             messageId: e.data.messageId,
             myTimeStamp: e.data.myTimeStamp,
             messageTag: "result",
-            result: result,
-        })
+            result: result
+        });
     }
-
+    else if (e.data.message === 'coot_command_list') {
+        var resultList = e.data.commandList.map(function (command) { return doCootCommand(__assign(__assign({}, e.data), command)); });
+        postMessage({
+            messageId: e.data.messageId,
+            resultList: resultList
+        });
+    }
     if (e.data.message === 'coot_command') {
-        const { returnType, command, commandArgs, messageId } = e.data
-        try {
-
-            const timeMainThreadToWorker = `Message from main thread to worker took ${Date.now() - e.data.myTimeStamp} ms (${command}) - (${messageId.slice(0, 5)})`
-
-            let startTime = new Date()
-
-            /* A debug message to show tht commands are reachng CootWorker
-            postMessage({ consoleMessage: `Received ${command} with args ${commandArgs}` })
-            */
-
-            /* Here a block of "shims"
-            * over time want to reduce these to none
-            */
-            let cootResult
-            if (command === 'shim_read_pdb') {
-                cootResult = read_pdb(...commandArgs)
-            }
-            else if (command === 'shim_new_positions_for_residue_atoms') {
-                cootResult = new_positions_for_residue_atoms(...commandArgs)
-            }
-            else if (command === 'shim_read_mtz') {
-                cootResult = read_mtz(...commandArgs)
-            }
-            else if (command === 'shim_auto_open_mtz') {
-                cootResult = auto_open_mtz(...commandArgs)
-            }
-            else if (command === 'shim_read_ccp4_map') {
-                cootResult = read_ccp4_map(...commandArgs)
-            }
-            else if (command === 'shim_read_dictionary') {
-                cootResult = read_dictionary(...commandArgs)
-            }
-            else if (command === 'shim_associate_data_mtz_file_with_map') {
-                cootResult = associate_data_mtz_file_with_map(...commandArgs)
-            }
-            else if (command === 'shim_replace_molecule_by_model_from_file') {
-                cootResult = replace_molecule_by_model_from_file(...commandArgs)
-            }
-            else if (command === 'shim_replace_map_by_mtz_from_file') {
-                cootResult = replace_map_by_mtz_from_file(...commandArgs)
-            }
-            else if (command === 'shim_do_colour_test') {
-                cootResult = doColourTest(...commandArgs)
-            }
-            else if (command === 'shim_smiles_to_pdb') {
-                cootResult = cootModule.SmilesToPDB(...commandArgs)
-            }
-            else {
-                cootResult = molecules_container[command](...commandArgs)
-            }
-
-            let endTime = new Date()
-            let timeDiff = endTime - startTime
-            const timelibcootAPI = `libcootAPI command ${command} took ${timeDiff} ms  - (${messageId.slice(0, 5)})`
-            let returnResult;
-            startTime = new Date()
-
-            switch (returnType) {
-                case 'instanced_mesh_perm':
-                    returnResult = instancedMeshToMeshData(cootResult, true)
-                    break;
-                case 'symmetry':
-                    returnResult = symmetryToJSData(cootResult)
-                    break;
-                case 'mmrrcc_stats':
-                    returnResult = mmrrccStatsToJSArray(cootResult)
-                    break;
-                case 'colour_rules':
-                    returnResult = colourRulesToJSArray(cootResult)
-                    break;
-                case 'instanced_mesh_perfect_spheres':
-                    returnResult = instancedMeshToMeshData(cootResult, false, true)
-                    break;
-                case 'instanced_mesh':
-                    returnResult = instancedMeshToMeshData(cootResult, false, false, 5)
-                    break;
-                case 'mesh_perm':
-                    returnResult = simpleMeshToMeshData(cootResult, true)
-                    break;
-                case 'mesh':
-                    returnResult = simpleMeshToMeshData(cootResult)
-                    break;
-                case 'lit_lines_mesh':
-                    returnResult = simpleMeshToLineMeshData(cootResult, true)
-                    break;
-                case 'lines_mesh':
-                    returnResult = simpleMeshToLineMeshData(cootResult, false)
-                    break;
-                case 'float_array':
-                    returnResult = floatArrayToJSArray(cootResult)
-                    break;
-                case 'int_array':
-                    returnResult = intArrayToJSArray(cootResult)
-                    break;
-                case 'map_molecule_centre_info_t':
-                    returnResult = mapMoleculeCentreInfoToJSObject(cootResult)
-                    break;
-                case 'string_array':
-                    returnResult = stringArrayToJSArray(cootResult)
-                    break;
-                case 'residue_specs':
-                    returnResult = residueSpecToJSArray(cootResult)
-                    break;
-                case 'ramachandran_data':
-                    returnResult = ramachandranDataToJSArray(cootResult, e.data.chainID)
-                    break;
-                case 'validation_data':
-                    returnResult = validationDataToJSArray(cootResult, e.data.chainID)
-                    break;
-                case 'interesting_places_data':
-                    returnResult = interestingPlaceDataToJSArray(cootResult)
-                    break;
-                case 'superpose_results':
-                    returnResult = SuperposeResultsToJSArray(cootResult)
-                    break
-                case 'generic_3d_lines_bonds_box':
-                    returnResult = linesBoxToJSArray(cootResult)
-                    break;
-                case 'vector_hbond':
-                    returnResult = vectorHBondToJSArray(cootResult)
-                    break;
-                case 'status_instanced_mesh_pair':
-                    returnResult = { status: cootResult.first, mesh: instancedMeshToMeshData(cootResult.second, false, false, 5) }
-                    break;
-                case 'status':
-                default:
-                    returnResult = cootResult
-                    break;
-            }
-
-            endTime = new Date()
-            timeDiff = endTime - startTime
-            const timeconvertingWASMJS = `conversion of output of ${command} to JS data took ${timeDiff} ms  - (${messageId.slice(0, 5)})`
-
-            postMessage({
-                timelibcootAPI, timeconvertingWASMJS, timeMainThreadToWorker,
-                messageId, messageSendTime: Date.now(),
-                consoleMessage: `Completed ${command} in ${Date.now() - e.data.myTimeStamp} ms`,
-                result: { status: 'Completed', result: returnResult }
-            })
-        }
-
-        catch (err) {
-            console.log(err)
-            postMessage({
-                messageId: e.data.messageId,
-                myTimeStamp: e.data.myTimeStamp,
-                message: e.data.message,
-                consoleMessage: `EXCEPTION RAISED IN ${command}, ${err}`,
-                result: { status: 'Exception' }
-            })
-        }
+        var result = doCootCommand(e.data);
+        postMessage(result);
     }
-
-}
+};

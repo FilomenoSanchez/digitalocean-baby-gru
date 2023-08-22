@@ -1,14 +1,14 @@
 import { ChangeEvent, forwardRef } from "react";
 import { Form, FormSelect } from "react-bootstrap";
-import { MoorhenMoleculeInterface } from "../../utils/MoorhenMolecule";
+import { moorhen } from "../../types/moorhen";
 
 type MoorhenLigandSelectPropsType = {
-    height: string;
-    width: string;
-    margin: string;
-    label: string;
+    height?: string;
+    width?: string;
+    margin?: string;
+    label?: string;
     selectedCoordMolNo: number;
-    molecules: MoorhenMoleculeInterface[];
+    molecules: moorhen.Molecule[];
     onChange?: (arg0: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
@@ -26,8 +26,7 @@ export const MoorhenLigandSelect = forwardRef<HTMLSelectElement, MoorhenLigandSe
         let selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedCoordMolNo)
         if (selectedMolecule) {
             return selectedMolecule.ligands.map(ligand => {
-                const cid = `/${ligand.modelName}/${ligand.chainName}/${ligand.resNum}(${ligand.resName})`
-                return <option value={cid} key={cid}>{cid}</option>
+                return <option value={ligand.cid} key={ligand.cid}>{ligand.cid}</option>
             })
         }
         

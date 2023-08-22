@@ -1,12 +1,12 @@
 import { useEffect,useState,forwardRef } from "react";
 import { Form, FormSelect } from "react-bootstrap";
-import { MoorhenTimeCapsuleInterface } from "../../utils/MoorhenTimeCapsule";
+import { moorhen } from "../../types/moorhen";
 
 type MoorhenBackupSelectPropsType = {
-    timeCapsuleRef: React.RefObject<MoorhenTimeCapsuleInterface>;
-    height: string;
-    width: string;
-    label: string;
+    timeCapsuleRef: React.RefObject<moorhen.TimeCapsule>;
+    height?: string;
+    width?: string;
+    label?: string;
 }
 
 export const MoorhenBackupSelect = forwardRef<HTMLSelectElement, MoorhenBackupSelectPropsType>((props, selectRef) => {

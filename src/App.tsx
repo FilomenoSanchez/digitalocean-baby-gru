@@ -1,13 +1,12 @@
-import './App.css';
 import { MoorhenApp } from './components/MoorhenApp';
-import { PreferencesContextProvider } from "./utils/MoorhenPreferences";
+import { MoorhenContextProvider } from "./utils/MoorhenContext";
 
 function App() {
   return (
     <div className="App">
-      <PreferencesContextProvider>
+      <MoorhenContextProvider>
         <MoorhenApp/>
-      </PreferencesContextProvider>
+      </MoorhenContextProvider>
     </div>
   );
 }

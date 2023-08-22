@@ -4,21 +4,19 @@ import * as vec3 from 'gl-matrix/vec3';
 import * as quat4 from 'gl-matrix/quat';
 import { quatToMat4, quat4Inverse } from '../WebGLgComponents/quatToMat4.js';
 import { getDeviceScale, vec3Create } from '../WebGLgComponents/mgWebGL';
-import { MoorhenMoleculeInterface, MoorhenResidueSpecType } from "./MoorhenMolecule";
-import { MoorhenTimeCapsuleInterface } from "./MoorhenTimeCapsule";
-import { MoorhenShortcutType } from "./MoorhenPreferences";
-import { MoorhenControlsInterface } from "../components/MoorhenContainer";
+import { moorhen } from "../types/moorhen";
+import { webGL } from "../types/mgWebGL";
+import { libcootApi } from "../types/libcoot";
 
-const apresEdit = (molecule: MoorhenMoleculeInterface, glRef: React.RefObject<mgWebGLType>, timeCapsuleRef: React.RefObject<MoorhenTimeCapsuleInterface>, setHoveredAtom: (arg0: HoveredAtomType) => void) => {
+const apresEdit = (molecule: moorhen.Molecule, glRef: React.RefObject<webGL.MGWebGL>, timeCapsuleRef: React.RefObject<moorhen.TimeCapsule>, setHoveredAtom: (arg0: moorhen.HoveredAtom) => void) => {
     molecule.setAtomsDirty(true)
-    molecule.redraw(glRef)
+    molecule.redraw()
     setHoveredAtom({ molecule: null, cid: null })
     const scoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: { origin: glRef.current.origin,  modifiedMolecule: molecule.molNo} })
     document.dispatchEvent(scoresUpdateEvent)
-    timeCapsuleRef.current.addModification()
 }
 
-export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenControlsInterface, shortCuts: {[key: string]: MoorhenShortcutType}): boolean | Promise<boolean> => {
+export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: moorhen.Controls, shortCuts: {[key: string]: moorhen.Shortcut}): boolean | Promise<boolean> => {
     
     const { 
         setShowToast, setToastContent, hoveredAtom, 
@@ -26,8 +24,8 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
         glRef, molecules, timeCapsuleRef, viewOnly
     } = collectedProps;
 
-    const getCentreAtom = async (): Promise<[MoorhenMoleculeInterface, string]> => {
-        const visibleMolecules: MoorhenMoleculeInterface[] = molecules.filter((molecule: MoorhenMoleculeInterface) => molecule.isVisible && molecule.hasVisibleBuffers())
+    const getCentreAtom = async (): Promise<[moorhen.Molecule, string]> => {
+        const visibleMolecules: moorhen.Molecule[] = molecules.filter((molecule: moorhen.Molecule) => molecule.isVisible && molecule.hasVisibleBuffers())
         if (visibleMolecules.length === 0) {
             return
         }
@@ -35,16 +33,16 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
             returnType: "int_string_pair",
             command: "get_active_atom",
             commandArgs: [...glRef.current.origin.map(coord => coord * -1), visibleMolecules.map(molecule => molecule.molNo).join(':')]
-        })
+        }, false) as moorhen.WorkerResponse<libcootApi.PairType<number, string>>
         const moleculeMolNo: number = response.data.result.result.first
         const residueCid: string = response.data.result.result.second
-        const selectedMolecule = visibleMolecules.find((molecule: MoorhenMoleculeInterface) => molecule.molNo === moleculeMolNo)
+        const selectedMolecule = visibleMolecules.find((molecule: moorhen.Molecule) => molecule.molNo === moleculeMolNo)
         return [selectedMolecule, residueCid]
     }
     
-    const doShortCut = async (cootCommand: string, formatArgs: (arg0: MoorhenMoleculeInterface, arg1: MoorhenResidueSpecType) => any[]): Promise<boolean> => {
-        let chosenMolecule: MoorhenMoleculeInterface
-        let chosenAtom: MoorhenResidueSpecType
+    const doShortCut = async (cootCommand: string, formatArgs: (arg0: moorhen.Molecule, arg1: moorhen.ResidueSpec) => any[]): Promise<boolean> => {
+        let chosenMolecule: moorhen.Molecule
+        let chosenAtom: moorhen.ResidueSpec
         let residueCid: string
         
         if (!collectedProps.shortcutOnHoveredAtom) {
@@ -65,7 +63,8 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
                 command: cootCommand,
                 commandArgs: formatArgs(chosenMolecule, chosenAtom),
                 changesMolecules: [chosenMolecule.molNo]
-            }, true).then(_ => {
+            }, true)
+            .then(_ => {
                 apresEdit(chosenMolecule, glRef, timeCapsuleRef, setHoveredAtom)
             })
             .then(_ => false)
@@ -105,7 +104,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     if (action === 'sphere_refine' && activeMap && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [chosenMolecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`, "SPHERE", 4000]
         }
         collectedProps.showShortcutToast && setToastContent(
@@ -120,7 +119,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     else if (action === 'flip_peptide' && activeMap && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [chosenMolecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}/${chosenAtom.atom_name}`, '']
         }
         collectedProps.showShortcutToast && setToastContent(
@@ -135,7 +134,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     else if (action === 'triple_refine' && activeMap && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [chosenMolecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`, "TRIPLE", 4000]
         }
         collectedProps.showShortcutToast && setToastContent(
@@ -150,7 +149,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     else if (action === 'auto_fit_rotamer' && activeMap && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [
                 chosenMolecule.molNo,
                 chosenAtom.chain_id,
@@ -172,7 +171,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     else if (action === 'add_terminal_residue' && activeMap && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [chosenMolecule.molNo,  `//${chosenAtom.chain_id}/${chosenAtom.res_no}`]
         }
         collectedProps.showShortcutToast && setToastContent(
@@ -187,7 +186,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     else if (action === 'delete_residue' && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [
                 chosenMolecule.molNo, 
                 `/1/${chosenAtom.chain_id}/${chosenAtom.res_no}/*${chosenAtom.alt_conf === "" ? "" : ":" + chosenAtom.alt_conf}`, 
@@ -206,7 +205,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
     }
 
     else if (action === 'eigen_flip' && !viewOnly) {
-        const formatArgs = (chosenMolecule: MoorhenMoleculeInterface, chosenAtom: MoorhenResidueSpecType) => {
+        const formatArgs = (chosenMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec) => {
             return [chosenMolecule.molNo, `//${chosenAtom.chain_id}/${chosenAtom.res_no}`]
         }
         collectedProps.showShortcutToast && setToastContent(
@@ -241,7 +240,8 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
             returnType: "float_array",
             command: "go_to_blob_array",
             commandArgs: [goToBlobEvent.front[0], goToBlobEvent.front[1], goToBlobEvent.front[2], goToBlobEvent.back[0], goToBlobEvent.back[1], goToBlobEvent.back[2], 0.5]
-        }).then(response => {
+        }, false)
+        .then(response => {
             let newOrigin = response.data.result.result;
             if (newOrigin.length === 3) {
                 glRef.current.setOriginAnimated([-newOrigin[0], -newOrigin[1], -newOrigin[2]])
@@ -484,7 +484,6 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
             glRef.current.showShortCutHelp.push(`<Shift><Alt> Translate View`)
             glRef.current.showShortCutHelp.push(`<Shift> Rotate View`)
             glRef.current.showShortCutHelp.push(`Double click go to blob`)
-            glRef.current.showShortCutHelp.push(`Use right click to set background color`)
             glRef.current.drawScene()
         } else  {
             glRef.current.showShortCutHelp = null
@@ -529,7 +528,7 @@ export const babyGruKeyPress = (event: KeyboardEvent, collectedProps: MoorhenCon
             } else {
                 return
             }
-            selectedMolecule.centreAndAlignViewOn(glRef, `/*/${chosenAtom.chain_id}/${nextResNum}-${nextResNum}/`)
+            selectedMolecule.centreAndAlignViewOn(`/*/${chosenAtom.chain_id}/${nextResNum}-${nextResNum}/`)
         })
         .catch(err => console.log(err))
 

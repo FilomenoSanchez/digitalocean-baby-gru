@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
-import { NavDropdown, Form, InputGroup } from "react-bootstrap";
+import { Form, InputGroup } from "react-bootstrap";
 import { MoorhenShortcutConfigModal } from "../modal/MoorhenShortcutConfigModal"
 import { MenuItem } from "@mui/material";
 import { convertViewtoPx } from "../../utils/MoorhenUtils";
-import { MoorhenDefaultBondSmoothnessPreferencesMenuItem, MoorhenScoresToastPreferencesMenuItem, MoorhenBackupPreferencesMenuItem, MoorhenGLFontMenuItem } from '../menu-item/MoorhenMenuItem'
+import { MoorhenGLFontMenuItem } from '../menu-item/MoorhenGLFontMenuItem'
+import { MoorhenScoresToastPreferencesMenuItem } from "../menu-item/MoorhenScoresToastPreferencesMenuItem"
+import { MoorhenBackupPreferencesMenuItem } from "../menu-item/MoorhenBackupPreferencesMenuItem"
+import { MoorhenDefaultBondSmoothnessPreferencesMenuItem } from "../menu-item/MoorhenDefaultBondSmoothnessPreferencesMenuItem"
 import MoorhenSlider from '../misc/MoorhenSlider' 
 import { MoorhenNavBarExtendedControlsInterface } from "./MoorhenNavBar";
 
 export const MoorhenPreferencesMenu = (props: MoorhenNavBarExtendedControlsInterface) => {
     const { 
-        atomLabelDepthMode, setAtomLabelDepthMode, setMouseSensitivity, enableTimeCapsule,
-        defaultExpandDisplayCards, setDefaultExpandDisplayCards, defaultMapLitLines,
-        setDefaultMapLitLines, refineAfterMod, setRefineAfterMod, mouseSensitivity, contourWheelSensitivityFactor,
+        atomLabelDepthMode, setAtomLabelDepthMode, setMouseSensitivity, enableTimeCapsule, setTransparentModalsOnMouseOut,
+        defaultExpandDisplayCards, setDefaultExpandDisplayCards, defaultMapLitLines, transparentModalsOnMouseOut,
+        setDefaultMapLitLines, enableRefineAfterMod, setEnableRefineAfterMod, mouseSensitivity, contourWheelSensitivityFactor,
         mapLineWidth, setMapLineWidth, makeBackups, setMakeBackups, timeCapsuleRef, setContourWheelSensitivityFactor,
         showShortcutToast, setShowShortcutToast, defaultMapSurface, setDefaultMapSurface, devMode, setDevMode,
         defaultBondSmoothness, setDefaultBondSmoothness, showScoresToast, setShowScoresToast,
@@ -20,8 +23,8 @@ export const MoorhenPreferencesMenu = (props: MoorhenNavBarExtendedControlsInter
         setMaxBackupCount, modificationCountBackupThreshold, setModificationCountBackupThreshold, 
      } = props;
 
-    const [showModal, setShowModal] = useState(null);
-    const [popoverIsShown, setPopoverIsShown] = useState(false)
+    const [showModal, setShowModal] = useState<boolean | null>(null);
+    const [popoverIsShown, setPopoverIsShown] = useState<boolean>(false)
 
     useEffect(() => {
         if (timeCapsuleRef.current) {
@@ -31,20 +34,21 @@ export const MoorhenPreferencesMenu = (props: MoorhenNavBarExtendedControlsInter
         }
     }, [maxBackupCount, modificationCountBackupThreshold, enableTimeCapsule])
 
-    return <NavDropdown
-                    title="Preferences"
-                    id="preferences-nav-dropdown"
-                    style={{display:'flex', alignItems:'center'}}
-                    autoClose={popoverIsShown ? false : 'outside'}
-                    show={props.currentDropdownId === props.dropdownId}
-                    onToggle={() => { props.dropdownId !== props.currentDropdownId ? props.setCurrentDropdownId(props.dropdownId) : props.setCurrentDropdownId('-1') }}>
-                <div style={{maxHeight: convertViewtoPx(65, props.windowHeight), overflowY: 'auto'}}>
+    return <div style={{maxHeight: convertViewtoPx(65, props.windowHeight), overflowY: 'auto'}}>
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
                         <Form.Check 
                             type="switch"
                             label="Expand display cards after file upload"
                             checked={defaultExpandDisplayCards}
                             onChange={() => { setDefaultExpandDisplayCards(!defaultExpandDisplayCards) }}
+                        />
+                    </InputGroup>
+                    <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
+                        <Form.Check 
+                            type="switch"
+                            label="Make modals transparent on mouse out"
+                            checked={transparentModalsOnMouseOut}
+                            onChange={() => { setTransparentModalsOnMouseOut(!transparentModalsOnMouseOut) }}
                         />
                     </InputGroup>
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
@@ -71,8 +75,8 @@ export const MoorhenPreferencesMenu = (props: MoorhenNavBarExtendedControlsInter
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
                         <Form.Check 
                             type="switch"
-                            checked={refineAfterMod}
-                            onChange={() => { setRefineAfterMod(!refineAfterMod) }}
+                            checked={enableRefineAfterMod}
+                            onChange={() => { setEnableRefineAfterMod(!enableRefineAfterMod) }}
                             label="Automatic triple refine post-modification"/>
                     </InputGroup>
                     <InputGroup style={{ padding:'0.5rem', width: '25rem'}}>
@@ -143,10 +147,12 @@ export const MoorhenPreferencesMenu = (props: MoorhenNavBarExtendedControlsInter
                     </MenuItem>
                     <MoorhenShortcutConfigModal showModal={showModal} setShowModal={setShowModal} setShortCuts={props.setShortCuts} shortCuts={JSON.parse(props.shortCuts as string)}/>
                     <MoorhenGLFontMenuItem
-                    {...props}
-                    setPopoverIsShown={setPopoverIsShown}
+                        GLLabelsFontFamily={props.GLLabelsFontFamily}
+                        setGLLabelsFontFamily={props.setGLLabelsFontFamily}
+                        availableFonts={props.availableFonts}
+                        GLLabelsFontSize={props.GLLabelsFontSize}
+                        setGLLabelsFontSize={props.setGLLabelsFontSize}
+                        setPopoverIsShown={setPopoverIsShown}
                     />
             </div>
-            </NavDropdown>
-
 }
