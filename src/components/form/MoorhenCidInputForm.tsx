@@ -2,12 +2,12 @@ import { forwardRef } from "react";
 import { Form } from "react-bootstrap";
 
 type MoorhenCidInputFormPropsType = {
-    height: string;
-    width: string;
-    margin: string;
-    label: string;
-    placeholder: string; 
-    defaultValue: string;
+    height?: string;
+    width?: string;
+    margin?: string;
+    label?: string;
+    placeholder?: string; 
+    defaultValue?: string;
     onChange?: (arg0: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
@@ -27,4 +27,4 @@ export const MoorhenCidInputForm = forwardRef<HTMLInputElement, MoorhenCidInputF
 
 })
 
-MoorhenCidInputForm.defaultProps = { height: '4rem', width: '20rem', margin: '0.1rem', label: "Selection CID", placeholder: "", defaultValue: ""}
+MoorhenCidInputForm.defaultProps = { height: '4rem', width: '20rem', margin: '0.1rem', label: "Atom selection", placeholder: "", defaultValue: ""}

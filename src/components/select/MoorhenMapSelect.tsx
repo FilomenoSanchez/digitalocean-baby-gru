@@ -1,16 +1,39 @@
-import { ChangeEvent, forwardRef } from "react";
+import React, { ChangeEvent, forwardRef } from "react";
 import { Form, FormSelect } from "react-bootstrap";
-import { MoorhenMapInterface } from "../../utils/MoorhenMap";
+import { moorhen } from "../../types/moorhen";
 
 type MoorhenMapSelectPropsType = {
-    height: string;
-    width: string;
-    label: string;
-    maps: MoorhenMapInterface[];
-    filterFunction: (arg0: MoorhenMapInterface) => boolean;
+    height?: string;
+    width?: string;
+    label?: string;
+    maps: moorhen.Map[];
+    filterFunction?: (arg0: moorhen.Map) => boolean;
     onChange?: (arg0: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
+/**
+ * A map selector react component
+ * @property {string} [height="4rem"] The height of the selector
+ * @property {string} [width="20rem"] The width of the selector
+ * @property {string} [label="Map"] A text label shown on top of the selector
+ * @property {moorhen.Map[]} maps List of maps displayed in the selector options
+ * @property {function} filterFunction A function that takes a moorhen.Map as input and returns a boolean: true if the map is to be included in the options.
+ * @property {function} onChange A function that is called when the user changes the selector option
+ * @example
+ * import { MoorhenMapSelect } from "moorhen";
+ * import { useRef } from "react";
+ * 
+ * const mapSelectRef = useRef(null);
+ * 
+ * const handleMapChange = (evt) => {
+ *  const selectedMap = parseInt(evt.target.value)
+ *  console.log(`New selected map is ${selectedMap}`)
+ * }
+ * 
+ * return (
+ *  <MoorhenMapSelect ref={mapSelectRef} filterFunction={(map) => !map.hasReflectionData} width='100%' label='Select a map' onChange={handleMapChange} />
+ * )
+ */
 export const MoorhenMapSelect = forwardRef<HTMLSelectElement, MoorhenMapSelectPropsType>((props, selectRef) => {
 
     const handleChange = (evt: ChangeEvent<HTMLSelectElement>) => {

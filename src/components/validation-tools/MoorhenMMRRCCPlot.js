@@ -64,7 +64,7 @@ export const MoorhenMMRRCCPlot = (props) => {
         if(selectedMolecule) {
             const clickedResidue = getResidueInfo(props.molecules, selectedMolecule.molNo, chainSelectRef.current.value, residueIndex)
             if (clickedResidue) {
-                selectedMolecule.centreOn(props.glRef, `/*/${clickedResidue.chain}/${clickedResidue.seqNum}-${clickedResidue.seqNum}/*`)
+                selectedMolecule.centreOn(`/*/${clickedResidue.chain}/${clickedResidue.seqNum}-${clickedResidue.seqNum}/*`)
             }
         }
     }
@@ -96,7 +96,7 @@ export const MoorhenMMRRCCPlot = (props) => {
             command: 'mmrrcc', 
             returnType: 'mmrrcc_stats', 
             commandArgs: [parseInt(moleculeSelectRef.current.value), chainSelectRef.current.value, parseInt(mapSelectRef.current.value)], 
-        })
+        }, false)
 
         setPlotData(response.data.result.result)
 
