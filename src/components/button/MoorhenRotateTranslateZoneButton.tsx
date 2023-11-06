@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { MoorhenEditButtonBase } from "./MoorhenEditButtonBase"
 import { moorhen } from "../../types/moorhen";
 import { MoorhenContextButtonBase } from "./MoorhenContextButtonBase";
-import { Button, Card, Container, FormGroup, FormLabel, FormSelect, Row, Stack } from "react-bootstrap";
-import { CheckOutlined, CloseOutlined } from "@mui/icons-material";
-import Draggable from "react-draggable";
-import { getTooltipShortcutLabel } from "../../utils/MoorhenUtils";
+import { MoorhenNotification } from "../misc/MoorhenNotification"
+import { Button, Card, Container, FormGroup, FormLabel, FormSelect, OverlayTrigger, Row, Stack, Tooltip } from "react-bootstrap";
+import { getTooltipShortcutLabel } from '../../utils/MoorhenUtils';
 import { MoorhenCidInputForm } from "../form/MoorhenCidInputForm";
+import { IconButton } from '@mui/material';
+import { CheckOutlined, CloseOutlined, InfoOutlined } from "@mui/icons-material";
+import Draggable from "react-draggable";
+import { useSelector, useDispatch, batch } from 'react-redux';
+import { setEnableAtomHovering, setHoveredAtom } from "../../store/hoveringStatesSlice";
 
 export const MoorhenRotateTranslateZoneButton = (props: moorhen.EditButtonProps | moorhen.ContextButtonProps) => {
     const [showAccept, setShowAccept] = useState<boolean>(false)
@@ -18,12 +22,15 @@ export const MoorhenRotateTranslateZoneButton = (props: moorhen.EditButtonProps 
     const chosenMolecule = useRef<null | moorhen.Molecule>(null)
     const fragmentCid = useRef<null | string>(null)
     const customCid = useRef<null | string>(null)
+    const shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+    const dispatch = useDispatch()
 
     const rotateTranslateModes = ['ATOM', 'RESIDUE', 'CHAIN', 'MOLECULE']
 
     useEffect(() => {
-        if (props.shortCuts) {
-            const shortCut = JSON.parse(props.shortCuts as string).residue_camera_wiggle
+        if (shortCuts) {
+            const shortCut = JSON.parse(shortCuts as string).residue_camera_wiggle
             setTips(<>
                 <em>{"Hold <Shift><Alt> to translate"}</em>
                 <br></br>
@@ -33,24 +40,24 @@ export const MoorhenRotateTranslateZoneButton = (props: moorhen.EditButtonProps 
             </>
             )
         }
-    }, [props.shortCuts])
+    }, [shortCuts])
 
     const acceptTransform = useCallback(async () => {
         props.glRef.current.setActiveMolecule(null)
         const transformedAtoms = fragmentMolecule.current.transformedCachedAtomsAsMovedAtoms()
         await chosenMolecule.current.updateWithMovedAtoms(transformedAtoms)
-        props.changeMolecules({ action: 'Remove', item: fragmentMolecule.current })
         fragmentMolecule.current.delete()
         chosenMolecule.current.unhideAll()
         const scoresUpdateEvent: moorhen.ScoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: { origin: props.glRef.current.origin, modifiedMolecule: chosenMolecule.current.molNo } })
         document.dispatchEvent(scoresUpdateEvent)
+        dispatch( setEnableAtomHovering(true) )
     }, [props, chosenMolecule, fragmentMolecule])
 
     const rejectTransform = useCallback(async () => {
         props.glRef.current.setActiveMolecule(null)
-        props.changeMolecules({ action: 'Remove', item: fragmentMolecule.current })
         fragmentMolecule.current.delete()
         chosenMolecule.current.unhideAll()
+        dispatch( setEnableAtomHovering(true) )
     }, [props, chosenMolecule, fragmentMolecule])
 
     const startRotateTranslate = async (molecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, selectedMode: string) => {
@@ -66,7 +73,7 @@ export const MoorhenRotateTranslateZoneButton = (props: moorhen.EditButtonProps 
                 break;
             case 'CHAIN':
                 fragmentCid.current =
-                    `//${chosenAtom.chain_id}`
+                    `/*/${chosenAtom.chain_id}`
                 break;
             case 'MOLECULE':
                 fragmentCid.current =
@@ -98,7 +105,6 @@ export const MoorhenRotateTranslateZoneButton = (props: moorhen.EditButtonProps 
                     }
             }))
             fragmentMolecule.current = newMolecule
-            props.changeMolecules({ action: "Add", item: newMolecule })
             props.glRef.current.setActiveMolecule(newMolecule)
         }, 1)
     }
@@ -131,43 +137,59 @@ export const MoorhenRotateTranslateZoneButton = (props: moorhen.EditButtonProps 
     if (props.mode === 'context') {
 
         const contextMenuOverride = (
-            <Draggable>
-            <Card style={{position: 'absolute', width: '15rem', cursor: 'move'}} onMouseOver={() => props.setOpacity(1)} onMouseOut={() => props.setOpacity(0.5)}>
-            <Card.Header>Accept rotate/translate ?</Card.Header>
-            <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
-                <em>{"Hold <Shift><Alt> to translate"}</em>
-                <br></br>
-                <em>{props.shortCuts ? `Hold ${getTooltipShortcutLabel(JSON.parse(props.shortCuts as string).residue_camera_wiggle)} to move view` : null}</em>
-                <br></br>
-                <br></br>
-                <Stack direction='horizontal' gap={2} style={{ alignItems: 'center',  alignContent: 'center', justifyContent: 'center'}}>
-                    <Button onClick={async () => {
-                            await acceptTransform()
-                            props.setOverrideMenuContents(false)
-                            props.setOpacity(1)
-                            props.setShowContextMenu(false)
-                        }}><CheckOutlined /></Button>
-                    <Button onClick={async() => {
-                            await rejectTransform()
-                            props.setOverrideMenuContents(false)
-                            props.setOpacity(1)
-                            props.setShowContextMenu(false)
-                    }}><CloseOutlined /></Button>
+            <MoorhenNotification>
+                <Stack gap={2} direction='horizontal' style={{width: '100%', display:'flex', justifyContent: 'space-between'}}>
+                    <OverlayTrigger
+                        placement="bottom"
+                        overlay={
+                            <Tooltip id="tip-tooltip" className="moorhen-tooltip">
+                            <div>
+                                <em>{"Hold <Shift><Alt> to translate"}</em>
+                                <br></br>
+                                <em>{shortCuts ? `Hold ${getTooltipShortcutLabel(JSON.parse(shortCuts as string).residue_camera_wiggle)} to move view` : null}</em>
+                            </div>
+                            </Tooltip>
+                        }>
+                    <InfoOutlined/>
+                    </OverlayTrigger>
+                    <div>
+                        <span>Accept changes?</span>
+                    </div>
+                    <div>
+                    <IconButton style={{padding: 0, color: isDark ? 'white' : 'grey', }} onClick={async () => {
+                        await acceptTransform()
+                        props.setOverrideMenuContents(false)
+                        props.setOpacity(1)
+                        props.setShowContextMenu(false)
+                    }}>
+                        <CheckOutlined/>
+                    </IconButton>
+                    <IconButton style={{padding: 0, color: isDark ? 'white' : 'grey'}} onClick={async() => {
+                        await rejectTransform()
+                        props.setOverrideMenuContents(false)
+                        props.setOpacity(1)
+                        props.setShowContextMenu(false)
+                    }}>
+                        <CloseOutlined/>
+                    </IconButton>
+                    </div>
                 </Stack>
-            </Card.Body>
-            </Card>
-        </Draggable>
+            </MoorhenNotification>
         )
 
         const nonCootCommand = async (molecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, selectedMode: string) => {
             await startRotateTranslate(molecule, chosenAtom, selectedMode)
             props.setShowOverlay(false)
-            props.setOpacity(0.5)
+            //props.setOpacity(0.5)
             props.setOverrideMenuContents(contextMenuOverride)
+            batch( () => {
+                dispatch( setHoveredAtom({molecule: null, cid: null}) )
+                dispatch( setEnableAtomHovering(false) )    
+            })
         }
 
         return <MoorhenContextButtonBase 
-                    icon={<img style={{padding:'0.1rem', width:'100%', height: '100%'}} alt="rotate/translate" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rtz.svg`}/>}
+                    icon={<img alt="rotate/translate" className="moorhen-context-button__icon" src={`${props.urlPrefix}/baby-gru/pixmaps/rtz.svg`}/>}
                     toolTipLabel="Rotate/Translate zone"
                     nonCootCommand={nonCootCommand}
                     popoverSettings={{

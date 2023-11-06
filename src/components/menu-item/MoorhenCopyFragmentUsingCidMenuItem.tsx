@@ -1,29 +1,30 @@
 import { useRef, useState } from "react"
-import { MoorhenMoleculeSelect } from "../select/MoorhenMoleculeSelect"
 import { Form } from "react-bootstrap"
+import { MoorhenMoleculeSelect } from "../select/MoorhenMoleculeSelect"
 import { MoorhenBaseMenuItem } from "./MoorhenBaseMenuItem"
-import { MoorhenMolecule } from "../../utils/MoorhenMolecule"
 import { moorhen } from "../../types/moorhen";
 import { webGL } from "../../types/mgWebGL";
+import { useSelector, useDispatch } from 'react-redux';
+import { addMolecule } from "../../store/moleculesSlice";
 
 export const MoorhenCopyFragmentUsingCidMenuItem = (props: {
-    molecules: moorhen.Molecule[];
     setPopoverIsShown: React.Dispatch<React.SetStateAction<boolean>>;
     commandCentre: React.RefObject<moorhen.CommandCentre>;
     glRef: React.RefObject<webGL.MGWebGL>;
     monomerLibraryPath: string;
-    defaultBondSmoothness: number;
-    backgroundColor: [number, number, number, number];
-    changeMolecules: (arg0: moorhen.MolChange<moorhen.Molecule>) => void;
 }) => {
 
     const fromRef = useRef<null | HTMLSelectElement>(null)
     const cidRef = useRef<null |HTMLInputElement>(null)
+    
     const [cid, setCid] = useState<string>("")
+    
+    const dispatch = useDispatch()
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
 
     const panelContent = <>
-        <MoorhenMoleculeSelect {...props} label="From molecule" allowAny={false} ref={fromRef} />
-        <Form.Group style={{ width: '20rem', margin: '0.5rem' }} controlId="cid" className="mb-3">
+        <MoorhenMoleculeSelect molecules={molecules} label="From molecule" allowAny={false} ref={fromRef} />
+        <Form.Group className='moorhen-form-group' controlId="cid">
             <Form.Label>Selection to copy</Form.Label>
             <Form.Control ref={cidRef} type="text" value={cid} onChange={(e) => {
                 setCid(e.target.value)
@@ -33,7 +34,7 @@ export const MoorhenCopyFragmentUsingCidMenuItem = (props: {
     </>
 
     const onCompleted = async () => {
-        const fromMolecule = props.molecules.find(molecule => molecule.molNo === parseInt(fromRef.current.value))
+        const fromMolecule = molecules.find(molecule => molecule.molNo === parseInt(fromRef.current.value))
         const cidToCopy = cidRef.current.value
 
         if (!fromMolecule || !cidToCopy) {
@@ -41,7 +42,7 @@ export const MoorhenCopyFragmentUsingCidMenuItem = (props: {
         }
 
         const newMolecule = await fromMolecule.copyFragmentUsingCid(cidToCopy, true)
-        props.changeMolecules({ action: "Add", item: newMolecule })
+        dispatch( addMolecule(newMolecule) )
         props.setPopoverIsShown(false)
     }
 

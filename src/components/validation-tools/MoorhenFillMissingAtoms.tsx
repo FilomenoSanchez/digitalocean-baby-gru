@@ -2,8 +2,9 @@ import { Col, Row, Card, Button } from 'react-bootstrap';
 import { MoorhenValidationListWidgetBase } from "./MoorhenValidationListWidgetBase";
 import { moorhen } from "../../types/moorhen";
 import { libcootApi } from '../../types/libcoot';
+import { useSelector } from 'react-redux';
 
-interface Props extends moorhen.Controls {
+interface Props extends moorhen.CollectedProps {
     dropdownId: number;
     accordionDropdownId: number;
     setAccordionDropdownId: React.Dispatch<React.SetStateAction<number>>;
@@ -12,6 +13,8 @@ interface Props extends moorhen.Controls {
 }
 
 export const MoorhenFillMissingAtoms = (props: Props) => {
+    const enableRefineAfterMod = useSelector((state: moorhen.State) => state.miscAppSettings.enableRefineAfterMod)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
 
     const fillPartialResidue = async (selectedMolecule: moorhen.Molecule, chainId: string, resNum: number, insCode: string) => {
         await props.commandCentre.current.cootCommand({
@@ -21,7 +24,7 @@ export const MoorhenFillMissingAtoms = (props: Props) => {
             changesMolecules: [selectedMolecule.molNo]
         }, true)
 
-        if (props.enableRefineAfterMod) {
+        if (enableRefineAfterMod) {
             await props.commandCentre.current.cootCommand({
                 returnType: "status",
                 command: 'refine_residues_using_atom_cid',
@@ -55,7 +58,7 @@ export const MoorhenFillMissingAtoms = (props: Props) => {
     }
 
     const getCards = (selectedModel: number, selectedMap: number, residueList: libcootApi.ResidueSpecJS[]) => {
-        const selectedMolecule =  props.molecules.find(molecule => molecule.molNo === selectedModel)
+        const selectedMolecule =  molecules.find(molecule => molecule.molNo === selectedModel)
         
         return residueList.map(residue => {
             const label = `/${residue.modelNumber}/${residue.chainId}/${residue.resNum}${residue.insCode ? '.' + residue.insCode : ''}/`
@@ -82,9 +85,6 @@ export const MoorhenFillMissingAtoms = (props: Props) => {
     }
 
     return <MoorhenValidationListWidgetBase 
-                molecules={props.molecules}
-                maps={props.maps}
-                backgroundColor={props.backgroundColor}
                 sideBarWidth={props.sideBarWidth}
                 dropdownId={props.dropdownId}
                 accordionDropdownId={props.accordionDropdownId}

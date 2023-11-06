@@ -3,7 +3,7 @@ import { MoorhenValidationListWidgetBase } from "./MoorhenValidationListWidgetBa
 import { libcootApi } from '../../types/libcoot';
 import { moorhen } from '../../types/moorhen';
 
-interface Props extends moorhen.Controls {
+interface Props extends moorhen.CollectedProps {
     dropdownId: number;
     accordionDropdownId: number;
     setAccordionDropdownId: React.Dispatch<React.SetStateAction<number>>;
@@ -48,9 +48,6 @@ export const MoorhenUnmodelledBlobs = (props: Props) => {
     }
 
     return <MoorhenValidationListWidgetBase 
-                molecules={props.molecules}
-                maps={props.maps}
-                backgroundColor={props.backgroundColor}
                 sideBarWidth={props.sideBarWidth}
                 dropdownId={props.dropdownId}
                 accordionDropdownId={props.accordionDropdownId}

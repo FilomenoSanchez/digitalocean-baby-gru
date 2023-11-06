@@ -7,20 +7,18 @@ import { MoorhenMoleculeSelect } from '../select/MoorhenMoleculeSelect'
 import { gemmi } from "../../types/gemmi";
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { moorhen } from "../../types/moorhen";
+import { useSelector } from "react-redux";
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
 
 type ValidationChartProps = {
-    molecules: moorhen.Molecule[];
-    maps: moorhen.Map[];
     filterMapFunction?: (arg0: moorhen.Map) => boolean;
     fetchData: (arg0: number, arg1: number, arg2: string) => Promise<any>;
     getChart: (arg0: number, arg1: number, arg2: string, arg3: any) => any;
     dropdownId: number;
     accordionDropdownId: number;
     showSideBar: boolean;
-    backgroundColor: [number, number, number, number];
     sideBarWidth: number;
     extraControlForm?: JSX.Element;
     extraControlFormValue?: any;
@@ -31,12 +29,16 @@ export const MoorhenValidationChartWidgetBase = forwardRef<Chart, ValidationChar
     const chainSelectRef = useRef<null | HTMLSelectElement>(null);
     const mapSelectRef = useRef<null | HTMLSelectElement>(null);
     const moleculeSelectRef = useRef<null | HTMLSelectElement>(null);
+
     const [plotData, setPlotData] = useState(null)
     const [selectedModel, setSelectedModel] = useState<number | null>(null)
     const [selectedMap, setSelectedMap] = useState<number | null>(null)
     const [selectedChain, setSelectedChain] = useState<string | null>(null)
     const [cachedGemmiStructure, setCachedGemmiStructure] = useState<null | gemmi.Structure>(null)
 
+    const backgroundColor = useSelector((state: moorhen.State) => state.canvasStates.backgroundColor)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
+    const maps = useSelector((state: moorhen.State) => state.maps)
 
     const handleModelChange = (evt: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedModel(parseInt(evt.target.value))
@@ -52,20 +54,20 @@ export const MoorhenValidationChartWidgetBase = forwardRef<Chart, ValidationChar
     }
 
     useEffect(() => {
-        if (props.molecules.length === 0) {
+        if (molecules.length === 0) {
             setSelectedModel(null)
         } else if (selectedModel === null) {
-            setSelectedModel(props.molecules[0].molNo)
-        } else if (!props.molecules.map(molecule => molecule.molNo).includes(selectedModel)) {
-            setSelectedModel(props.molecules[0].molNo)
+            setSelectedModel(molecules[0].molNo)
+        } else if (!molecules.map(molecule => molecule.molNo).includes(selectedModel)) {
+            setSelectedModel(molecules[0].molNo)
         }
 
-    }, [props.molecules.length])
+    }, [molecules.length])
 
     useEffect(() => {
-        const filteredMaps = props.maps.filter(map => props.filterMapFunction(map))
+        const filteredMaps = maps.filter(map => props.filterMapFunction(map))
 
-        if (props.maps.length === 0 || filteredMaps.length === 0) {
+        if (maps.length === 0 || filteredMaps.length === 0) {
             setSelectedMap(null)
         } else if (selectedMap === null) {
             setSelectedMap(filteredMaps[0].molNo)
@@ -73,13 +75,13 @@ export const MoorhenValidationChartWidgetBase = forwardRef<Chart, ValidationChar
             setSelectedMap(filteredMaps[0].molNo)
         }
 
-    }, [props.maps.length])
+    }, [maps.length])
     
     useEffect(() => {
         if (selectedModel !== null) {
-            let selectedMoleculeIndex = props.molecules.findIndex(molecule => molecule.molNo === selectedModel);
-            if (selectedMoleculeIndex !== -1 && props.molecules[selectedMoleculeIndex]){
-                setCachedGemmiStructure(props.molecules[selectedMoleculeIndex].gemmiStructure)
+            let selectedMoleculeIndex = molecules.findIndex(molecule => molecule.molNo === selectedModel);
+            if (selectedMoleculeIndex !== -1 && molecules[selectedMoleculeIndex]){
+                setCachedGemmiStructure(molecules[selectedMoleculeIndex].gemmiStructure)
             }
         }
     })
@@ -114,22 +116,22 @@ export const MoorhenValidationChartWidgetBase = forwardRef<Chart, ValidationChar
         }
         
 
-    }, [plotData, props.backgroundColor, props.sideBarWidth, props.showSideBar, props.accordionDropdownId])
+    }, [plotData, backgroundColor, props.sideBarWidth, props.showSideBar, props.accordionDropdownId])
 
     return <Fragment>
                 <Form style={{ padding:'0', margin: '0' }}>
                     <Form.Group>
                         <Row style={{ padding:'0', margin: '0' }}>
                             <Col>
-                                <MoorhenMoleculeSelect width="" onChange={handleModelChange} molecules={props.molecules} ref={moleculeSelectRef}/>
+                                <MoorhenMoleculeSelect width="" onChange={handleModelChange} molecules={molecules} ref={moleculeSelectRef}/>
                             </Col>
                             {props.enableChainSelect &&
                             <Col>
-                                <MoorhenChainSelect width="" onChange={handleChainChange} molecules={props.molecules} selectedCoordMolNo={selectedModel} allowedTypes={[1, 2]} ref={chainSelectRef}/>
+                                <MoorhenChainSelect width="" onChange={handleChainChange} molecules={molecules} selectedCoordMolNo={selectedModel} allowedTypes={[1, 2]} ref={chainSelectRef}/>
                             </Col>
                             }
                             <Col>
-                                <MoorhenMapSelect width="" onChange={handleMapChange} maps={props.maps} ref={mapSelectRef} filterFunction={props.filterMapFunction}/>
+                                <MoorhenMapSelect width="" onChange={handleMapChange} maps={maps} ref={mapSelectRef} filterFunction={props.filterMapFunction}/>
                             </Col>
                             {props.extraControlForm}
                         </Row>
@@ -144,9 +146,9 @@ export const MoorhenValidationChartWidgetBase = forwardRef<Chart, ValidationChar
                         </div>
                     </div>
                 <canvas id="myChartAxis"></canvas>
-                </div>               
+                </div>
             </Fragment>
 
 })
 
-MoorhenValidationChartWidgetBase.defaultProps = {filterMapFunction: (maps: moorhen.Map) => {return true}, extraControlForm: null, extraControlFormValue: null, enableChainSelect: true}
+MoorhenValidationChartWidgetBase.defaultProps = {filterMapFunction: (arg0: moorhen.Map) => {return true}, extraControlForm: null, extraControlFormValue: null, enableChainSelect: true}

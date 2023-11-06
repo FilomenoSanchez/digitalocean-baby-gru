@@ -5,20 +5,22 @@ import { MoorhenContextButtonBase } from "./MoorhenContextButtonBase";
 import { MoorhenEditButtonBase } from "./MoorhenEditButtonBase";
 import { Container, FormGroup, FormLabel, FormSelect, Row } from "react-bootstrap";
 import { webGL } from "../../types/mgWebGL";
+import { useSelector } from "react-redux";
 
 export const MoorhenRefineResiduesButton = (props: moorhen.EditButtonProps | moorhen.ContextButtonProps) => {
     const modeSelectRef = useRef<null | HTMLSelectElement>(null)
     const [panelParameters, setPanelParameters] = useState<string>('TRIPLE')
     const [toolTipLabel, setToolTipLabel] = useState<string>("Refine Residues")
+    const shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
 
     const refinementModes = ['SINGLE', 'TRIPLE', 'QUINTUPLE', 'HEPTUPLE', 'SPHERE', 'BIG_SPHERE', 'CHAIN', 'ALL']
 
     useEffect(() => {
-        if (props.shortCuts) {
-            const shortCut = JSON.parse(props.shortCuts as string).triple_refine
+        if (shortCuts) {
+            const shortCut = JSON.parse(shortCuts as string).triple_refine
             setToolTipLabel(`Refine Residues ${getTooltipShortcutLabel(shortCut)}`)
         }
-    }, [props.shortCuts])
+    }, [shortCuts])
 
     const getCootCommandInput = (selectedMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, selectedMode: string) => {
         return {
@@ -33,7 +35,7 @@ export const MoorhenRefineResiduesButton = (props: moorhen.EditButtonProps | moo
     if (props.mode === 'context') {
 
         return <MoorhenContextButtonBase 
-                    icon={<img style={{padding:'0.1rem', width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/refine-1.svg`} alt='Refine Residues'/>}
+                    icon={<img className="moorhen-context-button__icon" src={`${props.urlPrefix}/baby-gru/pixmaps/refine-1.svg`} alt='Refine Residues'/>}
                     needsMapData={true}
                     refineAfterMod={false}
                     toolTipLabel={toolTipLabel}

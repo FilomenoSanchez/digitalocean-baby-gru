@@ -5,21 +5,22 @@ import { convertRemToPx } from "../../utils/MoorhenUtils";
 import { moorhen } from "../../types/moorhen";
 import { Button } from "react-bootstrap";
 import { UnfoldLessOutlined } from "@mui/icons-material";
+import { useSelector } from "react-redux";
 
-interface MoorhenModelsModalProps extends moorhen.Controls {
-    windowWidth: number;
-    windowHeight: number;
+interface MoorhenModelsModalProps extends moorhen.CollectedProps {
     show: boolean;
     setShow: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const MoorhenModelsModal = (props: MoorhenModelsModalProps) => {
-    const cardListRef = useRef([]);
-    const [currentDropdownMolNo, setCurrentDropdownMolNo] = useState<number>(-1);
+    const cardListRef = useRef([])
+    const [currentDropdownMolNo, setCurrentDropdownMolNo] = useState<number>(-1)
+    const width = useSelector((state: moorhen.State) => state.canvasStates.width)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
 
     useEffect(() => {
-        cardListRef.current = cardListRef.current.slice(0, props.molecules.length);
-    }, [props.molecules]); 
+        cardListRef.current = cardListRef.current.slice(0, molecules.length);
+    }, [molecules]); 
  
     const handleCollapseAll = useCallback(() => {
         cardListRef.current.forEach(card => {
@@ -27,12 +28,11 @@ export const MoorhenModelsModal = (props: MoorhenModelsModalProps) => {
         })
     }, [cardListRef.current, cardListRef])
 
-    let displayData = props.molecules.map((molecule, index) => {
+    let displayData = molecules.map((molecule, index) => {
         return <MoorhenMoleculeCard
             ref={el => cardListRef.current[index] = el}
             showSideBar={true}
             busy={false}
-            consoleMessage="A"
             dropdownId={1}
             accordionDropdownId={1}
             setAccordionDropdownId={(arg0) => {}}
@@ -47,12 +47,9 @@ export const MoorhenModelsModal = (props: MoorhenModelsModalProps) => {
     displayData.sort((a, b) => (a.props.index > b.props.index) ? 1 : ((b.props.index > a.props.index) ? -1 : 0))
 
     return <MoorhenDraggableModalBase
-                transparentOnMouseOut={props.transparentModalsOnMouseOut}
-                left={`${props.windowWidth / 2}px`}
+                left={`${width / 2}px`}
                 show={props.show}
                 setShow={props.setShow}
-                windowHeight={props.windowHeight}
-                windowWidth={props.windowWidth}
                 height={70}
                 width={37}
                 headerTitle={'Models'}
@@ -62,7 +59,7 @@ export const MoorhenModelsModal = (props: MoorhenModelsModalProps) => {
                     </Button>
                 ]}
                 body={
-                    props.molecules.length === 0 && props.maps.length === 0 ? <span>No models loaded</span> : displayData
+                    molecules.length === 0 ? <span>No models loaded</span> : displayData
                 }
                 footer={null}
             />

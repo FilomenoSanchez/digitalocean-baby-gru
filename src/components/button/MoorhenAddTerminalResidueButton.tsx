@@ -3,10 +3,12 @@ import { MoorhenEditButtonBase } from "./MoorhenEditButtonBase"
 import { getTooltipShortcutLabel } from "../../utils/MoorhenUtils"
 import { moorhen } from "../../types/moorhen";
 import { MoorhenContextButtonBase } from "./MoorhenContextButtonBase";
+import { useSelector } from "react-redux";
 
 export const MoorhenAddTerminalResidueButton = (props: moorhen.EditButtonProps | moorhen.ContextButtonProps) => {
 
     const [toolTip, setToolTip] = useState<string>("Add Residue")
+    const shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
 
     const getCootCommandInput = (selectedMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, localParameters?: string): moorhen.cootCommandKwargs => {
         return {
@@ -19,16 +21,16 @@ export const MoorhenAddTerminalResidueButton = (props: moorhen.EditButtonProps |
     }
 
     useEffect(() => {
-        if (props.shortCuts) {
-            const shortCut = JSON.parse(props.shortCuts as string).add_terminal_residue
+        if (shortCuts) {
+            const shortCut = JSON.parse(shortCuts as string).add_terminal_residue
             setToolTip(`Add Residue ${getTooltipShortcutLabel(shortCut)}`)
         }
-    }, [props.shortCuts])
+    }, [shortCuts])
 
     if (props.mode === 'context') {
 
         return <MoorhenContextButtonBase 
-                    icon={<img style={{padding:'0.1rem', width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/add-peptide-1.svg`} alt='Add Residue'/>}
+                    icon={<img className="moorhen-context-button__icon" src={`${props.urlPrefix}/baby-gru/pixmaps/add-peptide-1.svg`} alt='Add Residue'/>}
                     needsMapData={true}
                     toolTipLabel={toolTip}
                     cootCommandInput={getCootCommandInput(props.selectedMolecule, props.chosenAtom)}

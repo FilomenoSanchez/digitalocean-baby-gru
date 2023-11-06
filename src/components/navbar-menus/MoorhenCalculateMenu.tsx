@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { MoorhenLoadScriptMenuItem } from "../menu-item/MoorhenLoadScriptMenuItem";
 import { MoorhenSuperposeMenuItem } from "../menu-item/MoorhenSuperposeMenuItem";
-import { MenuItem } from "@mui/material";
+import { MoorhenSelfRestraintsMenuItem } from "../menu-item/MoorhenSelfRestraintsMenuItem";
+import { MoorhenClearSelfRestraintsMenuItem } from "../menu-item/MoorhenClearSelfRestraintsMenuItem";
+import { MoorhenRandomJiggleBlurMenuItem } from "../menu-item/MoorhenRandomJiggleBlurMenuItem";
 import { MoorhenNavBarExtendedControlsInterface } from "./MoorhenNavBar";
+import { MenuItem } from "@mui/material";
 import { libcootApi } from "../../types/libcoot";
 
 export const MoorhenCalculateMenu = (props: MoorhenNavBarExtendedControlsInterface) => {
@@ -13,6 +16,21 @@ export const MoorhenCalculateMenu = (props: MoorhenNavBarExtendedControlsInterfa
 
     return <>
             <MoorhenSuperposeMenuItem key="superpose_structures" setSuperposeResults={setSuperposeResults} {...menuItemProps} />
+            <MoorhenSelfRestraintsMenuItem
+                glRef={props.glRef}
+                commandCentre={props.commandCentre}
+                setPopoverIsShown={setPopoverIsShown}
+            />
+            <MoorhenClearSelfRestraintsMenuItem
+                glRef={props.glRef}
+                commandCentre={props.commandCentre}
+                setPopoverIsShown={setPopoverIsShown}
+            />
+            <MoorhenRandomJiggleBlurMenuItem
+                glRef={props.glRef}
+                commandCentre={props.commandCentre}
+                setPopoverIsShown={setPopoverIsShown}
+            />
             {props.allowScripting && 
             <>
                 <MoorhenLoadScriptMenuItem {...menuItemProps} />
@@ -22,7 +40,7 @@ export const MoorhenCalculateMenu = (props: MoorhenNavBarExtendedControlsInterfa
                  }}>Interactive scripting...</MenuItem>
             </>
             }
-            {props.extraCalculateMenuItems && props.extraCalculateMenuItems.map( menu => menu)}
+            {props.extraCalculateMenuItems && props.extraCalculateMenuItems.map(menu => menu)}
     </>
 }
 

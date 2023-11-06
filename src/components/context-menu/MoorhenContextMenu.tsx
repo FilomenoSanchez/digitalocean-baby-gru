@@ -23,6 +23,7 @@ import { MoorhenRigidBodyFitButton } from "../button/MoorhenRigidBodyFitButton";
 import { moorhen } from "../../types/moorhen";
 import { JSX } from "react/jsx-runtime";
 import { webGL } from "../../types/mgWebGL";
+import { useSelector } from "react-redux";
 
 const ContextMenu = styled.div`
   position: absolute;
@@ -94,26 +95,12 @@ MoorhenPopoverOptions.defaultProps = {extraInput: () => null, nonCootCommand: fa
 
 export const MoorhenContextMenu = (props: {
   urlPrefix: string;
-  changeMaps: (arg0: moorhen.MolChange<moorhen.Map>) => void;
-  activeMap: moorhen.Map;
-  enableRefineAfterMod: boolean;
-  defaultBondSmoothness: number;
-  shortCuts: {[label: string]: moorhen.Shortcut} | string;
-  isDark: boolean;
   showContextMenu: false | moorhen.AtomRightClickEventInfo;
-  molecules: moorhen.Molecule[];
-  windowWidth: number;
-  windowHeight: number;
   timeCapsuleRef: React.RefObject<moorhen.TimeCapsule>;
   setShowContextMenu: React.Dispatch<React.SetStateAction<false | moorhen.AtomRightClickEventInfo>>;
   viewOnly: boolean;
-  backgroundColor: [number, number, number, number];
-  setBackgroundColor: React.Dispatch<React.SetStateAction<[number, number, number, number]>>;
   glRef: React.RefObject<webGL.MGWebGL>;
-  maps: moorhen.Map[];
   commandCentre: RefObject<moorhen.CommandCentre>;
-  enableTimeCapsule: boolean;
-  changeMolecules: { (arg0: moorhen.MolChange<moorhen.Molecule>): void; (arg0: moorhen.MolChange<moorhen.Molecule>): void; }; 
   monomerLibraryPath: string;
   defaultActionButtonSettings: moorhen.actionButtonSettings;
   setDefaultActionButtonSettings: (arg0: {key: string; value: string}) => void;
@@ -127,10 +114,30 @@ export const MoorhenContextMenu = (props: {
   const [opacity, setOpacity] = useState<number>(1.0)
   const [toolTip, setToolTip] = useState<string>('')
   
+  const molecules = useSelector((state: moorhen.State) => state.molecules)
+  const width = useSelector((state: moorhen.State) => state.canvasStates.width)
+  const height = useSelector((state: moorhen.State) => state.canvasStates.height)
+
+  const handleContextMenu = useCallback((evt) => {
+    evt.stopPropagation()
+    evt.preventDefault()
+    evt.stopImmediatePropagation()
+  }, [])
+
+  useEffect(() => {
+    if (contextMenuRef.current) {
+      const domNode = contextMenuRef.current
+      domNode.addEventListener("contextmenu", handleContextMenu)
+      return () => {
+        domNode.removeEventListener("contextmenu", handleContextMenu)
+      }  
+    }
+  }, [handleContextMenu, contextMenuRef]);
+
   let selectedMolecule: moorhen.Molecule
   let chosenAtom: moorhen.ResidueSpec
   if (props.showContextMenu && props.showContextMenu.buffer){
-    selectedMolecule = props.molecules.find(molecule => molecule.buffersInclude(props.showContextMenu ? props.showContextMenu.buffer : null))
+    selectedMolecule = molecules.find(molecule => molecule.buffersInclude(props.showContextMenu ? props.showContextMenu.buffer : null))
   }
   if (props.showContextMenu && props.showContextMenu.atom) {
     chosenAtom = cidToSpec(props.showContextMenu.atom.label)
@@ -146,15 +153,15 @@ export const MoorhenContextMenu = (props: {
   const menuWidth = selectedMolecule && chosenAtom ? convertRemToPx(19) : convertRemToPx(7)
   const menuHeight = selectedMolecule && chosenAtom ? convertRemToPx(19) : convertRemToPx(7)
   
-  if (props.windowWidth - left < menuWidth) {
+  if (width - left < menuWidth) {
     left -= menuWidth
   }
-  if (props.windowHeight - top < menuHeight) {
+  if (height - top < menuHeight) {
     top -= menuHeight
   }
     
   let placement: "left" | "right" = "right"
-  if (props.windowWidth * 0.5 < left){
+  if (width * 0.5 < left){
     placement = 'left'
   }
   
@@ -163,52 +170,53 @@ export const MoorhenContextMenu = (props: {
   const collectedProps = {selectedMolecule, chosenAtom, setOverlayContents, setShowOverlay, toolTip, setToolTip, setOpacity, setOverrideMenuContents, ...props}
 
   return <>
-      <ContextMenu ref={contextMenuRef} top={overrideMenuContents ? convertRemToPx(4) : menuPosition.top} left={overrideMenuContents ? convertRemToPx(15) : menuPosition.left} opacity={opacity}>
+      <ContextMenu ref={contextMenuRef} top={overrideMenuContents ? 0 : menuPosition.top} left={overrideMenuContents ? 0 : menuPosition.left} opacity={opacity}>
         {overrideMenuContents ? 
-        overrideMenuContents 
+          overrideMenuContents 
         :
-              <ClickAwayListener onClickAway={() => !showOverlay && props.setShowContextMenu(false)}>
-                  <List>
-                    {
-                    props.viewOnly ? 
-                      <MoorhenBackgroundColorMenuItem setPopoverIsShown={() => { }} backgroundColor={props.backgroundColor} setBackgroundColor={props.setBackgroundColor}/>
-                    :              
-                    selectedMolecule && chosenAtom &&
-                     <div style={{ display:'flex', justifyContent: 'center' }}>
-                     <Tooltip title={toolTip}>
-                     <FormGroup ref={quickActionsFormGroupRef} style={{ justifyContent: 'center', margin: "0px", padding: "0px", width: '18rem' }} row>
-                      <MoorhenAutofitRotamerButton mode='context' {...collectedProps} />
-                      <MoorhenFlipPeptideButton mode='context' {...collectedProps}/>
-                      <MoorhenSideChain180Button mode='context' {...collectedProps}/> 
-                      <MoorhenRefineResiduesButton mode='context' {...collectedProps}/> 
-                      <MoorhenDeleteButton mode='context' {...collectedProps} />
-                      <MoorhenMutateButton mode='context' {...collectedProps} />
-                      <MoorhenAddTerminalResidueButton mode='context' {...collectedProps} />
-                      <MoorhenRotamerChangeButton mode='context' {...collectedProps}/>
-                      <MoorhenRigidBodyFitButton  mode='context' {...collectedProps}/>
-                      <MoorhenEigenFlipLigandButton mode='context' {...collectedProps}/>
-                      <MoorhenJedFlipFalseButton mode='context' {...collectedProps}/>
-                      <MoorhenJedFlipTrueButton mode='context' {...collectedProps}/>
-                      <MoorhenRotateTranslateZoneButton mode='context' {...collectedProps} />
-                      <MoorhenDragAtomsButton mode='context' {...collectedProps} />
-                      <MoorhenAddAltConfButton mode ='context' {...collectedProps} />
-                      <MoorhenConvertCisTransButton mode='context' {...collectedProps} />
-                     </FormGroup>
-                     </Tooltip>
-                     </div>
-                    }
-                  </List>
-        </ClickAwayListener>
+          <ClickAwayListener onClickAway={() => !showOverlay && props.setShowContextMenu(false)}>
+            <List>
+              {props.viewOnly ? 
+                <MoorhenBackgroundColorMenuItem setPopoverIsShown={() => { }}/>
+              :              
+              selectedMolecule && chosenAtom &&
+              <div style={{ display:'flex', justifyContent: 'center' }}>
+              <Tooltip className="moorhen-tooltip" title={toolTip}>
+              <FormGroup ref={quickActionsFormGroupRef} style={{ justifyContent: 'center', margin: "0px", padding: "0px", width: '18rem' }} row>
+              <MoorhenAutofitRotamerButton mode='context' {...collectedProps} />
+              <MoorhenFlipPeptideButton mode='context' {...collectedProps}/>
+              <MoorhenSideChain180Button mode='context' {...collectedProps}/> 
+              <MoorhenRefineResiduesButton mode='context' {...collectedProps}/> 
+              <MoorhenDeleteButton mode='context' {...collectedProps} />
+              <MoorhenMutateButton mode='context' {...collectedProps} />
+              <MoorhenAddTerminalResidueButton mode='context' {...collectedProps} />
+              <MoorhenRotamerChangeButton mode='context' {...collectedProps}/>
+              <MoorhenRigidBodyFitButton  mode='context' {...collectedProps}/>
+              <MoorhenEigenFlipLigandButton mode='context' {...collectedProps}/>
+              <MoorhenJedFlipFalseButton mode='context' {...collectedProps}/>
+              <MoorhenJedFlipTrueButton mode='context' {...collectedProps}/>
+              <MoorhenRotateTranslateZoneButton mode='context' {...collectedProps} />
+              <MoorhenDragAtomsButton mode='context' {...collectedProps} />
+              <MoorhenAddAltConfButton mode ='context' {...collectedProps} />
+              <MoorhenConvertCisTransButton mode='context' {...collectedProps} />
+              </FormGroup>
+              </Tooltip>
+              </div>
+              }
+            </List>
+          </ClickAwayListener>
         }
-          </ContextMenu>
-          <Overlay placement={menuPosition.placement} show={showOverlay} target={quickActionsFormGroupRef.current}>
-              <Popover className="context-button-popover" style={{borderRadius: '1rem', boxShadow: '0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)'}}>
-              <Popover.Body>
-                {overlayContents}
-              </Popover.Body>
-            </Popover>
-          </Overlay>
-          </>
+      </ContextMenu>
+      {!overrideMenuContents &&
+        <Overlay placement={menuPosition.placement} show={showOverlay} target={quickActionsFormGroupRef.current}>
+            <Popover className="context-button-popover" style={{borderRadius: '1rem', boxShadow: '0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)'}}>
+            <Popover.Body>
+              {overlayContents}
+            </Popover.Body>
+          </Popover>
+        </Overlay>
+      }
+    </>
         
 
 }

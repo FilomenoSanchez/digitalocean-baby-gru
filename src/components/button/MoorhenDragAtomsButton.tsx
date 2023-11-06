@@ -7,7 +7,11 @@ import { CheckOutlined, CloseOutlined, DeleteSweepOutlined } from "@mui/icons-ma
 import { MoorhenMolecule } from "../../utils/MoorhenMolecule"
 import Draggable from "react-draggable";
 import { cidToSpec } from "../../utils/MoorhenUtils";
+import { IconButton } from "@mui/material";
+import { MoorhenNotification } from "../misc/MoorhenNotification";
 import { libcootApi } from "../../types/libcoot";
+import { useSelector, useDispatch, batch } from 'react-redux';
+import { setEnableAtomHovering, setHoveredAtom } from "../../store/hoveringStatesSlice";
 
 export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.ContextButtonProps) => {
     const [showAccept, setShowAccept] = useState<boolean>(false)
@@ -21,6 +25,9 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
     const draggingDirty = useRef<boolean>(false)
     const refinementDirty = useRef<boolean>(false)
     const autoClearRestraintsRef = useRef<boolean>(true)
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+    const activeMap = useSelector((state: moorhen.State) => state.generalStates.activeMap)
+    const dispatch = useDispatch()
 
     const dragModes = ['SINGLE', 'TRIPLE', 'QUINTUPLE', 'HEPTUPLE', 'SPHERE']
 
@@ -46,15 +53,17 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
 
     const startDragging = async (molecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, dragMode: string) => {
         const selectedSequence = molecule.sequences.find(sequence => sequence.chain === chosenAtom.chain_id)
-        let selectedResidueIndex: number;
+        let selectedResidueIndex: number = -1;
         let start: number
         let stop: number
         let sphereResidueCids: string[]
 
-        if (typeof selectedSequence === 'undefined') {
-            dragMode = 'SINGLE'
-        } else {
+        if (typeof selectedSequence !== 'undefined') {
             selectedResidueIndex = selectedSequence.sequence.findIndex(residue => residue.resNum === chosenAtom.res_no)
+        }
+
+        if (selectedResidueIndex === -1) {
+            dragMode = 'SINGLE'
         }
 
         switch (dragMode) {
@@ -107,7 +116,7 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
         await props.commandCentre.current.cootCommand({
             returnType: 'status',
             command: 'init_refinement_of_molecule_as_fragment_based_on_reference',
-            commandArgs: [moltenFragmentRef.current.molNo, chosenMolecule.current.molNo, props.activeMap.molNo]
+            commandArgs: [moltenFragmentRef.current.molNo, chosenMolecule.current.molNo, activeMap.molNo]
         }, false)
 
         /* Redraw with animation after delay so that the context menu does not refresh empty*/
@@ -118,7 +127,6 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
             moltenFragmentRef.current.setAtomsDirty(true)
             await moltenFragmentRef.current.fetchIfDirtyAndDraw('CBs')
             await animateRefine(moltenFragmentRef.current, 10, 5, 10)
-            props.changeMolecules({ action: "Add", item: newMolecule })
             props.glRef.current.setDraggableMolecule(newMolecule)        
         }, 1)
     }
@@ -132,7 +140,6 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
             return
         }    
         if (acceptTransform) {
-            console.log(chosenMolecule.current.molNo, moltenFragmentRef.current.molNo, fragmentCid.current.join('||'))
             await props.commandCentre.current.cootCommand({
                 returnType: 'status',
                 command: 'clear_refinement',
@@ -149,9 +156,9 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
             const scoresUpdateEvent: moorhen.ScoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: { origin: props.glRef.current.origin, modifiedMolecule: chosenMolecule.current.molNo } })
             document.dispatchEvent(scoresUpdateEvent)
         }
-        props.changeMolecules({ action: 'Remove', item: moltenFragmentRef.current })
         moltenFragmentRef.current.delete()
         chosenMolecule.current.unhideAll()
+        dispatch( setEnableAtomHovering(true) )
     }
 
     const atomDraggedCallback = useCallback(async (evt: moorhen.AtomDraggedEvent) => {
@@ -239,58 +246,51 @@ export const MoorhenDragAtomsButton = (props: moorhen.EditButtonProps | moorhen.
     if (props.mode === 'context') {
 
         const contextMenuOverride = (
-            <Draggable>
-                <Card style={{position: 'absolute', width: '15rem', cursor: 'move'}} onMouseOver={() => props.setOpacity(1)} onMouseOut={() => props.setOpacity(0.5)}>
-                <Card.Header>Atom dragging mode</Card.Header>
-                <Card.Body style={{ alignItems: 'center', alignContent: 'center', justifyContent: 'center' }}>
-                    <Stack gap={2} direction="vertical" style={{ alignItems: 'center'}}>
-                        <span>Accept dragging ?</span>
-                        <Stack gap={2} direction="horizontal" style={{ alignItems: 'center',  alignContent: 'center', justifyContent: 'center'}}>
-                            <Button onClick={async () => {
-                                document.removeEventListener('atomDragged', atomDraggedCallback)
-                                document.removeEventListener('mouseup', mouseUpCallback)
-                                await finishDragging(true)
-                                props.setOverrideMenuContents(false)
-                                props.setOpacity(1)
-                                props.setShowContextMenu(false)                  
-                            }}><CheckOutlined /></Button>
-                            <Button onClick={async () => {
-                                document.removeEventListener('atomDragged', atomDraggedCallback)
-                                document.removeEventListener('mouseup', mouseUpCallback)
-                                await finishDragging(false)
-                                props.setOverrideMenuContents(false)
-                                props.setOpacity(1)
-                                props.setShowContextMenu(false)                  
-                            }}><CloseOutlined /></Button>
-                        </Stack>                    
-                    </Stack>
-                    <hr></hr>
-                    <Stack gap={2} direction="vertical" style={{ alignItems: 'center'}}>
-                        <span>Atom pull restraints</span>
-                        <Button style={{width: '80%'}} onClick={clearRestraints}><DeleteSweepOutlined /></Button>
-                        <Form.Check
-                            style={{paddingTop: '0.1rem'}} 
-                            type="switch"
-                            defaultChecked={true}
-                            onChange={(evt) => autoClearRestraintsRef.current = evt.target.checked}
-                            label="Auto clear"/>
-                    </Stack>
-                </Card.Body>
-                </Card>
-            </Draggable>
+            <MoorhenNotification>
+                <Stack gap={2} direction='horizontal' style={{width: '100%', display:'flex', justifyContent: 'space-between'}}>
+                    <div>
+                        <span>Accept changes?</span>
+                    </div>
+                    <div>
+                    <IconButton style={{padding: 0, color: isDark ? 'white' : 'grey', }} onClick={async () => {
+                        document.removeEventListener('atomDragged', atomDraggedCallback)
+                        document.removeEventListener('mouseup', mouseUpCallback)
+                        await finishDragging(true)
+                        props.setOverrideMenuContents(false)
+                        props.setOpacity(1)
+                        props.setShowContextMenu(false)                  
+                    }}>
+                        <CheckOutlined/>
+                    </IconButton>
+                    <IconButton style={{padding: 0, color: isDark ? 'white' : 'grey'}} onClick={async() => {
+                        document.removeEventListener('atomDragged', atomDraggedCallback)
+                        document.removeEventListener('mouseup', mouseUpCallback)
+                        await finishDragging(false)
+                        props.setOverrideMenuContents(false)
+                        props.setOpacity(1)
+                        props.setShowContextMenu(false)                  
+                    }}>
+                        <CloseOutlined/>
+                    </IconButton>
+                    </div>
+                </Stack>
+            </MoorhenNotification>
         )
 
         const nonCootCommand = async (molecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, selectedMode: string) => {
             await startDragging(molecule, chosenAtom, selectedMode)       
             props.setShowOverlay(false)
-            props.setOpacity(0.5)
             document.addEventListener('atomDragged', atomDraggedCallback)
             document.addEventListener('mouseup', mouseUpCallback)
             props.setOverrideMenuContents(contextMenuOverride)
+            batch( () => {
+                dispatch( setHoveredAtom({molecule: null, cid: null}) )
+                dispatch( setEnableAtomHovering(false) )    
+            })
         }
 
         return <MoorhenContextButtonBase 
-                    icon={<img style={{padding:'0.1rem', width:'100%', height: '100%'}} alt="drag atoms" className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/drag.svg`}/>}
+                    icon={<img alt="drag atoms" className="moorhen-context-button__icon" src={`${props.urlPrefix}/baby-gru/pixmaps/drag.svg`}/>}
                     toolTipLabel="Drag atoms"
                     refineAfterMod={false}
                     needsMapData={true}

@@ -17,11 +17,12 @@ export const getBackupLabel = (key: moorhen.backupKey): string => {
  * @param {React.RefObject<moorhen.Map[]>} mapsRef - A react reference to the list of loaded maps
  * @param {React.RefObject<moorhen.Map>} activeMapRef - A react reference to the currently active map
  * @param {React.RefObject<webGL.MGWebGL>} glRef - A react reference to the molecular graphics renderer
- * @param {moorhen.Context} context - The context provider of the app
  * @property {string} version - Version number of the current time capsule
+ * @property {boolean} busy - Indicates if time capsule is busy loading from local storage
  * @property {boolean} disableBackups - Disable time capsule
  * @property {number} maxBackupCount - Maximum number of automatic backups to store in local storage
  * @property {number} modificationCountBackupThreshold - Number of modifications to trigger an automatic backup
+ * @property {function} onIsBusyChange - Callback function called whenever there's a change in the `this.busy` state
  */
 export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
 
@@ -29,7 +30,6 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
     mapsRef: React.RefObject<moorhen.Map[]>;
     glRef: React.RefObject<webGL.MGWebGL>;
     activeMapRef: React.RefObject<moorhen.Map>;
-    context: moorhen.Context;
     busy: boolean;
     modificationCount: number;
     modificationCountBackupThreshold: number;
@@ -37,20 +37,21 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
     version: string;
     disableBackups: boolean;
     storageInstance: moorhen.LocalStorageInstance;
+    onIsBusyChange: (arg0: boolean) => void;
     
-    constructor(moleculesRef: React.RefObject<moorhen.Molecule[]>, mapsRef: React.RefObject<moorhen.Map[]>, activeMapRef: React.RefObject<moorhen.Map>, glRef: React.RefObject<webGL.MGWebGL>, context: moorhen.Context) {
+    constructor(moleculesRef: React.RefObject<moorhen.Molecule[]>, mapsRef: React.RefObject<moorhen.Map[]>, activeMapRef: React.RefObject<moorhen.Map>, glRef: React.RefObject<webGL.MGWebGL>) {
         this.moleculesRef = moleculesRef
         this.mapsRef = mapsRef
         this.glRef = glRef
         this.activeMapRef = activeMapRef
-        this.context = context
         this.busy = false
         this.modificationCount = 0
         this.modificationCountBackupThreshold = 5
         this.maxBackupCount = 10
-        this.version = 'v11'
+        this.version = 'v14'
         this.disableBackups = false
-        this.storageInstance = null    
+        this.storageInstance = null
+        this.onIsBusyChange = null
     }
 
     /**
@@ -63,6 +64,17 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
         } else {
             console.log('Time capsule storage instance has not been defined! Backups will be disabled...')
             this.disableBackups = true
+        }
+    }
+
+    /**
+     * Sets instance attr. this.busy and calls this.onIsBusyChange()
+     * @param {boolea} newValue - The new value for the busy attr.
+     */
+    setBusy(newValue: boolean) {
+        this.busy = newValue
+        if (this.onIsBusyChange) {
+            this.onIsBusyChange(this.busy)
         }
     }
 
@@ -119,13 +131,16 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
      * @returns {Promise<moorhen.backupSession>} A backup for the current session
      */
     async fetchSession (includeAdditionalMapData: boolean = true): Promise<moorhen.backupSession> {
-        this.busy = true
+        this.setBusy(true)
         const keyStrings = await this.storageInstance.keys()
         const mtzFileNames = keyStrings.map((keyString: string) => JSON.parse(keyString)).filter((key: moorhen.backupKey) => key.type === 'mtzData').map((key: moorhen.backupKey) => key.name)
         const mapNames = keyStrings.map((keyString: string) => JSON.parse(keyString)).filter((key: moorhen.backupKey) => key.type === 'mapData').map((key: moorhen.backupKey) => key.name)
         
         const promises = await Promise.all([
-            ...this.moleculesRef.current.map(molecule => {return molecule.getAtoms()}), 
+            ...this.moleculesRef.current.map(molecule => {
+                return molecule.getAtoms()
+                .then(result => {return {data: {message: 'get_atoms', result: {result: result}}}})
+            }), 
             ...this.mapsRef.current.map(map => {
                 if (!includeAdditionalMapData) {
                     return Promise.resolve('map_data')
@@ -166,8 +181,8 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
                 mapDataPromises.push(null)
             } else if (typeof promise === "object" && promise.data.message === "get_mtz_data") {
                 reflectionDataPromises.push(promise.data.result.mtzData)
-            }else if (typeof promise === "object" && promise.data.message === 'get_atoms') {
-                moleculeDataPromises.push(promise.data.result.pdbData)
+            } else if (typeof promise === "object" && promise.data.message === 'get_atoms') {
+                moleculeDataPromises.push(promise.data.result.result)
             } else if (typeof promise === "object" && promise.data.message === 'get_map') {
                 mapDataPromises.push(new Uint8Array(promise.data.result.mapData))
             } else {
@@ -180,9 +195,17 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
                 name: molecule.name,
                 molNo: molecule.molNo,
                 pdbData: moleculeDataPromises[index],
-                representations: molecule.representations.map(item => { return {cid: item.cid, style: item.style} }),
+                representations: molecule.representations.filter(item => item.visible).map(item => { return {
+                    cid: item.cid,
+                    style: item.style,
+                    isCustom: item.isCustom,
+                    colourRules: item.useDefaultColourRules ? null : item.colourRules,
+                    bondOptions: item.useDefaultBondOptions ? null : item.bondOptions
+                }}),
+                defaultColourRules: molecule.defaultColourRules,
                 defaultBondOptions: molecule.defaultBondOptions,
-                connectedToMaps: molecule.connectedToMaps
+                connectedToMaps: molecule.connectedToMaps,
+                ligandDicts: molecule.ligandDicts
             }
         })
 
@@ -241,7 +264,7 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
     async addModification(): Promise<string> {
         this.modificationCount += 1
         if (this.modificationCount >= this.modificationCountBackupThreshold && !this.disableBackups) {
-            this.busy = true
+            this.setBusy(true)
             this.modificationCount = 0
             
             await this.updateDataFiles()
@@ -307,7 +330,7 @@ export class MoorhenTimeCapsule implements moorhen.TimeCapsule {
             try {
                 await this.storageInstance.setItem(key, value)
                 await this.cleanupIfFull()
-                this.busy = false
+                this.setBusy(false)
                 return key
             } catch (err) {
                 console.log(err)

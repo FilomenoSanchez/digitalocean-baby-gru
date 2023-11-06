@@ -1,6 +1,7 @@
 import { Card, Col, Modal, Row } from "react-bootstrap";
 import { MoorhenNavBarExtendedControlsInterface } from "../navbar-menus/MoorhenNavBar";
 import { moorhen } from "../../types/moorhen";
+import { useSelector } from "react-redux";
 
 const shortCutMouseActions = {
     residue_camera_wiggle: ['mouse-move', 'circle-left-mouse-click', 'one-finger-move'],
@@ -20,7 +21,9 @@ interface MoorhenControlsModalPropsInterface extends MoorhenNavBarExtendedContro
 }
 
 export const MoorhenControlsModal = (props: MoorhenControlsModalPropsInterface) => {
-    const shortCuts: moorhen.Shortcut[] = props.shortCuts ? JSON.parse(props.shortCuts as string) : null
+    const _shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
+
+    const shortCuts: moorhen.Shortcut[] = _shortCuts ? JSON.parse(_shortCuts as string) : null
     if (shortCuts) {
         shortCuts['pan_view'] = {modifiers: ['shiftKey', 'altKey'], keyPress: '', label: 'Pan view'}
         shortCuts['rotate_view'] = {modifiers: ['shiftKey'], keyPress: '', label: 'Rotate view'} 

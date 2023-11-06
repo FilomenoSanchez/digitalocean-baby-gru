@@ -359,6 +359,7 @@ const mapMoleculeCentreInfoToJSObject = (mapMoleculeCentreInfo: libcootApi.MapMo
             updatedCentre.z()
         ] as [number, number, number],
         success: mapMoleculeCentreInfo.success,
+        suggested_radius: mapMoleculeCentreInfo.suggested_radius,
         suggested_contour_level: mapMoleculeCentreInfo.suggested_contour_level
     }
     updatedCentre.delete()
@@ -455,6 +456,28 @@ const mmrrccStatsToJSArray = (mmrrccStats: libcootApi.PairType<emscriptem.map<li
 
     first.delete()
     second.delete()
+    return returnResult
+}
+
+const atomSpecToJSArray = (atomSpecs: emscriptem.vector<libcootApi.AtomSpecT>): libcootApi.AtomSpecJS[] => {
+    let returnResult: libcootApi.AtomSpecJS[] = []
+    const atomsSize = atomSpecs.size()
+    for (let ic = 0; ic < atomsSize; ic++) {
+        const atom = atomSpecs.get(ic)
+        returnResult.push({
+            chain_id: atom.chain_id,
+            res_no: atom.res_no,
+            ins_code: atom.ins_code,
+            atom_name: atom.atom_name,
+            alt_conf: atom.alt_conf,
+            int_user_data: atom.int_user_data,
+            float_user_data: atom.float_user_data,
+            string_user_data: atom.string_user_data,
+            model_number: atom.model_number
+        })
+        atom.delete()
+    }
+    atomSpecs.delete()
     return returnResult
 }
 
@@ -604,6 +627,48 @@ const interestingPlaceDataToJSArray = (interestingPlaceData: emscriptem.vector<l
     return returnResult
 }
 
+const histogramInfoToJSData = (histogramInfo: libcootApi.HistogramInfo): libcootApi.HistogramInfoJS => {
+    const histogramCounts = histogramInfo.counts
+    const counts = intArrayToJSArray(histogramCounts)
+    const result: libcootApi.HistogramInfoJS = {
+        counts: counts,
+        bin_width: histogramInfo.bin_width,
+        base: histogramInfo.base
+    }
+    return result
+}
+
+const autoReadMtzInfoVectToJSArray = (autoReadMtzInfoArray: emscriptem.vector<libcootApi.AutoReadMtzInfo>): libcootApi.AutoReadMtzInfoJS[] => {
+    let returnResult: {idx: number;
+        F: string;
+        phi: string;
+        w: string;
+        F_obs: string;
+        sigF_obs: string;
+        Rfree: string;
+        weights_used: boolean;
+    }[] = []
+
+    const autoReadMtzInfoArraySize = autoReadMtzInfoArray.size()
+    for(let i = 0; i < autoReadMtzInfoArraySize; i++) {
+        const autoReadMtzInfo = autoReadMtzInfoArray.get(i)
+        returnResult.push({
+            idx: autoReadMtzInfo.idx,
+            F: autoReadMtzInfo.F,
+            phi: autoReadMtzInfo.phi,
+            w: autoReadMtzInfo.w,
+            Rfree: autoReadMtzInfo.Rfree,
+            F_obs: autoReadMtzInfo.F_obs,
+            sigF_obs: autoReadMtzInfo.sigF_obs,
+            weights_used: autoReadMtzInfo.weights_used,
+        })
+        autoReadMtzInfo.delete()
+    }
+    autoReadMtzInfoArray.delete()
+    
+    return returnResult
+}
+
 const ramachandranDataToJSArray = (ramachandraData: emscriptem.vector<libcootApi.CootPhiPsiProbT>, chainID: string): libcootApi.RamaDataJS[] => {
     let returnResult: { chainId: string; insCode: string; seqNum: number; restype: string; isOutlier: boolean; phi: number; psi: number; is_pre_pro: boolean; }[] = [];
     const ramachandraDataSize = ramachandraData.size()
@@ -664,45 +729,12 @@ const simpleMeshToLineMeshData = (simpleMesh: libcootApi.SimpleMeshT, normalLigh
 
 }
 
-const read_pdb = (coordData: string, name: string) => {
-    const theGuid = guid()
-    let theSuffix;
-    if(coordData.startsWith("data_")){
-        theSuffix = "mmcif"
-    } else {
-        theSuffix = "pdb"
-    }
-    cootModule.FS_createDataFile(".", `${theGuid}.${theSuffix}`, coordData, true, true);
-    const tempFilename = `./${theGuid}.${theSuffix}`
-    const molNo = molecules_container.read_pdb(tempFilename)
-    cootModule.FS_unlink(tempFilename)
-    return molNo
-}
-
 const auto_open_mtz = (mtzData: ArrayBufferLike) => {
     const theGuid = guid()
     const asUint8Array = new Uint8Array(mtzData)
     cootModule.FS_createDataFile(".", `${theGuid}.mtz`, asUint8Array, true, true);
     const tempFilename = `./${theGuid}.mtz`
     const result = molecules_container.auto_read_mtz(tempFilename)
-    cootModule.FS_unlink(tempFilename)
-    return result
-}
-
-const read_dictionary = (coordData: string, associatedMolNo: number) => {
-    const theGuid = guid()
-    cootModule.FS_createDataFile(".", `${theGuid}.cif`, coordData, true, true);
-    const tempFilename = `./${theGuid}.cif`
-    const returnVal = molecules_container.import_cif_dictionary(tempFilename, associatedMolNo)
-    cootModule.FS_unlink(tempFilename)
-    return returnVal
-}
-
-const replace_molecule_by_model_from_file = (imol: number, coordData: string) => {
-    const theGuid = guid()
-    const tempFilename = `./${theGuid}.pdb`
-    cootModule.FS_createDataFile(".", tempFilename, coordData, true, true)
-    const result = molecules_container.replace_molecule_by_model_from_file(imol, tempFilename)
     cootModule.FS_unlink(tempFilename)
     return result
 }
@@ -766,15 +798,21 @@ const associate_data_mtz_file_with_map = (iMol: number, mtzData: { data: ArrayBu
 const read_ccp4_map = (mapData: ArrayBufferLike, name: string, isDiffMap: boolean) => {
     const theGuid = guid()
     const asUint8Array = new Uint8Array(mapData)
-    cootModule.FS_createDataFile(".", `${theGuid}.map`, asUint8Array, true, true);
-    const tempFilename = `./${theGuid}.map`
+    let fileExtension = ''
+    if (name.endsWith('.map.gz')) {
+        fileExtension = 'map.gz'
+    } else if (name.endsWith('.mrc.gz')) {
+        fileExtension = 'mrc.gz'
+    }
+    cootModule.FS_createDataFile(".", `${theGuid}${fileExtension}`, asUint8Array, true, true);
+    const tempFilename = `./${theGuid}${fileExtension}`
     const read_map_args: [string, boolean] = [tempFilename, isDiffMap]
     const molNo = molecules_container.read_ccp4_map(...read_map_args)
     cootModule.FS_unlink(tempFilename)
     return molNo
 }
 
-const setUserDefinedBondColours = (imol: number, colours: { cid: string; rgb: [number, number, number] }[]) => {
+const setUserDefinedBondColours = (imol: number, colours: { cid: string; rgb: [number, number, number] }[], applyColourToNonCarbonAtoms: boolean = false) => {
     let colourMap = new cootModule.MapIntFloat3()
     let indexedResiduesVec = new cootModule.VectorStringUInt_pair()
     
@@ -785,35 +823,7 @@ const setUserDefinedBondColours = (imol: number, colours: { cid: string; rgb: [n
     })
 
     molecules_container.set_user_defined_bond_colours(imol, colourMap)
-    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, false)
-
-    indexedResiduesVec.delete()
-    colourMap.delete()
-}
-
-const doColourTest = (imol: number) => {
-    console.log('DEBUG: Start test...')
-
-    let colourMap = new cootModule.MapIntFloat3()
-    colourMap[20] = [1., 0., 0.]
-    colourMap[21] = [0., 1., 0.]
-    colourMap[22] = [0., 0., 1.]
-
-    let indexedResiduesVec = new cootModule.VectorStringUInt_pair()
-
-    const a = { first: '//A/1-10/', second: 20 }
-    indexedResiduesVec.push_back(a)
-
-    const b = { first: '//A/11-20/', second: 21 }
-    indexedResiduesVec.push_back(b)
-
-    const c = { first: '//A/21-30/', second: 22 }
-    indexedResiduesVec.push_back(c)
-
-    console.log('DEBUG: Running molecules_container.set_user_defined_bond_colours')
-    molecules_container.set_user_defined_bond_colours(imol, colourMap)
-    console.log('DEBUG: Running molecules_container.set_user_defined_atom_colour_by_selection')
-    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, false)
+    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, applyColourToNonCarbonAtoms)
 
     indexedResiduesVec.delete()
     colourMap.delete()
@@ -835,9 +845,6 @@ const doCootCommand = (messageData: {
 
         let cootResult
         switch (command) {
-            case 'shim_read_pdb':
-                cootResult = read_pdb(...commandArgs as [string, string])
-                break
             case 'shim_new_positions_for_residue_atoms':
                 cootResult = new_positions_for_residue_atoms(...commandArgs as [number, libcootApi.AtomInfo[][]])
                 break
@@ -850,26 +857,14 @@ const doCootCommand = (messageData: {
             case 'shim_read_ccp4_map':
                 cootResult = read_ccp4_map(...commandArgs as [ArrayBuffer, string, boolean])
                 break
-            case 'shim_read_dictionary':
-                cootResult = read_dictionary(...commandArgs as [string, number])
-                break
             case 'shim_associate_data_mtz_file_with_map':
                 cootResult = associate_data_mtz_file_with_map(...commandArgs as [number, { data: ArrayBufferLike; fileName: string; }, string, string, string])
-                break
-            case 'shim_replace_molecule_by_model_from_file':
-                cootResult = replace_molecule_by_model_from_file(...commandArgs as [number, string])
                 break
             case 'shim_replace_map_by_mtz_from_file':
                 cootResult = replace_map_by_mtz_from_file(...commandArgs as [number, ArrayBufferLike, { F: string; PHI: string; }])
                 break
-            case 'shim_do_colour_test':
-                cootResult = doColourTest(...commandArgs as [number])
-                break
             case 'shim_set_bond_colours':
-                cootResult = setUserDefinedBondColours(...commandArgs as [number, { cid: string; rgb: [number, number, number] }[]])
-                break
-            case 'shim_smiles_to_pdb':
-                cootResult = cootModule.SmilesToPDB(...commandArgs as [string, string, number, number])
+                cootResult = setUserDefinedBondColours(...commandArgs as [number, { cid: string; rgb: [number, number, number] }[], boolean])
                 break
             default:
                 cootResult = molecules_container[command](...commandArgs)
@@ -881,6 +876,9 @@ const doCootCommand = (messageData: {
             case 'instanced_mesh_perm':
                 returnResult = instancedMeshToMeshData(cootResult, true)
                 break;
+            case 'histogram_info_t':
+                returnResult = histogramInfoToJSData(cootResult)
+                break
             case 'symmetry':
                 returnResult = symmetryToJSData(cootResult)
                 break;
@@ -914,6 +912,9 @@ const doCootCommand = (messageData: {
             case 'int_array':
                 returnResult = intArrayToJSArray(cootResult)
                 break;
+            case 'auto_read_mtz_info_array':
+                returnResult = autoReadMtzInfoVectToJSArray(cootResult)
+                break;
             case 'map_molecule_centre_info_t':
                 returnResult = mapMoleculeCentreInfoToJSObject(cootResult)
                 break;
@@ -922,6 +923,9 @@ const doCootCommand = (messageData: {
                 break;
             case 'residue_specs':
                 returnResult = residueSpecToJSArray(cootResult)
+                break;
+            case 'atom_specs':
+                returnResult = atomSpecToJSArray(cootResult)
                 break;
             case 'ramachandran_data':
                 returnResult = ramachandranDataToJSArray(cootResult, messageData.chainID as string)
@@ -944,6 +948,9 @@ const doCootCommand = (messageData: {
             case 'status_instanced_mesh_pair':
                 returnResult = { status: cootResult.first, mesh: instancedMeshToMeshData(cootResult.second, false, false, 5) }
                 break;
+            case 'void':
+                returnResult = null
+                break
             case 'status':
             default:
                 returnResult = cootResult
@@ -951,7 +958,7 @@ const doCootCommand = (messageData: {
         }
 
         return {
-            messageId, messageSendTime: Date.now(),
+            messageId, messageSendTime: Date.now(), command: command,
             consoleMessage: `Completed ${command} in ${Date.now() - myTimeStamp} ms`,
             result: { status: 'Completed', result: returnResult }
         }
@@ -1006,28 +1013,6 @@ onmessage = function (e) {
             });
     }
 
-    else if (e.data.message === 'get_atoms') {
-        const theGuid = guid()
-        const tempFilename = `./${theGuid}.pdb`
-        if (e.data.format === 'pdb') {
-            molecules_container.writePDBASCII(e.data.molNo, tempFilename)
-        } else if (e.data.format === 'mmcif') {
-            molecules_container.writeCIFASCII(e.data.molNo, tempFilename)
-        } else {
-            console.log(`Unrecognised format... ${e.data.format}`)
-        }
-
-        const pdbData = cootModule.FS.readFile(tempFilename, { encoding: 'utf8' });
-        cootModule.FS_unlink(tempFilename)
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            consoleMessage: `Fetched coordinates of molecule ${e.data.molNo}`,
-            message: e.data.message,
-            result: { molNo: e.data.molNo, pdbData: pdbData }
-        })
-    }
-
     else if (e.data.message === 'get_mtz_data') {
         const mtzData = cootModule.FS.readFile(e.data.fileName, { encoding: 'binary' });
         postMessage({
@@ -1052,79 +1037,6 @@ onmessage = function (e) {
             consoleMessage: `Fetched map of map ${e.data.molNo}`,
             message: e.data.message,
             result: { molNo: e.data.molNo, mapData: mapData.buffer }
-        })
-    }
-
-    else if (e.data.message === 'read_mtz') {
-        try {
-            const theGuid = guid()
-            cootModule.FS_createDataFile(".", `${theGuid}.mtz`, e.data.data, true, true, true);
-            const tempFilename = `./${theGuid}.mtz`
-            const molNo = molecules_container.read_mtz(tempFilename, 'FWT', 'PHWT', "", false, false)
-            cootModule.FS_unlink(tempFilename)
-            postMessage({
-                messageId: e.data.messageId,
-                myTimeStamp: e.data.myTimeStamp,
-                consoleMessage: `Read map MTZ as molecule ${molNo}`,
-                message: e.data.message,
-                result: { molNo: molNo, name: e.data.name }
-            })
-        }
-        catch (err) {
-            print(err)
-        }
-    }
-
-    else if (e.data.message === 'get_rama') {
-        const theGuid = guid()
-        const tempFilename = `./${theGuid}.pdb`
-        molecules_container.writePDBASCII(e.data.molNo, tempFilename)
-        const result = cootModule.getRamachandranData(tempFilename, e.data.chainId);
-        cootModule.FS_unlink(tempFilename)
-        let resInfo: {
-            chainId: string;
-            insCode: string;
-            seqNum: number;
-            restype: string;
-            phi: number;
-            psi: number;
-            isOutlier: boolean;
-            is_pre_pro: boolean;
-        }[] = [];
-        for (let ir = 0; ir < result.size(); ir++) {
-            const cppres = result.get(ir);
-            //TODO - Is there a nicer way to do this?
-            const jsres = { chainId: cppres.chainId, insCode: cppres.insCode, seqNum: cppres.seqNum, restype: cppres.restype, phi: cppres.phi, psi: cppres.psi, isOutlier: cppres.isOutlier, is_pre_pro: cppres.is_pre_pro };
-            resInfo.push(jsres);
-        }
-
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            messageTag: "result",
-            result: resInfo,
-        })
-    }
-
-    else if (e.data.message === 'copy_fragment') {
-        const newmolNo = molecules_container.copy_fragment_using_residue_range(e.data.molNo, e.data.chainId, e.data.res_no_start, e.data.res_no_end)
-
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            messageTag: "result",
-            result: newmolNo,
-        })
-    }
-
-    else if (e.data.message === 'delete') {
-        const result = molecules_container.close_molecule(e.data.molNo)
-
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            messageTag: "result",
-            result: result,
         })
     }
 

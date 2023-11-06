@@ -5,11 +5,13 @@ import { MoorhenValidationChartWidgetBase } from "./MoorhenValidationChartWidget
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { libcootApi } from "../../types/libcoot";
 import { moorhen } from "../../types/moorhen";
+import { useSelector, useDispatch } from 'react-redux';
+import { setHoveredAtom } from "../../store/hoveringStatesSlice";
 
 Chart.register(...registerables);
 Chart.register(annotationPlugin);
 
-interface Props extends moorhen.Controls {
+interface Props extends moorhen.CollectedProps {
     dropdownId: number;
     accordionDropdownId: number;
     setAccordionDropdownId: React.Dispatch<React.SetStateAction<number>>;
@@ -35,6 +37,10 @@ const metricInfoScaling = {
 
 export const MoorhenValidation = (props: Props) => {
     const chartRef = useRef(null);
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
+    const height = useSelector((state: moorhen.State) => state.canvasStates.height)
+    const dispatch = useDispatch()
 
     const plugin = {
         id: 'custom_bar_borders',
@@ -69,7 +75,7 @@ export const MoorhenValidation = (props: Props) => {
     }
 
     const getSequenceData = (selectedMolNo: number, selectedChain: string) => {
-        let selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedMolNo)
+        let selectedMolecule = molecules.find(molecule => molecule.molNo === selectedMolNo)
         if (selectedMolecule) {
             let sequenceData = selectedMolecule.sequences.find(sequence => sequence.chain === selectedChain)
             if (sequenceData) {
@@ -134,9 +140,9 @@ export const MoorhenValidation = (props: Props) => {
             }
             
             const residueIndex = points[0].index
-            const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedModel)
+            const selectedMolecule = molecules.find(molecule => molecule.molNo === selectedModel)
             if(selectedMolecule) {
-                const clickedResidue = getResidueInfo(props.molecules, selectedMolecule.molNo, selectedChain, residueIndex)
+                const clickedResidue = getResidueInfo(molecules, selectedMolecule.molNo, selectedChain, residueIndex)
                 if (clickedResidue) {
                     selectedMolecule.centreOn(`/*/${clickedResidue.chain}/${clickedResidue.seqNum}-${clickedResidue.seqNum}/*`)
                 }
@@ -149,14 +155,16 @@ export const MoorhenValidation = (props: Props) => {
             }
             
             const residueIndex = args[0].dataIndex
-            const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedModel)
+            const selectedMolecule = molecules.find(molecule => molecule.molNo === selectedModel)
             if(selectedMolecule) {
-                const clickedResidue = getResidueInfo(props.molecules, selectedMolecule.molNo, selectedChain, residueIndex)
+                const clickedResidue = getResidueInfo(molecules, selectedMolecule.molNo, selectedChain, residueIndex)
                 if (clickedResidue) {
-                    props.setHoveredAtom({
-                        molecule: selectedMolecule,
-                        cid:  `//${clickedResidue.chain}/${clickedResidue.seqNum}(${residueCodesOneToThree[clickedResidue.resCode]})/`
-                    })
+                    dispatch(
+                        setHoveredAtom({
+                            molecule: selectedMolecule,
+                            cid:  `//${clickedResidue.chain}/${clickedResidue.seqNum}(${residueCodesOneToThree[clickedResidue.resCode]})/`
+                        })
+                    )
                     return `${clickedResidue.seqNum} (${residueCodesOneToThree[clickedResidue.resCode]})`
                 }
             }
@@ -180,7 +188,7 @@ export const MoorhenValidation = (props: Props) => {
        
         const barWidth = props.sideBarWidth / 40
         const tooltipFontSize = 12
-        const axisLabelsFontSize = convertViewtoPx(70, props.windowHeight) / 60
+        const axisLabelsFontSize = convertViewtoPx(70, height) / 60
         
         const containerBody = document.getElementById('myContainerBody')
         containerBody.style.width = (labels.length*barWidth)+ "px";
@@ -190,7 +198,7 @@ export const MoorhenValidation = (props: Props) => {
                 stacked: true,
                 beginAtZero: true,
                 display:true,
-                ticks: {color: props.isDark ? 'white' : 'black',
+                ticks: {color: isDark ? 'white' : 'black',
                         font:{size:barWidth, family:'Helvetica'},
                         maxRotation: 0, 
                         minRotation: 0,
@@ -243,9 +251,9 @@ export const MoorhenValidation = (props: Props) => {
                 beginAtZero: true,
                 title: {
                     display: true,
-                    font:{size:axisLabelsFontSize, family:'Helvetica', weight:800},
+                    font:{size: axisLabelsFontSize, family:'Helvetica', weight:800},
                     text: availableMetrics[methodIndex].displayName,
-                    color: props.isDark ? 'white' : 'black'
+                    color: isDark ? 'white' : 'black'
                 },
                 grid: {
                     display:false,
@@ -304,9 +312,6 @@ export const MoorhenValidation = (props: Props) => {
                 ref={chartRef}
                 fetchData={fetchData}
                 getChart={getChart} 
-                molecules={props.molecules}
-                maps={props.maps}
-                backgroundColor={props.backgroundColor}
                 sideBarWidth={props.sideBarWidth}
                 dropdownId={props.dropdownId}
                 accordionDropdownId={props.accordionDropdownId}

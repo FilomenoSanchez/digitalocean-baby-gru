@@ -1,29 +1,31 @@
 import { useEffect, useState, useRef, useReducer, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { Card, Row, Col, Accordion, Stack, Button } from "react-bootstrap";
-import { doDownload, sequenceIsValid, representationLabelMapping } from '../../utils/MoorhenUtils';
+import { Card, Row, Col, Stack, Button, Spinner } from "react-bootstrap";
+import { Accordion, AccordionDetails, AccordionSummary } from '@mui/material';
+import { doDownload, representationLabelMapping } from '../../utils/MoorhenUtils';
 import { isDarkBackground } from '../../WebGLgComponents/mgWebGL'
-import { MoorhenSequenceViewer } from "../sequence-viewer/MoorhenSequenceViewer";
+import { MoorhenSequenceList } from "../list/MoorhenSequenceList";
 import { MoorhenMoleculeCardButtonBar } from "../button-bar/MoorhenMoleculeCardButtonBar"
 import { MoorhenLigandList } from "../list/MoorhenLigandList"
 import { Chip, FormGroup, hexToRgb } from "@mui/material";
 import { getNameLabel } from "./cardUtils"
-import { moorhen } from "../../types/moorhen";
-import { webGL } from "../../types/mgWebGL";
-import { AddOutlined, DeleteOutlined, FormatColorFillOutlined, SettingsOutlined } from '@mui/icons-material';
+import { AddOutlined, DeleteOutlined, FormatColorFillOutlined, SettingsOutlined, EditOutlined, ExpandMoreOutlined } from '@mui/icons-material';
 import { MoorhenAddCustomRepresentationCard } from "./MoorhenAddCustomRepresentationCard"
 import { MoorhenMoleculeRepresentationSettingsCard } from "./MoorhenMoleculeRepresentationSettingsCard"
 import { MoorhenModifyColourRulesCard } from './MoorhenModifyColourRulesCard';
+import { useSelector, useDispatch } from 'react-redux';
+import { moorhen } from "../../types/moorhen";
+import { webGL } from "../../types/mgWebGL";
+import { addMolecule } from '../../store/moleculesSlice';
 
-const allRepresentations = [ 'CBs', 'CAs', 'CRs', 'ligands', 'gaussian', 'MolecularSurface', 'DishyBases', 'VdwSpheres', 'rama', 'rotamer', 'CDs', 'allHBonds','glycoBlocks' ]
+const allRepresentations = [ 'CBs', 'CAs', 'CRs', 'ligands', 'gaussian', 'MolecularSurface', 'DishyBases', 'VdwSpheres', 'rama', 'rotamer', 'CDs', 'allHBonds','glycoBlocks', 'restraints' ]
 
-interface MoorhenMoleculeCardPropsInterface extends moorhen.Controls {
+interface MoorhenMoleculeCardPropsInterface extends moorhen.CollectedProps {
     dropdownId: number;
     accordionDropdownId: number;
     setAccordionDropdownId: React.Dispatch<React.SetStateAction<number>>;
     sideBarWidth: number;
     showSideBar: boolean;
     busy: boolean;
-    consoleMessage: string;
     key: number;
     index: number;
     molecule: moorhen.Molecule;
@@ -62,9 +64,20 @@ export type clickedResidueType = {
 }
 
 export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInterface>((props, cardRef) => {
+    const dispatch = useDispatch()
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+    const backgroundColor = useSelector((state: moorhen.State) => state.canvasStates.backgroundColor)
+    const defaultExpandDisplayCards = useSelector((state: moorhen.State) => state.miscAppSettings.defaultExpandDisplayCards)
+    const drawMissingLoops = useSelector((state: moorhen.State) => state.sceneSettings.drawMissingLoops)
+    const userPreferencesMounted = useSelector((state: moorhen.State) => state.generalStates.userPreferencesMounted)
+    
     const addColourRulesAnchorDivRef = useRef<HTMLDivElement | null>(null)
     const busyRedrawing = useRef<boolean>(false)
     const isDirty = useRef<boolean>(false)
+    const innerDrawMissingLoopsRef = useRef<boolean>(null)
+    
+    const [busyLoadingSequences, setBusyLoadingSequences] = useState<boolean>(false)
+    const [busyLoadingLigands, setBusyLoadingLigands] = useState<boolean>(false)
     const [showColourRulesModal, setShowColourRulesModal] = useState<boolean>(false)
     const [showCreateCustomRepresentation, setShowCreateCustomRepresentation] = useState<boolean>(false)
     const [showCreateRepresentationSettingsModal, setShowCreateRepresentationSettingsModal] = useState<boolean>(false)
@@ -72,7 +85,7 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
     const [customRepresentationList, changeCustomRepresentationList] = useReducer(customRepReducer, initialCustomRep)
     const [selectedResidues, setSelectedResidues] = useState<[number, number] | null>(null);
     const [clickedResidue, setClickedResidue] = useState<clickedResidueType | null>(null);
-    const [isCollapsed, setIsCollapsed] = useState<boolean>(!props.defaultExpandDisplayCards);
+    const [isCollapsed, setIsCollapsed] = useState<boolean>(!defaultExpandDisplayCards);
     const [isVisible, setIsVisible] = useState<boolean>(true)
     const [bondWidth, setBondWidth] = useState<number>(props.molecule.defaultBondOptions.width)
     const [atomRadiusBondRatio, setAtomRadiusBondRatio] = useState<number>(props.molecule.defaultBondOptions.atomRadiusBondRatio)
@@ -137,36 +150,42 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
     }, [props.molecule, props.glRef])
 
     useEffect(() => {
-        if (props.drawMissingLoops === null) {
+        if (!userPreferencesMounted || drawMissingLoops === null) {
             return
+        } else if (innerDrawMissingLoopsRef.current === null) {
+            innerDrawMissingLoopsRef.current = drawMissingLoops
+            return
+        } else if (innerDrawMissingLoopsRef.current !== drawMissingLoops) {
+            innerDrawMissingLoopsRef.current = drawMissingLoops
+            const representations = props.molecule.representations.filter(representation => representation.visible && ['CBs', 'ligands'].includes(representation.style))
+            if (isVisible && representations.length > 0) {
+                isDirty.current = true
+                if (!busyRedrawing.current) {
+                    redrawMolIfDirty(representations.map(representation => representation.uniqueId))
+                }
+            }
         }
-
-        const representations = props.molecule.representations.filter(representation => representation.visible && ['CBs', 'ligands'].includes(representation.style))
-
-        if (isVisible && representations.length > 0) {
-            props.molecule.setAtomsDirty(true)
-            props.molecule.redraw()
-        }
-
-    }, [props.drawMissingLoops])
+    }, [drawMissingLoops])
 
     useEffect(() => {
-        if (props.backgroundColor === null) {
+        if (backgroundColor === null) {
             return
         }
 
         const representations = props.molecule.representations.filter(representation => representation.visible && ['CBs', 'ligands'].includes(representation.style))
 
         if (isVisible && representations.length > 0) {
-            const newBackgroundIsDark = isDarkBackground(...props.backgroundColor)
+            const newBackgroundIsDark = isDarkBackground(...backgroundColor)
             if (props.molecule.isDarkBackground !== newBackgroundIsDark) {
                 props.molecule.isDarkBackground = newBackgroundIsDark
-                props.molecule.setAtomsDirty(true)
-                props.molecule.redraw()
+                isDirty.current = true
+                if (!busyRedrawing.current) {
+                    redrawMolIfDirty(representations.map(representation => representation.uniqueId))
+                }
             }
         }
 
-    }, [props.backgroundColor, showState]);
+    }, [backgroundColor, showState]);
 
     useEffect(() => {
         if (bondSmoothness === null) {
@@ -355,8 +374,8 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
     }
 
     const handleDownload = async () => {
-        let response = await props.molecule.getAtoms()
-        doDownload([response.data.result.pdbData], `${props.molecule.name}`)
+        let pdbString = await props.molecule.getAtoms()
+        doDownload([pdbString], `${props.molecule.name}`)
         props.setCurrentDropdownMolNo(-1)
     }
 
@@ -364,7 +383,7 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
         async function createNewFragmentMolecule() {
             const cid =  `//${clickedResidue.chain}/${selectedResidues[0]}-${selectedResidues[1]}/*`
             const newMolecule = await props.molecule.copyFragmentUsingCid(cid, true)
-            props.changeMolecules({ action: "Add", item: newMolecule })
+            dispatch( addMolecule(newMolecule) )
         }
 
         // TODO: Test that residue start and residue end are valid (i.e. not missing from the structure)
@@ -422,17 +441,14 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
     return <><Card ref={cardRef} className="px-0" style={{ marginBottom: '0.5rem', padding: '0' }} key={props.molecule.molNo}>
         <Card.Header style={{ padding: '0.1rem' }}>
             <Stack gap={2} direction='horizontal'>
-                <Col className='align-items-center' style={{ display: 'flex', justifyContent: 'left', color: props.isDark ? 'white' : 'black'}}>
+                <Col className='align-items-center' style={{ display: 'flex', justifyContent: 'left', color: isDark ? 'white' : 'black'}}>
                     {getNameLabel(props.molecule)}
                 </Col>
                 <Col style={{ display: 'flex', justifyContent: 'right' }}>
                     <MoorhenMoleculeCardButtonBar
                         molecule={props.molecule}
-                        molecules={props.molecules}
-                        changeMolecules={props.changeMolecules}
                         glRef={props.glRef}
                         sideBarWidth={props.sideBarWidth}
-                        windowHeight={props.windowHeight}
                         isVisible={isVisible}
                         isCollapsed={isCollapsed}
                         setIsCollapsed={setIsCollapsed}
@@ -440,7 +456,6 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
                         selectedResidues={selectedResidues}
                         currentDropdownMolNo={props.currentDropdownMolNo}
                         setCurrentDropdownMolNo={props.setCurrentDropdownMolNo}
-                        backupsEnabled={props.makeBackups}
                         {...handleProps}
                     />
                 </Col>
@@ -461,14 +476,21 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
                                         molecule={props.molecule}
                                         isVisible={isVisible}
                                         showState={showState}
-                                        isDark={props.isDark}
                                 />)}
                             </FormGroup>
                             <hr style={{ marginTop: '0.5rem', marginBottom: "0.5rem", marginLeft: '0.5rem', marginRight: '0.5rem' }}></hr>
                             {props.molecule.representations.some(representation => representation.isCustom) ?
                                 <FormGroup style={{ margin: "0px", padding: "0px" }} row>
                                     {props.molecule.representations.filter(representation => representation.isCustom).map(representation => {
-                                        return <CustomRepresentationChip isDark={props.isDark} key={representation.uniqueId} molecule={props.molecule} representation={representation} isVisible={isVisible} changeCustomRepresentationList={changeCustomRepresentationList}/>
+                                        return <CustomRepresentationChip
+                                                    key={representation.uniqueId}
+                                                    urlPrefix={props.urlPrefix}
+                                                    glRef={props.glRef}
+                                                    addColourRulesAnchorDivRef={addColourRulesAnchorDivRef}
+                                                    molecule={props.molecule}
+                                                    representation={representation}
+                                                    isVisible={isVisible}
+                                                    changeCustomRepresentationList={changeCustomRepresentationList}/>
                                     })}
                                 </FormGroup>
                             :
@@ -489,60 +511,36 @@ export const MoorhenMoleculeCard = forwardRef<any, MoorhenMoleculeCardPropsInter
                         </Button>
                         </Stack>
                     </Col>
-                    <MoorhenMoleculeRepresentationSettingsCard symmetrySettingsProps={symmetrySettingsProps} gaussianSettingsProps={gaussianSettingsProps} bondSettingsProps={bondSettingsProps} glRef={props.glRef} urlPrefix={props.urlPrefix} molecules={props.molecules} isDark={props.isDark} molecule={props.molecule} anchorEl={addColourRulesAnchorDivRef} show={showCreateRepresentationSettingsModal} setShow={setShowCreateRepresentationSettingsModal}/>
-                    <MoorhenModifyColourRulesCard molecules={props.molecules} anchorEl={addColourRulesAnchorDivRef} isDark={props.isDark} urlPrefix={props.urlPrefix} glRef={props.glRef} commandCentre={props.commandCentre} molecule={props.molecule} showColourRulesToast={showColourRulesModal} setShowColourRulesToast={setShowColourRulesModal} windowHeight={props.windowHeight} windowWidth={props.sideBarWidth}/>
-                    <MoorhenAddCustomRepresentationCard glRef={props.glRef} urlPrefix={props.urlPrefix} molecules={props.molecules} isDark={props.isDark} molecule={props.molecule} anchorEl={addColourRulesAnchorDivRef} show={showCreateCustomRepresentation} setShow={setShowCreateCustomRepresentation}/>
+                    <MoorhenMoleculeRepresentationSettingsCard symmetrySettingsProps={symmetrySettingsProps} gaussianSettingsProps={gaussianSettingsProps} bondSettingsProps={bondSettingsProps} glRef={props.glRef} urlPrefix={props.urlPrefix} molecule={props.molecule} anchorEl={addColourRulesAnchorDivRef} show={showCreateRepresentationSettingsModal} setShow={setShowCreateRepresentationSettingsModal}/>
+                    <MoorhenModifyColourRulesCard anchorEl={addColourRulesAnchorDivRef} urlPrefix={props.urlPrefix} glRef={props.glRef} commandCentre={props.commandCentre} molecule={props.molecule} showColourRulesToast={showColourRulesModal} setShowColourRulesToast={setShowColourRulesModal}/>
+                    <MoorhenAddCustomRepresentationCard glRef={props.glRef} urlPrefix={props.urlPrefix} molecule={props.molecule} anchorEl={addColourRulesAnchorDivRef} show={showCreateCustomRepresentation} setShow={setShowCreateCustomRepresentation}/>
                 </Row>
-            <Accordion alwaysOpen={true} defaultActiveKey={['sequences']}>
-                <Accordion.Item eventKey="sequences" style={{ padding: '0', margin: '0' }} >
-                    <Accordion.Header style={{ padding: '0', margin: '0' }}>Sequences</Accordion.Header>
-                    <Accordion.Body style={{ padding: '0.5rem' }}>
-                        {props.molecule.sequences && props.molecule.sequences.length > 0 ?
-                            <>
-                                <Row style={{ height: '100%' }}>
-                                    <Col>
-                                        {props.molecule.sequences.map(
-                                            sequence => {
-                                                if (!sequenceIsValid(sequence.sequence)) {
-                                                    return (
-                                                        <div>
-                                                            <p>{`Unable to parse sequence data for chain ${sequence?.chain}`}</p>
-                                                        </div>
-                                                    )
-                                                }
-                                                return (<MoorhenSequenceViewer
-                                                    key={`${props.molecule.molNo}-${sequence.chain}`}
-                                                    sequence={sequence}
-                                                    molecule={props.molecule}
-                                                    glRef={props.glRef}
-                                                    clickedResidue={clickedResidue}
-                                                    setClickedResidue={setClickedResidue}
-                                                    selectedResidues={selectedResidues}
-                                                    setSelectedResidues={setSelectedResidues}
-                                                    hoveredAtom={props.hoveredAtom}
-                                                    setHoveredAtom={props.setHoveredAtom}
-                                                />)
-                                            }
-                                        )}
-                                    </Col>
-                                </Row>
-                            </>
-                            :
-                            <div>
-                                <b>No sequence data</b>
-                            </div>
-                        }
-
-                    </Accordion.Body>
-                </Accordion.Item>
-
-                <Accordion.Item eventKey="ligands" style={{ padding: '0', margin: '0' }} >
-                    <Accordion.Header style={{ padding: '0', margin: '0' }}>Ligands</Accordion.Header>
-                    <Accordion.Body style={{ padding: '0.5rem' }}>
-                        <MoorhenLigandList commandCentre={props.commandCentre} molecule={props.molecule} glRef={props.glRef} isDark={props.isDark}/>
-                    </Accordion.Body>
-                </Accordion.Item>
-            </Accordion>
+            <div>
+                <Accordion className="moorhen-accordion"  disableGutters={true} elevation={0} TransitionProps={{ unmountOnExit: true }}>
+                        <AccordionSummary style={{backgroundColor: isDark ? '#adb5bd' : '#ecf0f1'}} expandIcon={busyLoadingSequences ? <Spinner animation='border'/> : <ExpandMoreOutlined />} >
+                            Sequences
+                        </AccordionSummary>
+                        <AccordionDetails style={{padding: '0.2rem', backgroundColor: isDark ? '#ced5d6' : 'white'}}>
+                            <MoorhenSequenceList
+                                setBusy={setBusyLoadingSequences}
+                                molecule={props.molecule}
+                                glRef={props.glRef}
+                                clickedResidue={clickedResidue}
+                                setClickedResidue={setClickedResidue}
+                                selectedResidues={selectedResidues}
+                                setSelectedResidues={setSelectedResidues}
+                            />
+                        </AccordionDetails>
+                </Accordion>
+                <Accordion className="moorhen-accordion" disableGutters={true} elevation={0} TransitionProps={{ unmountOnExit: true }}>
+                    <AccordionSummary style={{backgroundColor: isDark ? '#adb5bd' : '#ecf0f1'}} expandIcon={busyLoadingLigands ? <Spinner animation='border'/> : <ExpandMoreOutlined />} >
+                        Ligands
+                    </AccordionSummary>
+                    <AccordionDetails style={{padding: '0.2rem', backgroundColor: isDark ? '#ced5d6' : 'white'}}>
+                        <MoorhenLigandList setBusy={setBusyLoadingLigands} commandCentre={props.commandCentre} molecule={props.molecule} glRef={props.glRef}/>
+                    </AccordionDetails>
+                </Accordion>
+            </div>
             </Stack>
         </Card.Body>
     </Card >
@@ -582,7 +580,6 @@ const getChipStyle = (colourRules: moorhen.ColourRule[], repIsVisible: boolean, 
 }
 
 const RepresentationCheckbox = (props: {
-    isDark: boolean;
     showState: { [key: string]: boolean };
     repKey: string;
     isVisible: boolean;
@@ -592,15 +589,28 @@ const RepresentationCheckbox = (props: {
 }) => {
 
     const [repState, setRepState] = useState<boolean>(false)
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
 
-    const chipStyle = getChipStyle(props.molecule.defaultColourRules, repState, props.isDark)
+    const chipStyle = getChipStyle(props.molecule.defaultColourRules, repState, isDark)
+    const disabled: boolean = (
+        !props.isVisible 
+        || (props.repKey === 'ligands' && props.molecule.ligands.length === 0) 
+        || (props.repKey === 'DishyBases' && !props.molecule.hasDNA) 
+        || (props.repKey === 'glycoBlocks' && !props.molecule.hasGlycans)
+        || (props.repKey === 'restraints' && props.molecule.restraints.length === 0)
+        || (['rama', 'rotamer'].includes(props.repKey) && props.molecule.sequences.every(sequence => [3, 4, 5].includes(sequence.type)))
+    )
+    
+    if (disabled) {
+        chipStyle['opacity'] = '0.3'
+    }
 
     useEffect(() => {
         setRepState(props.showState[props.repKey] || false)
     }, [props.showState])
 
     const handleClick = useCallback(() => {
-        if (props.isVisible) {
+        if (!disabled) {
             if (repState) {
                 props.molecule.hide(props.repKey)
             }
@@ -609,7 +619,7 @@ const RepresentationCheckbox = (props: {
             }
             props.changeShowState({ key: props.repKey, state: !repState })
         }
-    }, [repState, props.isVisible])
+    }, [repState, disabled, props])
 
     return <Chip
                 style={chipStyle}
@@ -620,7 +630,9 @@ const RepresentationCheckbox = (props: {
 }
 
 const CustomRepresentationChip = (props: {
-    isDark: boolean;
+    urlPrefix: string;
+    addColourRulesAnchorDivRef: React.RefObject<HTMLDivElement>;
+    glRef: React.RefObject<webGL.MGWebGL>;
     isVisible: boolean;
     molecule: moorhen.Molecule;
     representation: moorhen.MoleculeRepresentation; 
@@ -630,28 +642,55 @@ const CustomRepresentationChip = (props: {
     const { representation, molecule, isVisible } = props
 
     const [representationIsVisible, setRepresentationIsVisible] = useState<boolean>(true)
-    
-    const chipStyle = getChipStyle(representation.colourRules, representationIsVisible, props.isDark)
+    const [showEditRepresentation, setShowEditRepresentation] = useState<boolean>(false)
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+
+    const chipStyle = getChipStyle(representation.colourRules, representationIsVisible, isDark)
     
     useEffect(() => {
         representationIsVisible ? representation.show() : representation.hide()
     }, [representationIsVisible])
 
-    const handleClick = useCallback(() => {
+    const handleVisibility = useCallback(() => {
         if (isVisible) {
             setRepresentationIsVisible(!representationIsVisible)
         }
     }, [isVisible, representationIsVisible])
 
+    const handleDelete = useCallback(() => {
+        molecule.removeRepresentation(representation.uniqueId)
+        props.changeCustomRepresentationList({action: "Remove", item: props.representation})
+    }, [molecule, props.changeCustomRepresentationList])
+
     return <Chip
         style={chipStyle}
         variant={"outlined"}
         label={`${representationLabelMapping[representation.style]} ${representation.cid}`}
-        deleteIcon={<DeleteOutlined style={{color: props.isDark ? 'white' : 'black'}}/>}
-        onDelete={() => {
-            molecule.removeRepresentation(representation.uniqueId)
-            props.changeCustomRepresentationList({action: "Remove", item: props.representation})
-        }}
-        onClick={handleClick}
+        deleteIcon={
+            <div>
+                <EditOutlined style={{color: isDark ? 'white' : '#696969'}} onClick={() => setShowEditRepresentation(true)}/>
+                <DeleteOutlined style={{color: isDark ? 'white' : '#696969'}} onClick={handleDelete}/>
+                <MoorhenAddCustomRepresentationCard
+                    mode='edit'
+                    representationId={props.representation.uniqueId}
+                    glRef={props.glRef}
+                    urlPrefix={props.urlPrefix}
+                    molecule={props.molecule}
+                    anchorEl={props.addColourRulesAnchorDivRef}
+                    initialRepresentationStyleValue={props.representation.style}
+                    initialRuleType='cid'
+                    initialApplyColourToNonCarbonAtoms={props.representation.applyColourToNonCarbonAtoms}
+                    initialColour={(!props.representation.useDefaultColourRules && !props.representation.colourRules[0]?.isMultiColourRule) ? props.representation.colourRules[0].color : '#47d65f'}
+                    initialAtomRadiusBondRatio={props.representation.bondOptions?.atomRadiusBondRatio}
+                    initialBondWidth={props.representation.bondOptions?.width}
+                    initialUseDefaultBondSettings={props.representation.useDefaultBondOptions}
+                    initialUseDefaultColoursValue={props.representation.useDefaultColourRules}
+                    initialCid={props.representation.cid}
+                    show={showEditRepresentation}
+                    setShow={setShowEditRepresentation}/>
+            </div>
+        }
+        onClick={handleVisibility}
+        onDelete={() => {}}
     />
 }

@@ -1,27 +1,34 @@
-import { useEffect, useCallback, useReducer, useRef, useState, useContext } from 'react';
-import { Container, Col, Row, Spinner, Toast, ToastContainer } from 'react-bootstrap';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
+import { Container, Col, Row, Spinner } from 'react-bootstrap';
 import { MoorhenWebMG } from './webMG/MoorhenWebMG';
-import { convertViewtoPx, getTooltipShortcutLabel, createLocalStorageInstance, allFontsSet, itemReducer } from '../utils/MoorhenUtils';
+import { getTooltipShortcutLabel, createLocalStorageInstance } from '../utils/MoorhenUtils';
 import { MoorhenCommandCentre } from "../utils/MoorhenCommandCentre"
-import { MoorhenContext } from "../utils/MoorhenContext";
 import { MoorhenTimeCapsule } from '../utils/MoorhenTimeCapsule';
 import { Backdrop } from "@mui/material";
 import { babyGruKeyPress } from '../utils/MoorhenKeyboardAccelerators';
 import { isDarkBackground } from '../WebGLgComponents/mgWebGL'
 import { MoorhenNavBar } from "./navbar-menus/MoorhenNavBar"
+import { MoorhenNotification } from './misc/MoorhenNotification';
 import { moorhen } from '../types/moorhen';
 import { webGL } from '../types/mgWebGL';
-
-const initialMoleculesState: moorhen.Molecule[] = []
-
-const initialMapsState: moorhen.Map[] = []
+import { MoorhenPreferencesContainer } from './misc/MoorhenPreferencesContainer'
+import { useSelector, useDispatch } from 'react-redux';
+import { setDefaultBackgroundColor } from '../store/sceneSettingsSlice';
+import { setBackgroundColor, setHeight, setIsDark, setWidth } from '../store/canvasStatesSlice';
+import { setCootInitialized, setNotificationContent, setTheme } from '../store/generalStatesSlice';
+import { setEnableAtomHovering, setHoveredAtom } from '../store/hoveringStatesSlice';
 
 /**
- * A container for the Moorhen app
+ * A container for the Moorhen app. Needs to be rendered within a MoorhenReduxprovider.
+ * @property {React.RefObject<webGL.mgWebGL>} [glRef] - React reference holding the webGL rendering component
+ * @property {React.RefObject<moorhen.TimeCapsule>} [timeCapsuleRef] - React reference holding an instance of MoorhenTimeCapsule which is in charge of backups
+ * @property {React.RefObject<moorhen.commandCentre>} [commandCentre] - React reference holding an instance of MoorhenCommandCentre which is in charge of communication with libcoot instance
+ * @property {React.RefObject<moorhen.Molecule[]>} [moleculesRef] - React reference holding a list of loaded MoorhenMolecule instances
+ * @property {React.RefObject<moorhen.Map[]>} [mapsRef] - React reference holding a list of loaded MoorhenMap instances
  * @property {string} [urlPrefix='.'] - The root url used to load sources from public folder
  * @property {string} [monomerLibraryPath='./baby-gru/monomers'] - A string with the path to the monomer library, relative to the root of the app
- * @property {function} forwardControls - Callback executed when coot is initialised and will return an object of type moorhen.Controls
  * @property {function} setMoorhenDimensions - Callback executed on window resize. Return type is an array of two numbers [width, height]
+ * @property {function} onUserPreferencesChange - Callback executed whenever a user-defined preference changes (key: string, value: any) => void.
  * @property {boolean} [disableFileUploads=false] - Indicates if file uploads should b disabled
  * @property {JSX.Element[]} extraNavBarMenus - A list with additional menu items rendered under the navigation menu
  * @property {JSX.Element[]} extraFileMenuItems - A list with additional menu items rendered under the "File" menu
@@ -33,74 +40,95 @@ const initialMapsState: moorhen.Map[] = []
  * @property {moorhen.LocalStorageInstance} backupStorageInstance - An interface used by the moorhen container to store session backups
  * @property {moorhen.AceDRGInstance} aceDRGInstance - An interface used by the moorhen container to execute aceDRG jobs
  * @example
- * import { useState, useReducer, useRef } from "react";
- * import { MoorhenContainer, itemReducer } from "moorhen";
+ * import { MoorhenContainer } from "moorhen";
  *
- * const initialMoleculesState = []
- * const initialMapsState = []
- * 
  * const ExampleApp = () => {
  * 
- *  const [activeMap, setActiveMap] = useState(null);
- *  const [molecules, changeMolecules] = useReducer(itemReducer, initialMoleculesState);
- *  const [maps, changeMaps] = useReducer(itemReducer, initialMapsState);
- * 
  *  const doClick = (evt) => { console.log('Click!') }
+ * 
  *  const exportMenuItem =  <MenuItem key={'example-key'} id='example-menu-item' onClick={doClick}>
  *                              Example extra menu
  *                          </MenuItem>
- * 
- *  const moleculesRef = useRef(null);
- *  const mapsRef = useRef(null);
- *  const activeMapRef = useRef(null);
- * 
- *  moleculesRef.current = molecules;
- *  mapsRef.current = maps;
- *  activeMapRef.current = activeMap;
- * 
- *  const forwardCollectedControls = (controls) => { console.log(controls) }
- * 
- *  return <MoorhenContainer
- *    moleculesRef={moleculesRef}
- *    mapsRef={mapsRef}
- *    allowScripting={false}
- *    extraFileMenuItems={[exportMenuItem]}
- *    forwardControls={forwardCollectedControls}
- *  />
+ *  
+ * const setDimensions = () => {
+ *   return [window.innerWidth, window.innerHeight]
  * }
+ *  
+ * return <MoorhenReduxProvider> 
+ *              <MoorhenContainer
+ *                  allowScripting={false}
+ *                  setMoorhenDimensions={setDimensions}
+ *                  extraFileMenuItems={[exportMenuItem]}/>
+ *          </MoorhenReduxProvider>
+ * 
  */
 export const MoorhenContainer = (props: moorhen.ContainerProps) => {
+    
     const innerGlRef = useRef<null | webGL.MGWebGL>(null)
+    const innerVideoRecorderRef = useRef<null | moorhen.ScreenRecorder>(null);
     const innerTimeCapsuleRef = useRef<null | moorhen.TimeCapsule>(null);
     const innnerCommandCentre = useRef<null | moorhen.CommandCentre>(null)
     const innerMoleculesRef = useRef<null | moorhen.Molecule[]>(null)
     const innerMapsRef = useRef<null | moorhen.Map[]>(null)
     const innerActiveMapRef = useRef<null | moorhen.Map>(null)
-    const innerConsoleDivRef = useRef<null | HTMLDivElement>(null)
-    const innerLastHoveredAtom = useRef<null | moorhen.HoveredAtom>(null)
-    const innerPrevActiveMoleculeRef = useRef<null |  moorhen.Molecule>(null)
-    const innerContext = useContext<undefined | moorhen.Context>(MoorhenContext);
-    const [innerActiveMap, setInnerActiveMap] = useState<null | moorhen.Map>(null)
-    const [innerActiveMolecule, setInnerActiveMolecule] = useState<null|  moorhen.Molecule>(null)
-    const [innerHoveredAtom, setInnerHoveredAtom] = useState<null | moorhen.HoveredAtom>({ molecule: null, cid: null })
-    const [innerConsoleMessage, setInnerConsoleMessage] = useState<string>("")
-    const [innerCursorStyle, setInnerCursorStyle] = useState<string>("default")
-    const [innerBusy, setInnerBusy] = useState<boolean>(false)
-    const [innerWindowWidth, setInnerWindowWidth] = useState<number>(window.innerWidth)
-    const [innerWindowHeight, setInnerWindowHeight] = useState<number>(window.innerHeight)
-    const [innerMolecules, innerChangeMolecules] = useReducer(itemReducer, initialMoleculesState)
-    const [innerMaps, innerChangeMaps] = useReducer(itemReducer, initialMapsState)
-    const [innerBackgroundColor, setInnerBackgroundColor] = useState<[number, number, number, number]>([1, 1, 1, 1])
-    const [innerAppTitle, setInnerAppTitle] = useState<string>('Moorhen')
-    const [innerCootInitialized, setInnerCootInitialized] = useState<boolean>(false)
-    const [innerTheme, setInnerTheme] = useState<string>("flatly")
-    const [innerShowToast, setInnerShowToast] = useState<boolean>(false)
-    const [innerToastContent, setInnerToastContent] = useState<null | JSX.Element>(null)
-    const [innerAvailableFonts, setInnerAvailableFonts] = useState<string[]>([])
+    const innerlastHoveredAtomRef = useRef<null | moorhen.HoveredAtom>(null)
     
-    innerMoleculesRef.current = innerMolecules as moorhen.Molecule[]
-    innerMapsRef.current = innerMaps as moorhen.Map[]
-    innerActiveMapRef.current = innerActiveMap
+    const dispatch = useDispatch()
+    const maps = useSelector((state: moorhen.State) => state.maps)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
+    const cursorStyle = useSelector((state: moorhen.State) => state.hoveringStates.cursorStyle)
+    const hoveredAtom = useSelector((state: moorhen.State) => state.hoveringStates.hoveredAtom)
+    const cootInitialized = useSelector((state: moorhen.State) => state.generalStates.cootInitialized)
+    const theme = useSelector((state: moorhen.State) => state.generalStates.theme)
+    const backgroundColor = useSelector((state: moorhen.State) => state.canvasStates.backgroundColor)
+    const height = useSelector((state: moorhen.State) => state.canvasStates.height)
+    const width = useSelector((state: moorhen.State) => state.canvasStates.width)
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+    const notificationContent = useSelector((state: moorhen.State) => state.generalStates.notificationContent)
+    const userPreferencesMounted = useSelector((state: moorhen.State) => state.generalStates.userPreferencesMounted)
+    const drawMissingLoops = useSelector((state: moorhen.State) => state.sceneSettings.drawMissingLoops)
+    const shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
+    const shortcutOnHoveredAtom = useSelector((state: moorhen.State) => state.shortcutSettings.shortcutOnHoveredAtom)
+    const showShortcutToast = useSelector((state: moorhen.State) => state.shortcutSettings.showShortcutToast)
+    const defaultMapSamplingRate = useSelector((state: moorhen.State) => state.mapSettings.defaultMapSamplingRate)
+    const defaultBackgroundColor = useSelector((state: moorhen.State) => state.sceneSettings.defaultBackgroundColor)
+    const makeBackups = useSelector((state: moorhen.State) => state.backupSettings.makeBackups)
+    const maxBackupCount = useSelector((state: moorhen.State) => state.backupSettings.maxBackupCount)
+    const modificationCountBackupThreshold = useSelector((state: moorhen.State) => state.backupSettings.modificationCountBackupThreshold)
+    const activeMap = useSelector((state: moorhen.State) => state.generalStates.activeMap)
+   
+    const innerStatesMap: moorhen.ContainerRefs = {
+        glRef: innerGlRef, timeCapsuleRef: innerTimeCapsuleRef, commandCentre: innnerCommandCentre,
+        moleculesRef: innerMoleculesRef, mapsRef: innerMapsRef, activeMapRef: innerActiveMapRef,
+        lastHoveredAtomRef: innerlastHoveredAtomRef, videoRecorderRef: innerVideoRecorderRef,
+    }
+
+    let refs = {} as moorhen.ContainerRefs
+    Object.keys(innerStatesMap).forEach(key => {
+        refs[key] = props[key] ? props[key] : innerStatesMap[key]
+    })
+
+    const { 
+        glRef, timeCapsuleRef, commandCentre, moleculesRef, mapsRef, activeMapRef, videoRecorderRef, lastHoveredAtomRef, 
+    } = refs
+
+    activeMapRef.current = activeMap
+    moleculesRef.current = molecules
+    mapsRef.current = maps
+
+    const {
+        disableFileUploads, urlPrefix, extraNavBarMenus, viewOnly, extraDraggableModals, 
+        monomerLibraryPath, extraFileMenuItems, allowScripting, backupStorageInstance,
+        extraEditMenuItems, aceDRGInstance, extraCalculateMenuItems, setMoorhenDimensions,
+        onUserPreferencesChange
+    } = props
+
+    const collectedProps: moorhen.CollectedProps = {
+        glRef, commandCentre, timeCapsuleRef, disableFileUploads, extraDraggableModals, aceDRGInstance, 
+        urlPrefix, viewOnly, mapsRef, allowScripting, extraCalculateMenuItems, extraEditMenuItems,
+        extraNavBarMenus, monomerLibraryPath, moleculesRef, extraFileMenuItems, activeMapRef,
+        videoRecorderRef, lastHoveredAtomRef, onUserPreferencesChange
+    }
     
     useEffect(() => {
         let head = document.head
@@ -110,144 +138,106 @@ export const MoorhenContainer = (props: moorhen.ContainerProps) => {
         style.async = true
         style.type = 'text/css'
         head.appendChild(style)
-        
     }, [])
 
-    useEffect(() => {
-        const fetchAvailableFonts = async () => {
-            await document.fonts.ready;
-            const fontAvailable: string[] = []
-            allFontsSet.forEach((font: string) => {
-                if (document.fonts.check(`12px "${font}"`)) {
-                    fontAvailable.push(font);
-                }    
-            })
-            setInnerAvailableFonts(Array.from(fontAvailable))  
-        }
-
-        fetchAvailableFonts()
-
-    }, [])
-
-    const innerStatesMap: moorhen.ContainerStates = {
-        glRef: innerGlRef, timeCapsuleRef: innerTimeCapsuleRef, commandCentre: innnerCommandCentre,
-        moleculesRef: innerMoleculesRef, mapsRef: innerMapsRef, activeMapRef: innerActiveMapRef,
-        consoleDivRef: innerConsoleDivRef, lastHoveredAtom: innerLastHoveredAtom, 
-        prevActiveMoleculeRef: innerPrevActiveMoleculeRef, context: innerContext,
-        activeMap: innerActiveMap, setActiveMap: setInnerActiveMap, activeMolecule: innerActiveMolecule,
-        setActiveMolecule: setInnerActiveMolecule, hoveredAtom: innerHoveredAtom, setHoveredAtom: setInnerHoveredAtom,
-        consoleMessage: innerConsoleMessage, setConsoleMessage: setInnerConsoleMessage, cursorStyle: innerCursorStyle,
-        setCursorStyle: setInnerCursorStyle, busy: innerBusy, setBusy: setInnerBusy, windowHeight: innerWindowHeight, 
-        windowWidth: innerWindowWidth, setWindowWidth: setInnerWindowWidth, maps: innerMaps as moorhen.Map[],
-        changeMaps: innerChangeMaps, setWindowHeight: setInnerWindowHeight, molecules: innerMolecules as moorhen.Molecule[],
-        changeMolecules: innerChangeMolecules, backgroundColor: innerBackgroundColor, setBackgroundColor: setInnerBackgroundColor,
-        appTitle: innerAppTitle, setAppTitle: setInnerAppTitle, cootInitialized: innerCootInitialized, 
-        setCootInitialized: setInnerCootInitialized, theme: innerTheme, setTheme: setInnerTheme,
-        showToast: innerShowToast, setShowToast: setInnerShowToast, toastContent: innerToastContent, 
-        setToastContent: setInnerToastContent, availableFonts: innerAvailableFonts,
-        setAvailableFonts: setInnerAvailableFonts,
-    }
-
-    let states = {} as moorhen.ContainerStates
-    Object.keys(innerStatesMap).forEach(key => {
-        states[key] = props[key] ? props[key] : innerStatesMap[key]
-    })
-
-    const { glRef, timeCapsuleRef, commandCentre, moleculesRef, mapsRef, activeMapRef,
-        consoleDivRef, lastHoveredAtom, prevActiveMoleculeRef, context, activeMap, 
-        setActiveMap, activeMolecule, setActiveMolecule, hoveredAtom, setHoveredAtom,
-        consoleMessage, setConsoleMessage, cursorStyle, setCursorStyle, busy, setBusy,
-        windowWidth, setWindowWidth, windowHeight, setWindowHeight, molecules, 
-        backgroundColor, setBackgroundColor, availableFonts, setAvailableFonts,
-        appTitle, setAppTitle, cootInitialized, setCootInitialized, theme, setTheme,
-        showToast, setShowToast, toastContent, setToastContent, changeMolecules,
-        maps, changeMaps
-    } = states
-
-    const {
-        disableFileUploads, urlPrefix, extraNavBarMenus, viewOnly, extraDraggableModals, 
-        monomerLibraryPath, forwardControls, extraFileMenuItems, allowScripting, backupStorageInstance,
-        extraEditMenuItems, aceDRGInstance, extraCalculateMenuItems, setMoorhenDimensions
-    } = props
-    
-    const setWindowDimensions = () => {
+    const setWindowDimensions = useCallback(() => {
+        let [ newWidth, newHeight ]: [number, number] = [window.innerWidth, window.innerHeight]
         if (setMoorhenDimensions) {
-            const [ width, height ] = setMoorhenDimensions()
-            setWindowWidth(width)
-            setWindowHeight(height)
-        } else {
-            setWindowWidth(window.innerWidth)
-            setWindowHeight(window.innerHeight)
+            [ newWidth, newHeight ] = setMoorhenDimensions()
+        } 
+        if (width !== newWidth) {
+            dispatch(setWidth(newWidth))
         }
-    }
+        if (height !== newHeight) {
+            dispatch(setHeight(newHeight))
+        }
+    }, [width, height])
 
-    //The purpose here is to return the functions that define and control MoorhenContainer state to a 
-    //containing React component
     useEffect(() => {
-        if (cootInitialized && forwardControls) {
-            forwardControls(collectedProps)
+        window.addEventListener('resize', setWindowDimensions)
+        return () => {
+            window.removeEventListener('resize', setWindowDimensions)
         }
-    }, [cootInitialized, forwardControls])
+    }, [setWindowDimensions])
 
     useEffect(() => {
         const initTimeCapsule = async () => {
-            if (context.isMounted) {
-                timeCapsuleRef.current = new MoorhenTimeCapsule(moleculesRef, mapsRef, activeMapRef, glRef, context)
+            if (userPreferencesMounted) {
+                timeCapsuleRef.current = new MoorhenTimeCapsule(moleculesRef, mapsRef, activeMapRef, glRef)
                 timeCapsuleRef.current.storageInstance = backupStorageInstance
-                timeCapsuleRef.current.maxBackupCount = context.maxBackupCount
-                timeCapsuleRef.current.modificationCountBackupThreshold = context.modificationCountBackupThreshold
+                timeCapsuleRef.current.maxBackupCount = maxBackupCount
+                timeCapsuleRef.current.modificationCountBackupThreshold = modificationCountBackupThreshold
                 await timeCapsuleRef.current.init()
             }
         }
         initTimeCapsule()
-    }, [context.isMounted])
+    }, [userPreferencesMounted])
     
     useEffect(() => {
-        if (cootInitialized && context.isMounted) {
-            const shortCut = JSON.parse(context.shortCuts as string).show_shortcuts
-            setToastContent(
-                <h4 style={{margin: 0}}>
-                    {`Press ${getTooltipShortcutLabel(shortCut)} to show help`}
-                </h4>
+        const onCootInitialized = async () => {
+            if (cootInitialized && userPreferencesMounted) {
+                await commandCentre.current.cootCommand({
+                    command: 'set_map_sampling_rate',
+                    commandArgs: [defaultMapSamplingRate],
+                    returnType: 'status'
+                }, false)
+    
+                const shortCut = JSON.parse(shortCuts as string).show_shortcuts
+                dispatch(setNotificationContent(
+                    <MoorhenNotification key={'initial-notification'} hideDelay={5000} width={20}>
+                        <h4 style={{margin: 0}}>
+                            {`Press ${getTooltipShortcutLabel(shortCut)} to show help`}
+                        </h4>
+                    </MoorhenNotification>
+                ))
+            }
+        }
+        
+        onCootInitialized()
+
+    }, [cootInitialized, userPreferencesMounted])
+
+    useEffect(() => {
+        if (userPreferencesMounted && defaultBackgroundColor !== backgroundColor) {
+            dispatch(
+                setBackgroundColor(defaultBackgroundColor)
             )
         }
-    }, [cootInitialized, context.isMounted])
-
-    useEffect(() => {
-        if (context.isMounted && context.defaultBackgroundColor !== backgroundColor) {
-            setBackgroundColor(context.defaultBackgroundColor)
-        }
         
-    }, [context.isMounted])
+    }, [userPreferencesMounted])
 
-    useEffect(() => {
-        if (!context.isMounted) {
-            return
-        }
-        
+    useMemo(() => {
         let head = document.head;
         let style: any = document.createElement("link");
-        const isDark = isDarkBackground(...backgroundColor)
 
         if (isDark) {
             style.href = `${urlPrefix}/baby-gru/darkly.css`
-            setTheme("darkly")
         } else {
             style.href = `${urlPrefix}/baby-gru/flatly.css`
-            setTheme("flatly")
         }
         
-        if (context.defaultBackgroundColor !== backgroundColor) {
-            context.setDefaultBackgroundColor(backgroundColor)
-        }
-
         style.rel = "stylesheet";
         style.async = true
         style.type = 'text/css'
 
         head.appendChild(style);
         return () => { head.removeChild(style); }
+    }, [isDark])
 
+    useEffect(() => {
+        if (!userPreferencesMounted) {
+            return
+        }
+        
+        const _isDark = isDarkBackground(...backgroundColor)
+        
+        if (defaultBackgroundColor !== backgroundColor) {
+            dispatch( setDefaultBackgroundColor(backgroundColor) )
+        }
+        if (isDark !== _isDark) {
+            dispatch( setIsDark(_isDark) )
+            dispatch( setTheme(_isDark ? "darkly" : "flatly") )
+        }
 
     }, [backgroundColor])
 
@@ -255,166 +245,143 @@ export const MoorhenContainer = (props: moorhen.ContainerProps) => {
         async function setMakeBackupsAPI() {
             await commandCentre.current.cootCommand({
                 command: 'set_make_backups',
-                commandArgs: [context.makeBackups],
+                commandArgs: [makeBackups],
                 returnType: "status"
             }, false)
         }
 
-        if (commandCentre.current && context.makeBackups !== null && cootInitialized) {
+        if (commandCentre.current && makeBackups !== null && cootInitialized) {
             setMakeBackupsAPI()
         }
 
-    }, [context.makeBackups, cootInitialized])
+    }, [makeBackups, cootInitialized])
 
     useEffect(() => {
         async function setDrawMissingLoopAPI() {
             await commandCentre.current.cootCommand({
                 command: 'set_draw_missing_residue_loops',
-                commandArgs: [context.drawMissingLoops],
+                commandArgs: [drawMissingLoops],
                 returnType: "status"
             }, false)
         }
 
-        if (commandCentre.current && context.drawMissingLoops !== null && cootInitialized) {
+        if (commandCentre.current && drawMissingLoops !== null && cootInitialized) {
             setDrawMissingLoopAPI()
         }
 
-    }, [context.drawMissingLoops, cootInitialized])
+    }, [drawMissingLoops, cootInitialized])
 
     useEffect(() => {
         setWindowDimensions()
         commandCentre.current = new MoorhenCommandCentre(urlPrefix, glRef, timeCapsuleRef, {
-            onActiveMessagesChanged: (newActiveMessages) => {
-                setBusy(newActiveMessages.length !== 0)
-            },
             onCootInitialized: () => {
-                setCootInitialized(true)
+                dispatch( setCootInitialized(true) )
             },
         })
-        window.addEventListener('resize', setWindowDimensions)
         return () => {
-            window.removeEventListener('resize', setWindowDimensions)
             commandCentre.current.unhook()
         }
     }, [])
 
     useEffect(() => {
-        if(consoleDivRef.current !== null) {
-            consoleDivRef.current.scrollTop = consoleDivRef.current.scrollHeight;
+        const checkMoleculeSizes = async () => {
+            const moleculeAtomCounts = await Promise.all(
+                molecules.filter(molecule => !molecule.atomCount).map(molecule => molecule.getNumberOfAtoms())
+            )
+            const totalAtomCount = moleculeAtomCounts.reduce((partialAtomCount, atomCount) => partialAtomCount + atomCount, 0)
+            if (totalAtomCount >= 80000) {
+                dispatch( setEnableAtomHovering(false) )
+            }
         }
-    }, [consoleMessage])
+        checkMoleculeSizes()
+    }, [molecules])
 
     const onAtomHovered = useCallback((identifier: { buffer: { id: string; }; atom: { label: string; }; }) => {
         if (identifier == null) {
-            if (lastHoveredAtom.current !== null && lastHoveredAtom.current.molecule !== null) {
-                setHoveredAtom({ molecule: null, cid: null })
+            if (lastHoveredAtomRef.current !== null && lastHoveredAtomRef.current.molecule !== null) {
+                dispatch( setHoveredAtom({ molecule: null, cid: null }) )
             }
         }
         else {
             molecules.forEach(molecule => {
                 if (molecule.buffersInclude(identifier.buffer)) {
                     if (molecule !== hoveredAtom.molecule || identifier.atom.label !== hoveredAtom.cid) {
-                        setHoveredAtom({ molecule: molecule, cid: identifier.atom.label })
+                        dispatch( setHoveredAtom({ molecule: molecule, cid: identifier.atom.label }) )
                     }
                 }
             })
         }
     }, [molecules])
 
-    useEffect(() => {
-        if (toastContent) setShowToast(true)
-    }, [toastContent])
-
     //Make this so that the keyPress returns true or false, depending on whether mgWebGL is to continue processing event
     const onKeyPress = useCallback((event: KeyboardEvent) => {
-        return babyGruKeyPress(event, collectedProps, JSON.parse(context.shortCuts as string))
-    }, [molecules, activeMolecule, activeMap, hoveredAtom, viewOnly, context])
+        return babyGruKeyPress(
+            event,
+            {
+                ...collectedProps,
+                molecules,
+                isDark,
+                windowWidth: width,
+                activeMap,
+                hoveredAtom,
+                setHoveredAtom: (newVal) => dispatch(setHoveredAtom(newVal)),
+                setNotificationContent: (newVal) => dispatch(setNotificationContent(newVal))
+            },
+            JSON.parse(shortCuts as string),
+            showShortcutToast,
+            shortcutOnHoveredAtom
+        )
+    }, [molecules, activeMap, hoveredAtom, viewOnly, shortCuts, showShortcutToast, shortcutOnHoveredAtom, width, isDark])
 
     useEffect(() => {
         if (hoveredAtom && hoveredAtom.molecule && hoveredAtom.cid) {
-            if (lastHoveredAtom.current == null ||
-                hoveredAtom.molecule !== lastHoveredAtom.current.molecule ||
-                hoveredAtom.cid !== lastHoveredAtom.current.cid
+            if (lastHoveredAtomRef.current == null ||
+                hoveredAtom.molecule !== lastHoveredAtomRef.current.molecule ||
+                hoveredAtom.cid !== lastHoveredAtomRef.current.cid
             ) {
                 hoveredAtom.molecule.drawHover(hoveredAtom.cid)
                 //if we have changed molecule, might have to clean up hover display item of previous molecule
             }
         }
 
-        if (lastHoveredAtom.current !== null &&
-            lastHoveredAtom.current.molecule !== null &&
-            lastHoveredAtom.current.molecule !== hoveredAtom.molecule
+        if (lastHoveredAtomRef.current !== null &&
+            lastHoveredAtomRef.current.molecule !== null &&
+            lastHoveredAtomRef.current.molecule !== hoveredAtom.molecule
         ) {
-            lastHoveredAtom.current.molecule.clearBuffersOfStyle("hover")
+            lastHoveredAtomRef.current.molecule.clearBuffersOfStyle("hover")
         }
 
-        lastHoveredAtom.current = hoveredAtom
+        lastHoveredAtomRef.current = hoveredAtom
     }, [hoveredAtom])
 
     useEffect(() => {
         glResize()
-    }, [windowHeight, windowWidth])
+    }, [width, height])
 
     useEffect(() => {
         if (activeMap && commandCentre.current) {
-            commandCentre.current.cootCommand({
-                returnType: "status",
-                command: "set_imol_refinement_map",
-                commandArgs: [activeMap.molNo]
-            }, false)
+            activeMap.setActive()
         }
     }, [activeMap])
 
-    useEffect(() => {
-        function resetActiveGL() {
-            prevActiveMoleculeRef.current = activeMolecule;
-            if (activeMolecule)
-                glRef.current.setActiveMolecule(activeMolecule)
-            else
-                glRef.current.setActiveMolecule(null)
-        }
-        if (prevActiveMoleculeRef.current) {
-            prevActiveMoleculeRef.current.applyTransform().then(() => resetActiveGL())
-        } else {
-            resetActiveGL()
-        }
-    }, [activeMolecule])
-
     const glResize = () => {
-        glRef.current.resize(windowWidth, windowHeight)
+        glRef.current.resize(width, height)
         glRef.current.drawScene()
-    }
-
-    const webGLWidth = () => {
-        return windowWidth
-    }
-
-    const webGLHeight = () => {
-        return windowHeight
-    }
-
-    const isDark = isDarkBackground(...backgroundColor)
-
-    const collectedProps: moorhen.Controls = {
-        molecules, changeMolecules, appTitle, setAppTitle, maps, changeMaps, glRef, activeMolecule, setActiveMolecule,
-        activeMap, setActiveMap, commandCentre, backgroundColor, setBackgroundColor, toastContent, 
-        setToastContent, hoveredAtom, setHoveredAtom, showToast, setShowToast, windowWidth, windowHeight,
-        timeCapsuleRef, isDark, disableFileUploads, urlPrefix, viewOnly, mapsRef, allowScripting, extraCalculateMenuItems,
-        extraNavBarMenus, monomerLibraryPath, moleculesRef, extraFileMenuItems, extraEditMenuItems, 
-        extraDraggableModals, aceDRGInstance, availableFonts, ...context
     }
 
     return <> 
     <div>
-        <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={!cootInitialized}>
+        <Backdrop sx={{ color: '#fff', zIndex: (_theme) => _theme.zIndex.drawer + 1 }} open={!cootInitialized}>
             <Spinner animation="border" style={{ marginRight: '0.5rem' }}/>
             <span>Starting moorhen...</span>
         </Backdrop>
         
-        <MoorhenNavBar {...collectedProps} busy={busy}/>
+        <MoorhenNavBar {...collectedProps}/>
         
     </div>
-    
+
+    <MoorhenPreferencesContainer onUserPreferencesChange={onUserPreferencesChange}/>
+
     <Container fluid className={`baby-gru ${theme}`}>
         <Row>
             <Col style={{ paddingLeft: '0', paddingRight: '0' }}>
@@ -426,51 +393,32 @@ export const MoorhenContainer = (props: moorhen.ContainerProps) => {
                             ${255 * backgroundColor[1]},
                             ${255 * backgroundColor[2]}, 
                             ${backgroundColor[3]})`,
-                        cursor: cursorStyle, margin: 0, padding: 0, height: Math.floor(windowHeight),
+                        cursor: cursorStyle, margin: 0, padding: 0, height: Math.floor(height),
                     }}>
                     <MoorhenWebMG
                         ref={glRef}
                         monomerLibraryPath={monomerLibraryPath}
                         timeCapsuleRef={timeCapsuleRef}
                         commandCentre={commandCentre}
-                        molecules={molecules}
-                        changeMolecules={changeMolecules}
-                        maps={maps}
-                        changeMaps={changeMaps}
-                        width={webGLWidth}
-                        height={webGLHeight}
-                        backgroundColor={backgroundColor}
-                        setBackgroundColor={setBackgroundColor}
-                        isDark={isDark}
                         onAtomHovered={onAtomHovered}
                         onKeyPress={onKeyPress}
-                        hoveredAtom={hoveredAtom}
-                        context={context}
-                        windowHeight={windowHeight}
-                        windowWidth={windowWidth}
                         urlPrefix={urlPrefix}
-                        activeMap={activeMap}
                         viewOnly={viewOnly}
                         extraDraggableModals={extraDraggableModals}
+                        videoRecorderRef={videoRecorderRef}
                     />
                 </div>
             </Col>
         </Row>
-        <ToastContainer style={{ marginTop: "5rem", maxWidth: '20rem' }} position='top-center' >
-            <Toast className='shadow-none hide-scrolling' onClose={() => setShowToast(false)} autohide={true} delay={5000} show={showToast} style={{overflowY: 'scroll', maxHeight: convertViewtoPx(80, windowHeight)}}>
-                <Toast.Header className="stop-scrolling" closeButton={false} style={{justifyContent:'center'}}>
-                    {toastContent}
-                </Toast.Header>
-            </Toast>
-        </ToastContainer>
+        {notificationContent}
     </Container>
     </>
 }
 
 MoorhenContainer.defaultProps = {
+    onUserPreferencesChange: () => {},
     urlPrefix: '.',
     monomerLibraryPath: './baby-gru/monomers',
-    forwardControls: () => {},
     setMoorhenDimensions: null,
     disableFileUploads: false,
     extraNavBarMenus: [],

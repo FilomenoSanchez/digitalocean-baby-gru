@@ -5,27 +5,30 @@ import { MoorhenMoleculeSelect } from "../select/MoorhenMoleculeSelect";
 import { MoorhenMolecule } from "../../utils/MoorhenMolecule";
 import { moorhen } from "../../types/moorhen";
 import { webGL } from "../../types/mgWebGL";
+import { useSelector, useDispatch } from 'react-redux';
+import { addMolecule } from "../../store/moleculesSlice";
 
 export const MoorhenGetMonomerMenuItem = (props: {
     glRef: React.RefObject<webGL.MGWebGL>
     popoverPlacement?: 'left' | 'right'
-    molecules: moorhen.Molecule[];
-    defaultBondSmoothness: number;
-    changeMolecules: (arg0: moorhen.MolChange<moorhen.Molecule>) => void;
     commandCentre: React.RefObject<moorhen.CommandCentre>;
     monomerLibraryPath: string;
     setPopoverIsShown: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
 
+    const dispatch = useDispatch()
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
+    const defaultBondSmoothness = useSelector((state: moorhen.State) => state.sceneSettings.defaultBondSmoothness)
+
     const tlcRef = useRef<HTMLInputElement>()
     const selectRef = useRef<HTMLSelectElement | null>(null)
 
     const panelContent = <>
-        <Form.Group style={{ width: '20rem', margin: '0.5rem' }} controlId="MoorhenGetMonomerMenuItem" className="mb-3">
+        <Form.Group className='moorhen-form-group' controlId="MoorhenGetMonomerMenuItem">
             <Form.Label>Monomer identifier</Form.Label>
             <Form.Control ref={tlcRef} type="text" />
         </Form.Group>
-        <MoorhenMoleculeSelect {...props} allowAny={true} ref={selectRef} />
+        <MoorhenMoleculeSelect molecules={molecules} allowAny={true} ref={selectRef} />
     </>
 
 
@@ -59,8 +62,8 @@ export const MoorhenGetMonomerMenuItem = (props: {
             newMolecule.molNo = result.data.result.result
             newMolecule.name = newTlc
             newMolecule.setBackgroundColour(props.glRef.current.background_colour)
-            newMolecule.defaultBondOptions.smoothness = props.defaultBondSmoothness
-            const fromMolecule = props.molecules.find(molecule => molecule.molNo === fromMolNo)
+            newMolecule.defaultBondOptions.smoothness = defaultBondSmoothness
+            const fromMolecule = molecules.find(molecule => molecule.molNo === fromMolNo)
             if (typeof fromMolecule !== 'undefined') {
                 const ligandDict = fromMolecule.getDict(newTlc)
                 if (ligandDict) {
@@ -68,10 +71,9 @@ export const MoorhenGetMonomerMenuItem = (props: {
                 }
             }
             await newMolecule.fetchIfDirtyAndDraw('CBs')
-            props.changeMolecules({ action: "Add", item: newMolecule })
+            dispatch( addMolecule(newMolecule) )
         } else {
             console.log('Error getting monomer... Missing dictionary?')
-            props.commandCentre.current.extendConsoleMessage('Error getting monomer... Missing dictionary?')
         }
     }
 

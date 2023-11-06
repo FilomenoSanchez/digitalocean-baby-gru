@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from "react"
 import { Button, FormLabel, FormSelect, Stack } from "react-bootstrap"
 import { moorhen } from "../../types/moorhen";
 import { webGL } from "../../types/mgWebGL";
+import { useSelector } from "react-redux";
 
 const MoorhenPopoverOptions = (props: {
     showContextMenu: false | moorhen.AtomRightClickEventInfo;
@@ -66,16 +67,12 @@ MoorhenPopoverOptions.defaultProps = {extraInput: () => null, nonCootCommand: fa
   
 
 export const MoorhenContextButtonBase = (props: {
-    isDark: boolean;
     commandCentre: React.RefObject<moorhen.CommandCentre>;
     selectedMolecule: moorhen.Molecule;
     chosenAtom: moorhen.ResidueSpec;
-    activeMap: moorhen.Map;
-    enableRefineAfterMod: boolean;
     refineAfterMod?: boolean;
     needsMapData?: boolean;
     needsAtomData?: boolean;
-    molecules: moorhen.Molecule[];
     nonCootCommand?: (arg0: moorhen.Molecule, arg1: moorhen.ResidueSpec, arg2?: string) => Promise<void>;
     glRef: React.RefObject<webGL.MGWebGL>;
     cootCommandInput?: moorhen.cootCommandKwargs;
@@ -100,6 +97,11 @@ export const MoorhenContextButtonBase = (props: {
     };
 }) => {
     
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
+    const enableRefineAfterMod = useSelector((state: moorhen.State) => state.miscAppSettings.enableRefineAfterMod)
+    const activeMap = useSelector((state: moorhen.State) => state.generalStates.activeMap)
+
     const doEdit = async (cootCommandInput: moorhen.cootCommandKwargs) => {
         const cootResult = await props.commandCentre.current.cootCommand(cootCommandInput, true)
         
@@ -107,7 +109,7 @@ export const MoorhenContextButtonBase = (props: {
             props.onCompleted(props.selectedMolecule, props.chosenAtom)
         }
         
-        if (props.refineAfterMod && props.enableRefineAfterMod && props.activeMap) {
+        if (props.refineAfterMod && enableRefineAfterMod && activeMap) {
             try {
                 await props.commandCentre.current.cootCommand({
                     returnType: "status",
@@ -149,21 +151,11 @@ export const MoorhenContextButtonBase = (props: {
     
     return <>
         <IconButton 
+            className="moorhen-context-button"
             onClick={handleClick}
             onMouseEnter={() => props.setToolTip(props.toolTipLabel)}
-            style={{
-                boxShadow: '0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12)',
-                width:'4rem',
-                height: '4rem',
-                marginTop: '0.5rem',
-                marginRight: '0.5rem',
-                paddingRight: '0.5rem',
-                paddingTop: '0.5rem',
-                paddingBottom: '0.5rem',
-                paddingLeft: '0.5rem',
-                backgroundColor: props.isDark ? 'grey' : 'white'
-            }}
-            disabled={props.needsMapData && !props.activeMap || (props.needsAtomData && props.molecules.length === 0)}
+            style={{ backgroundColor: isDark ? 'grey' : 'white' }}
+            disabled={props.needsMapData && !activeMap || (props.needsAtomData && molecules.length === 0)}
         >
             {props.icon}
         </IconButton>

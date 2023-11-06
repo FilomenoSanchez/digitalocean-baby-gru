@@ -3,10 +3,12 @@ import { getTooltipShortcutLabel } from "../../utils/MoorhenUtils"
 import { moorhen } from "../../types/moorhen";
 import { MoorhenContextButtonBase } from "./MoorhenContextButtonBase";
 import { MoorhenEditButtonBase } from "./MoorhenEditButtonBase";
+import { useSelector } from "react-redux";
 
 export const MoorhenEigenFlipLigandButton = (props: moorhen.EditButtonProps | moorhen.ContextButtonProps) => {
 
     const [toolTipLabel, setToolTipLabel] = useState("Eigen Flip: flip the ligand around its eigenvectors")
+    const shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
 
     const getCootCommandInput = (selectedMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, localParameters?: string): moorhen.cootCommandKwargs => {
         return {
@@ -19,17 +21,17 @@ export const MoorhenEigenFlipLigandButton = (props: moorhen.EditButtonProps | mo
     }
 
     useEffect(() => {
-        if (props.shortCuts) {
-            const shortCut = JSON.parse(props.shortCuts as string).eigen_flip
+        if (shortCuts) {
+            const shortCut = JSON.parse(shortCuts as string).eigen_flip
             setToolTipLabel(`Eigen Flip: flip the ligand around its eigenvectors ${getTooltipShortcutLabel(shortCut)}`)
         }
-    }, [props.shortCuts])
+    }, [shortCuts])
 
 
     if (props.mode === 'context') {
 
         return <MoorhenContextButtonBase 
-                    icon={<img style={{padding:'0.1rem', width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/spin-view.svg`} alt='Eigen flip'/>}
+                    icon={<img className="moorhen-context-button__icon" src={`${props.urlPrefix}/baby-gru/pixmaps/spin-view.svg`} alt='Eigen flip'/>}
                     toolTipLabel={toolTipLabel}
                     cootCommandInput={getCootCommandInput(props.selectedMolecule, props.chosenAtom)}
                     {...props}

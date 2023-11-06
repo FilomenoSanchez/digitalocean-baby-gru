@@ -333,6 +333,7 @@ var mapMoleculeCentreInfoToJSObject = function (mapMoleculeCentreInfo) {
             updatedCentre.z()
         ],
         success: mapMoleculeCentreInfo.success,
+        suggested_radius: mapMoleculeCentreInfo.suggested_radius,
         suggested_contour_level: mapMoleculeCentreInfo.suggested_contour_level
     };
     updatedCentre["delete"]();
@@ -419,6 +420,27 @@ var mmrrccStatsToJSArray = function (mmrrccStats) {
     };
     first["delete"]();
     second["delete"]();
+    return returnResult;
+};
+var atomSpecToJSArray = function (atomSpecs) {
+    var returnResult = [];
+    var atomsSize = atomSpecs.size();
+    for (var ic = 0; ic < atomsSize; ic++) {
+        var atom = atomSpecs.get(ic);
+        returnResult.push({
+            chain_id: atom.chain_id,
+            res_no: atom.res_no,
+            ins_code: atom.ins_code,
+            atom_name: atom.atom_name,
+            alt_conf: atom.alt_conf,
+            int_user_data: atom.int_user_data,
+            float_user_data: atom.float_user_data,
+            string_user_data: atom.string_user_data,
+            model_number: atom.model_number
+        });
+        atom["delete"]();
+    }
+    atomSpecs["delete"]();
     return returnResult;
 };
 var residueSpecToJSArray = function (residueSpecs) {
@@ -550,6 +572,36 @@ var interestingPlaceDataToJSArray = function (interestingPlaceData) {
     interestingPlaceData["delete"]();
     return returnResult;
 };
+var histogramInfoToJSData = function (histogramInfo) {
+    var histogramCounts = histogramInfo.counts;
+    var counts = intArrayToJSArray(histogramCounts);
+    var result = {
+        counts: counts,
+        bin_width: histogramInfo.bin_width,
+        base: histogramInfo.base
+    };
+    return result;
+};
+var autoReadMtzInfoVectToJSArray = function (autoReadMtzInfoArray) {
+    var returnResult = [];
+    var autoReadMtzInfoArraySize = autoReadMtzInfoArray.size();
+    for (var i = 0; i < autoReadMtzInfoArraySize; i++) {
+        var autoReadMtzInfo = autoReadMtzInfoArray.get(i);
+        returnResult.push({
+            idx: autoReadMtzInfo.idx,
+            F: autoReadMtzInfo.F,
+            phi: autoReadMtzInfo.phi,
+            w: autoReadMtzInfo.w,
+            Rfree: autoReadMtzInfo.Rfree,
+            F_obs: autoReadMtzInfo.F_obs,
+            sigF_obs: autoReadMtzInfo.sigF_obs,
+            weights_used: autoReadMtzInfo.weights_used
+        });
+        autoReadMtzInfo["delete"]();
+    }
+    autoReadMtzInfoArray["delete"]();
+    return returnResult;
+};
 var ramachandranDataToJSArray = function (ramachandraData, chainID) {
     var returnResult = [];
     var ramachandraDataSize = ramachandraData.size();
@@ -603,43 +655,12 @@ var simpleMeshToLineMeshData = function (simpleMesh, normalLighting) {
     else
         return { prim_types: [["LINES"]], useIndices: [[true]], idx_tri: [[totIdxs]], vert_tri: [[totPos]], norm_tri: [[totNorm]], col_tri: [[totCol]] };
 };
-var read_pdb = function (coordData, name) {
-    var theGuid = guid();
-    var theSuffix;
-    if (coordData.startsWith("data_")) {
-        theSuffix = "mmcif";
-    }
-    else {
-        theSuffix = "pdb";
-    }
-    cootModule.FS_createDataFile(".", "".concat(theGuid, ".").concat(theSuffix), coordData, true, true);
-    var tempFilename = "./".concat(theGuid, ".").concat(theSuffix);
-    var molNo = molecules_container.read_pdb(tempFilename);
-    cootModule.FS_unlink(tempFilename);
-    return molNo;
-};
 var auto_open_mtz = function (mtzData) {
     var theGuid = guid();
     var asUint8Array = new Uint8Array(mtzData);
     cootModule.FS_createDataFile(".", "".concat(theGuid, ".mtz"), asUint8Array, true, true);
     var tempFilename = "./".concat(theGuid, ".mtz");
     var result = molecules_container.auto_read_mtz(tempFilename);
-    cootModule.FS_unlink(tempFilename);
-    return result;
-};
-var read_dictionary = function (coordData, associatedMolNo) {
-    var theGuid = guid();
-    cootModule.FS_createDataFile(".", "".concat(theGuid, ".cif"), coordData, true, true);
-    var tempFilename = "./".concat(theGuid, ".cif");
-    var returnVal = molecules_container.import_cif_dictionary(tempFilename, associatedMolNo);
-    cootModule.FS_unlink(tempFilename);
-    return returnVal;
-};
-var replace_molecule_by_model_from_file = function (imol, coordData) {
-    var theGuid = guid();
-    var tempFilename = "./".concat(theGuid, ".pdb");
-    cootModule.FS_createDataFile(".", tempFilename, coordData, true, true);
-    var result = molecules_container.replace_molecule_by_model_from_file(imol, tempFilename);
     cootModule.FS_unlink(tempFilename);
     return result;
 };
@@ -698,14 +719,22 @@ var associate_data_mtz_file_with_map = function (iMol, mtzData, F, SIGF, FREE) {
 var read_ccp4_map = function (mapData, name, isDiffMap) {
     var theGuid = guid();
     var asUint8Array = new Uint8Array(mapData);
-    cootModule.FS_createDataFile(".", "".concat(theGuid, ".map"), asUint8Array, true, true);
-    var tempFilename = "./".concat(theGuid, ".map");
+    var fileExtension = '';
+    if (name.endsWith('.map.gz')) {
+        fileExtension = 'map.gz';
+    }
+    else if (name.endsWith('.mrc.gz')) {
+        fileExtension = 'mrc.gz';
+    }
+    cootModule.FS_createDataFile(".", "".concat(theGuid).concat(fileExtension), asUint8Array, true, true);
+    var tempFilename = "./".concat(theGuid).concat(fileExtension);
     var read_map_args = [tempFilename, isDiffMap];
     var molNo = molecules_container.read_ccp4_map.apply(molecules_container, read_map_args);
     cootModule.FS_unlink(tempFilename);
     return molNo;
 };
-var setUserDefinedBondColours = function (imol, colours) {
+var setUserDefinedBondColours = function (imol, colours, applyColourToNonCarbonAtoms) {
+    if (applyColourToNonCarbonAtoms === void 0) { applyColourToNonCarbonAtoms = false; }
     var colourMap = new cootModule.MapIntFloat3();
     var indexedResiduesVec = new cootModule.VectorStringUInt_pair();
     colours.forEach(function (colour, index) {
@@ -714,27 +743,7 @@ var setUserDefinedBondColours = function (imol, colours) {
         indexedResiduesVec.push_back(i);
     });
     molecules_container.set_user_defined_bond_colours(imol, colourMap);
-    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, false);
-    indexedResiduesVec["delete"]();
-    colourMap["delete"]();
-};
-var doColourTest = function (imol) {
-    console.log('DEBUG: Start test...');
-    var colourMap = new cootModule.MapIntFloat3();
-    colourMap[20] = [1., 0., 0.];
-    colourMap[21] = [0., 1., 0.];
-    colourMap[22] = [0., 0., 1.];
-    var indexedResiduesVec = new cootModule.VectorStringUInt_pair();
-    var a = { first: '//A/1-10/', second: 20 };
-    indexedResiduesVec.push_back(a);
-    var b = { first: '//A/11-20/', second: 21 };
-    indexedResiduesVec.push_back(b);
-    var c = { first: '//A/21-30/', second: 22 };
-    indexedResiduesVec.push_back(c);
-    console.log('DEBUG: Running molecules_container.set_user_defined_bond_colours');
-    molecules_container.set_user_defined_bond_colours(imol, colourMap);
-    console.log('DEBUG: Running molecules_container.set_user_defined_atom_colour_by_selection');
-    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, false);
+    molecules_container.set_user_defined_atom_colour_by_selection(imol, indexedResiduesVec, applyColourToNonCarbonAtoms);
     indexedResiduesVec["delete"]();
     colourMap["delete"]();
 };
@@ -743,9 +752,6 @@ var doCootCommand = function (messageData) {
     try {
         var cootResult = void 0;
         switch (command) {
-            case 'shim_read_pdb':
-                cootResult = read_pdb.apply(void 0, commandArgs);
-                break;
             case 'shim_new_positions_for_residue_atoms':
                 cootResult = new_positions_for_residue_atoms.apply(void 0, commandArgs);
                 break;
@@ -758,26 +764,14 @@ var doCootCommand = function (messageData) {
             case 'shim_read_ccp4_map':
                 cootResult = read_ccp4_map.apply(void 0, commandArgs);
                 break;
-            case 'shim_read_dictionary':
-                cootResult = read_dictionary.apply(void 0, commandArgs);
-                break;
             case 'shim_associate_data_mtz_file_with_map':
                 cootResult = associate_data_mtz_file_with_map.apply(void 0, commandArgs);
-                break;
-            case 'shim_replace_molecule_by_model_from_file':
-                cootResult = replace_molecule_by_model_from_file.apply(void 0, commandArgs);
                 break;
             case 'shim_replace_map_by_mtz_from_file':
                 cootResult = replace_map_by_mtz_from_file.apply(void 0, commandArgs);
                 break;
-            case 'shim_do_colour_test':
-                cootResult = doColourTest.apply(void 0, commandArgs);
-                break;
             case 'shim_set_bond_colours':
                 cootResult = setUserDefinedBondColours.apply(void 0, commandArgs);
-                break;
-            case 'shim_smiles_to_pdb':
-                cootResult = cootModule.SmilesToPDB.apply(cootModule, commandArgs);
                 break;
             default:
                 cootResult = molecules_container[command].apply(molecules_container, commandArgs);
@@ -787,6 +781,9 @@ var doCootCommand = function (messageData) {
         switch (returnType) {
             case 'instanced_mesh_perm':
                 returnResult = instancedMeshToMeshData(cootResult, true);
+                break;
+            case 'histogram_info_t':
+                returnResult = histogramInfoToJSData(cootResult);
                 break;
             case 'symmetry':
                 returnResult = symmetryToJSData(cootResult);
@@ -821,6 +818,9 @@ var doCootCommand = function (messageData) {
             case 'int_array':
                 returnResult = intArrayToJSArray(cootResult);
                 break;
+            case 'auto_read_mtz_info_array':
+                returnResult = autoReadMtzInfoVectToJSArray(cootResult);
+                break;
             case 'map_molecule_centre_info_t':
                 returnResult = mapMoleculeCentreInfoToJSObject(cootResult);
                 break;
@@ -829,6 +829,9 @@ var doCootCommand = function (messageData) {
                 break;
             case 'residue_specs':
                 returnResult = residueSpecToJSArray(cootResult);
+                break;
+            case 'atom_specs':
+                returnResult = atomSpecToJSArray(cootResult);
                 break;
             case 'ramachandran_data':
                 returnResult = ramachandranDataToJSArray(cootResult, messageData.chainID);
@@ -851,6 +854,9 @@ var doCootCommand = function (messageData) {
             case 'status_instanced_mesh_pair':
                 returnResult = { status: cootResult.first, mesh: instancedMeshToMeshData(cootResult.second, false, false, 5) };
                 break;
+            case 'void':
+                returnResult = null;
+                break;
             case 'status':
             default:
                 returnResult = cootResult;
@@ -858,7 +864,7 @@ var doCootCommand = function (messageData) {
         }
         return {
             messageId: messageId,
-            messageSendTime: Date.now(),
+            messageSendTime: Date.now(), command: command,
             consoleMessage: "Completed ".concat(command, " in ").concat(Date.now() - myTimeStamp, " ms"),
             result: { status: 'Completed', result: returnResult }
         };
@@ -909,28 +915,6 @@ onmessage = function (e) {
             print(e);
         });
     }
-    else if (e.data.message === 'get_atoms') {
-        var theGuid = guid();
-        var tempFilename = "./".concat(theGuid, ".pdb");
-        if (e.data.format === 'pdb') {
-            molecules_container.writePDBASCII(e.data.molNo, tempFilename);
-        }
-        else if (e.data.format === 'mmcif') {
-            molecules_container.writeCIFASCII(e.data.molNo, tempFilename);
-        }
-        else {
-            console.log("Unrecognised format... ".concat(e.data.format));
-        }
-        var pdbData = cootModule.FS.readFile(tempFilename, { encoding: 'utf8' });
-        cootModule.FS_unlink(tempFilename);
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            consoleMessage: "Fetched coordinates of molecule ".concat(e.data.molNo),
-            message: e.data.message,
-            result: { molNo: e.data.molNo, pdbData: pdbData }
-        });
-    }
     else if (e.data.message === 'get_mtz_data') {
         var mtzData = cootModule.FS.readFile(e.data.fileName, { encoding: 'binary' });
         postMessage({
@@ -953,63 +937,6 @@ onmessage = function (e) {
             consoleMessage: "Fetched map of map ".concat(e.data.molNo),
             message: e.data.message,
             result: { molNo: e.data.molNo, mapData: mapData.buffer }
-        });
-    }
-    else if (e.data.message === 'read_mtz') {
-        try {
-            var theGuid = guid();
-            cootModule.FS_createDataFile(".", "".concat(theGuid, ".mtz"), e.data.data, true, true, true);
-            var tempFilename = "./".concat(theGuid, ".mtz");
-            var molNo = molecules_container.read_mtz(tempFilename, 'FWT', 'PHWT', "", false, false);
-            cootModule.FS_unlink(tempFilename);
-            postMessage({
-                messageId: e.data.messageId,
-                myTimeStamp: e.data.myTimeStamp,
-                consoleMessage: "Read map MTZ as molecule ".concat(molNo),
-                message: e.data.message,
-                result: { molNo: molNo, name: e.data.name }
-            });
-        }
-        catch (err) {
-            print(err);
-        }
-    }
-    else if (e.data.message === 'get_rama') {
-        var theGuid = guid();
-        var tempFilename = "./".concat(theGuid, ".pdb");
-        molecules_container.writePDBASCII(e.data.molNo, tempFilename);
-        var result = cootModule.getRamachandranData(tempFilename, e.data.chainId);
-        cootModule.FS_unlink(tempFilename);
-        var resInfo = [];
-        for (var ir = 0; ir < result.size(); ir++) {
-            var cppres = result.get(ir);
-            //TODO - Is there a nicer way to do this?
-            var jsres = { chainId: cppres.chainId, insCode: cppres.insCode, seqNum: cppres.seqNum, restype: cppres.restype, phi: cppres.phi, psi: cppres.psi, isOutlier: cppres.isOutlier, is_pre_pro: cppres.is_pre_pro };
-            resInfo.push(jsres);
-        }
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            messageTag: "result",
-            result: resInfo
-        });
-    }
-    else if (e.data.message === 'copy_fragment') {
-        var newmolNo = molecules_container.copy_fragment_using_residue_range(e.data.molNo, e.data.chainId, e.data.res_no_start, e.data.res_no_end);
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            messageTag: "result",
-            result: newmolNo
-        });
-    }
-    else if (e.data.message === 'delete') {
-        var result = molecules_container.close_molecule(e.data.molNo);
-        postMessage({
-            messageId: e.data.messageId,
-            myTimeStamp: e.data.myTimeStamp,
-            messageTag: "result",
-            result: result
         });
     }
     else if (e.data.message === 'delete_file_name') {

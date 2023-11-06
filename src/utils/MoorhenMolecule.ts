@@ -1,7 +1,7 @@
 import 'pako';
 import {
     guid, readTextFile, readGemmiStructure, residueCodesThreeToOne, centreOnGemmiAtoms,
-    nucleotideCodesThreeToOne, findConsecutiveRanges
+    nucleotideCodesThreeToOne, findConsecutiveRanges, getRandomMoleculeColour
 } from './MoorhenUtils'
 import { MoorhenMoleculeRepresentation } from "./MoorhenMoleculeRepresentation"
 import { quatToMat4 } from '../WebGLgComponents/quatToMat4.js';
@@ -52,6 +52,7 @@ import { libcootApi } from '../types/libcoot';
 export class MoorhenMolecule implements moorhen.Molecule {
 
     type: string;
+    atomCount: number;
     commandCentre: React.RefObject<moorhen.CommandCentre>;
     glRef: React.RefObject<webGL.MGWebGL>;
     atomsDirty: boolean;
@@ -64,7 +65,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
     ligands: moorhen.LigandInfo[];
     ligandDicts: { [comp_id: string]: string };
     connectedToMaps: number[];
-    excludedSegments: string[];
+    excludedSelections: string[];
     excludedCids: string[];
     symmetryOn: boolean;
     symmetryRadius: number;
@@ -84,6 +85,9 @@ export class MoorhenMolecule implements moorhen.Molecule {
     hoverRepresentation: moorhen.MoleculeRepresentation;
     unitCellRepresentation: moorhen.MoleculeRepresentation;
     environmentRepresentation: moorhen.MoleculeRepresentation;
+    hasGlycans: boolean;
+    hasDNA: boolean;
+    restraints: {maxRadius: number, cid: string}[];
 
     constructor(commandCentre: React.RefObject<moorhen.CommandCentre>, glRef: React.RefObject<webGL.MGWebGL>, monomerLibraryPath = "./baby-gru/monomers") {
         this.type = 'molecule'
@@ -99,12 +103,13 @@ export class MoorhenMolecule implements moorhen.Molecule {
         this.ligandDicts = {}
         this.connectedToMaps = null
         this.representations = []
-        this.excludedSegments = []
+        this.excludedSelections = []
         this.excludedCids = []
         this.symmetryOn = false
         this.symmetryRadius = 25
         this.symmetryMatrices = []
         this.isDarkBackground = false
+        this.atomCount = null
         this.gaussianSurfaceSettings = {
             sigma: 4.4,
             countourLevel: 4.0,
@@ -116,13 +121,19 @@ export class MoorhenMolecule implements moorhen.Molecule {
             width: 0.1,
             atomRadiusBondRatio: 1
         }
+        this.restraints = []
+        this.hasDNA = false
+        this.hasGlycans = false
         this.displayObjectsTransformation = { origin: [0, 0, 0], quat: null, centre: [0, 0, 0] }
         this.uniqueId = guid()
         this.monomerLibraryPath = monomerLibraryPath
         this.defaultColourRules = null
-        this.hoverRepresentation = null
-        this.unitCellRepresentation = null
-        this.environmentRepresentation = null
+        this.unitCellRepresentation = new MoorhenMoleculeRepresentation('unitCell', '/*/*/*/*', this.commandCentre, this.glRef)
+        this.unitCellRepresentation.setParentMolecule(this)
+        this.environmentRepresentation = new MoorhenMoleculeRepresentation('environment', null, this.commandCentre, this.glRef)
+        this.environmentRepresentation.setParentMolecule(this)
+        this.hoverRepresentation = new MoorhenMoleculeRepresentation('hover', null, this.commandCentre, this.glRef)
+        this.hoverRepresentation.setParentMolecule(this)
     }
 
     /**
@@ -145,8 +156,9 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * Replace the current molecule with the model in a file
      * @param {string} fileUrl - The uri to the file with the new model
      * @param {string} molName - The molecule name
+     * @param {string} format - The format of the file
      */
-    async replaceModelWithFile(fileUrl: string, molName: string): Promise<void> {
+    async replaceModelWithFile(fileUrl: string, molName: string, format: string = "pdb"): Promise<void> {
         let coordData: string
         let fetchResponse: Response
 
@@ -164,8 +176,8 @@ export class MoorhenMolecule implements moorhen.Molecule {
 
         const cootResponse = await this.commandCentre.current.cootCommand({
             returnType: "status",
-            command: 'shim_replace_molecule_by_model_from_file',
-            commandArgs: [this.molNo, coordData],
+            command: 'replace_molecule_by_model_from_string',
+            commandArgs: [this.molNo, format, coordData],
             changesMolecules: [this.molNo]
         }, true)
 
@@ -233,12 +245,11 @@ export class MoorhenMolecule implements moorhen.Molecule {
     /**
      * Update the cached gemmi structure for this molecule
      */
-    async updateGemmiStructure(): Promise<void> {
+    async updateGemmiStructure(pdbString: string): Promise<void> {
         if (this.gemmiStructure && !this.gemmiStructure.isDeleted()) {
             this.gemmiStructure.delete()
         }
-        let response = await this.getAtoms()
-        this.gemmiStructure = readGemmiStructure(response.data.result.pdbData, this.name)
+        this.gemmiStructure = readGemmiStructure(pdbString, this.name)
         window.CCP4Module.gemmi_setup_entities(this.gemmiStructure)
         this.parseSequences()
         this.updateLigands()
@@ -402,6 +413,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
         }
 
         this.sequences = sequences
+        this.hasDNA = sequences.some(sequence => [3, 4, 5].includes(sequence.type))
     }
 
     /**
@@ -438,10 +450,16 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * Delete this molecule instance
      */
     async delete(): Promise<moorhen.WorkerResponse> {
+        this.hoverRepresentation?.deleteBuffers()
+        this.unitCellRepresentation?.deleteBuffers()
+        this.environmentRepresentation?.deleteBuffers()
         this.representations.forEach(representation => representation.deleteBuffers())
         this.glRef.current.drawScene()
-        const inputData = { message: "delete", molNo: this.molNo }
-        const response = await this.commandCentre.current.postMessage(inputData)
+        const response = await this.commandCentre.current.cootCommand({
+            returnType: "status",
+            command: 'close_molecule',
+            commandArgs: [this.molNo]
+        }, true) as moorhen.WorkerResponse<number>
         if (this.gemmiStructure && !this.gemmiStructure.isDeleted()) {
             this.gemmiStructure.delete()
         }
@@ -453,19 +471,20 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @returns {moorhen.Molecule} New molecule instance
      */
     async copyMolecule(): Promise<moorhen.Molecule> {
-
-        let moleculeAtoms = await this.getAtoms()
+        let pdbString = await this.getAtoms()
         let newMolecule = new MoorhenMolecule(this.commandCentre, this.glRef, this.monomerLibraryPath)
         newMolecule.name = `${this.name}-placeholder`
         newMolecule.defaultBondOptions = this.defaultBondOptions
 
         let response = await this.commandCentre.current.cootCommand({
             returnType: "status",
-            command: 'shim_read_pdb',
-            commandArgs: [moleculeAtoms.data.result.pdbData, newMolecule.name]
+            command: 'read_pdb_string',
+            commandArgs: [pdbString, newMolecule.name]
         }, true) as moorhen.WorkerResponse<number>
 
         newMolecule.molNo = response.data.result.result
+        newMolecule.hasGlycans = this.hasGlycans
+        newMolecule.hasDNA = this.hasDNA
 
         await Promise.all(Object.keys(this.ligandDicts).map(key => newMolecule.addDict(this.ligandDicts[key])))
         await newMolecule.fetchDefaultColourRules()
@@ -495,6 +514,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
         await Promise.all(Object.keys(this.ligandDicts).map(key => newMolecule.addDict(this.ligandDicts[key])))
         await newMolecule.fetchDefaultColourRules()
         if (doRecentre) {
+            newMolecule.setAtomsDirty(true)
             await newMolecule.fetchIfDirtyAndDraw(style)
             await newMolecule.centreOn()
         }
@@ -524,10 +544,10 @@ export class MoorhenMolecule implements moorhen.Molecule {
 
     /**
      * Load a new molecule from the contents of a file
-     * @param {Blob} source - The contents of the input file
+     * @param {File} source - The input file
      * @returns {Promise<moorhen.Molecule>} The new molecule
      */
-    async loadToCootFromFile(source: Blob): Promise<moorhen.Molecule> {
+    async loadToCootFromFile(source: File): Promise<moorhen.Molecule> {
         try {
             const coordData = await readTextFile(source);
             return await this.loadToCootFromString(coordData, source.name);
@@ -553,21 +573,20 @@ export class MoorhenMolecule implements moorhen.Molecule {
         }
 
         this.name = name.replace(pdbRegex, "").replace(entRegex, "").replace(cifRegex, "").replace(mmcifRegex, "");
-        this.gemmiStructure = readGemmiStructure(coordData, this.name)
-        window.CCP4Module.gemmi_setup_entities(this.gemmiStructure)
-        this.parseSequences()
-        this.updateLigands()
+        this.updateGemmiStructure(coordData as string)
         this.atomsDirty = false
 
         try {
             const response = await this.commandCentre.current.cootCommand({
                 returnType: "status",
-                command: 'shim_read_pdb',
+                command: 'read_pdb_string',
                 commandArgs: [coordData, this.name],
             }, true)
             this.molNo = response.data.result.result
             await Promise.all([
+                this.getNumberOfAtoms(),
                 this.loadMissingMonomers(),
+                this.checkHasGlycans(),
                 this.fetchDefaultColourRules()
             ])
             return this
@@ -581,9 +600,8 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @param {string} newTlc - Three letter code for the monomer
      * @param {number} attachToMolecule - Molecule number for which the dicitonary will be associated
      */
-    async loadMissingMonomer(newTlc: string, attachToMolecule: number): Promise<moorhen.WorkerResponse> {
-        const $this = this
-        let response: Response = await fetch(`${$this.monomerLibraryPath}/${newTlc.toLowerCase()[0]}/${newTlc.toUpperCase()}.cif`)
+    async loadMissingMonomer(newTlc: string, attachToMolecule: number): Promise<string> {
+        let response: Response = await fetch(`${this.monomerLibraryPath}/${newTlc.toLowerCase()[0]}/${newTlc.toUpperCase()}.cif`)
         const fileContent = await response.text()
         let dictContent: string
 
@@ -604,41 +622,41 @@ export class MoorhenMolecule implements moorhen.Molecule {
             dictContent = fileContent
         }
 
-        return $this.commandCentre.current.cootCommand({
+        await this.commandCentre.current.cootCommand({
             returnType: "status",
-            command: 'shim_read_dictionary',
+            command: 'read_dictionary_string',
             commandArgs: [dictContent, attachToMolecule],
         }, false)
+        
+        return dictContent
     }
 
     /**
      * Attempt to load dictionaries for all missing monomers present in the molecule
      * @returns {Promise<moorhen.Molecule>} This molecule instance
      */
-    async loadMissingMonomers(): Promise<moorhen.Molecule> {
-        const $this = this
-        const response = await $this.commandCentre.current.cootCommand({
+    async loadMissingMonomers(): Promise<void> {
+        const response = await this.commandCentre.current.cootCommand({
             returnType: "string_array",
             command: 'get_residue_names_with_no_dictionary',
-            commandArgs: [$this.molNo],
+            commandArgs: [this.molNo],
         }, false) as moorhen.WorkerResponse<string[]>
 
         if (response.data.result.status === 'Completed') {
-            let monomerPromises = []
-            response.data.result.result.forEach(newTlc => {
-                const newPromise = $this.loadMissingMonomer(newTlc, -999999)
-                monomerPromises.push(newPromise)
-            })
             try {
-                await Promise.all(monomerPromises)
+                const ligandDicts = await Promise.all(
+                    response.data.result.result.map(newTlc => {
+                        return this.loadMissingMonomer(newTlc, -999999)
+                    })
+                )
+                ligandDicts.forEach(ligandDict => this.addDictShim(ligandDict))
             } catch (err) {
-                console.log('Error in loadMissingMonomers...', err);
+                console.log(err)
+                console.warn('Error in loadMissingMonomers...')
             }
         } else {
             console.log('Error in loadMissingMonomers...');
         }
-
-        return $this
     }
 
     /**
@@ -655,40 +673,49 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @param {string} [format='pdb'] - Indicate the file format
      * @returns {Promise<moorhen.WorkerResponse>}  A worker response with the file contents
      */
-    getAtoms(format: string = 'pdb'): Promise<moorhen.WorkerResponse> {
-        const $this = this;
-        return $this.commandCentre.current.postMessage({
-            message: "get_atoms",
-            molNo: $this.molNo,
-            format: format
-        })
+    async getAtoms(format: string = 'pdb'): Promise<string> {
+        const response = await this.commandCentre.current.cootCommand({
+            returnType: "string",
+            command: 'get_molecule_atoms',
+            commandArgs: [this.molNo, format],
+        }, false) as moorhen.WorkerResponse<string>
+        return response.data.result.result
+    }
+
+    /**
+     * Check if the current molecule has glycans
+     * @returns {Promise<boolean>} - True if the current molecule has glycans
+     */
+    async checkHasGlycans(): Promise<boolean> {
+        const result = await this.commandCentre.current.cootCommand({
+            returnType: 'boolean',
+            command: 'model_has_glycans',
+            commandArgs: [this.molNo],
+        }, false) as moorhen.WorkerResponse<boolean>
+        this.hasGlycans = result.data.result.result
+        return this.hasGlycans
     }
 
     /**
      * Update the cached atoms with the latest information from the libcoot api
      */
     async updateAtoms() {
-        const $this = this;
-        if ($this.gemmiStructure && !$this.gemmiStructure.isDeleted()) {
-            $this.gemmiStructure.delete()
+        if (this.gemmiStructure && !this.gemmiStructure.isDeleted()) {
+            this.gemmiStructure.delete()
         }
-        return $this.getAtoms().then((result) => {
-            return new Promise<void>((resolve, reject) => {
-                try {
-                    $this.gemmiStructure = readGemmiStructure(result.data.result.pdbData, $this.name)
-                    window.CCP4Module.gemmi_setup_entities($this.gemmiStructure)
-                    $this.parseSequences()
-                    $this.updateLigands()
-                }
-                catch (err) {
-                    console.log('Issue parsing coordinates into Gemmi structure', result.data.result.pdbData)
-                    reject()
-                }
-                $this.atomsDirty = false
-                resolve()
-            })
-        })
-    }
+        const [_hasGlycans, pdbString] = await Promise.all([
+            this.checkHasGlycans(),
+            this.getAtoms()
+        ])
+        try {
+            this.updateGemmiStructure(pdbString)
+        }
+        catch (err) {
+            console.log(err)
+            console.warn('Issue parsing coordinates into Gemmi structure', pdbString)
+        }
+        this.atomsDirty = false
+}
 
     /**
      * Draw the molecule with a particular style. If the molecule atoms are marked as "dirty" then fetch new atoms.
@@ -840,25 +867,22 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @param {boolean} [isCustom=false] - Indicates if the representation is considered "custom"
      * @param {moorhen.ColourRule[]} [colourRules=undefined] - A list of colour rules that will be applied to the new representation
      * @param {moorhen.cootBondOptions} [bondOptions=undefined] - An object that describes bond width, atom/bond ratio and other bond settings.
+     * @param {boolean} [applyColourToNonCarbonAtoms=undefined] - If true then colours are applied to non-carbon atoms also.
      */
-    async addRepresentation(style: moorhen.RepresentationStyles, cid: string = '/*/*/*/*', isCustom: boolean = false, colourRules?: moorhen.ColourRule[], bondOptions?: moorhen.cootBondOptions) {
+    async addRepresentation(style: moorhen.RepresentationStyles, cid: string = '/*/*/*/*', isCustom: boolean = false, colourRules?: moorhen.ColourRule[], bondOptions?: moorhen.cootBondOptions, applyColourToNonCarbonAtoms?: boolean) {
         if (!this.defaultColourRules) {
             await this.fetchDefaultColourRules()
         }
         const representation = new MoorhenMoleculeRepresentation(style, cid, this.commandCentre, this.glRef)
         representation.isCustom = isCustom
         representation.setParentMolecule(this)
-        if(colourRules && colourRules.length > 0) {
-            representation.setColourRules(colourRules)
-            representation.setUseDefaultColourRules(false)
-        }
-        if(bondOptions) {
-            representation.useDefaultBondOptions = false
-            representation.bondOptions = bondOptions
-        }
+        representation.setColourRules(colourRules)
+        representation.setBondOptions(bondOptions)
+        representation.setApplyColourToNonCarbonAtoms(applyColourToNonCarbonAtoms)
         await representation.draw()
         this.representations.push(representation)
         await this.drawSymmetry(false)
+        return representation
     }
 
     /**
@@ -972,10 +996,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
         if (this.unitCellRepresentation && this.unitCellRepresentation.buffers?.length > 0) {
             this.unitCellRepresentation.show()
         } else {
-            const unitCellRepresentation = new MoorhenMoleculeRepresentation('unitCell', '/*/*/*/*', this.commandCentre, this.glRef)
-            unitCellRepresentation.setParentMolecule(this)
-            await unitCellRepresentation.draw()
-            this.unitCellRepresentation = unitCellRepresentation
+            await this.unitCellRepresentation.draw()
         }
     }
 
@@ -985,15 +1006,8 @@ export class MoorhenMolecule implements moorhen.Molecule {
      */
     async drawHover(selectionString: string): Promise<void> {
         if (typeof selectionString === 'string') {
-            if (this.hoverRepresentation) {
-                this.hoverRepresentation.cid = selectionString
-                this.hoverRepresentation.redraw()
-            } else {
-                const hoverRepresentation = new MoorhenMoleculeRepresentation('hover', selectionString, this.commandCentre, this.glRef)
-                hoverRepresentation.setParentMolecule(this)
-                await hoverRepresentation.draw()
-                this.hoverRepresentation = hoverRepresentation
-            }
+            this.hoverRepresentation.cid = selectionString
+            this.hoverRepresentation.redraw()
         }
     }
 
@@ -1004,15 +1018,8 @@ export class MoorhenMolecule implements moorhen.Molecule {
      */
     async drawEnvironment(selectionCid: string, labelled: boolean = false): Promise<void> {
         if (typeof selectionCid === 'string') {
-            if (this.environmentRepresentation) {
-                this.environmentRepresentation.cid = selectionCid
-                this.environmentRepresentation.redraw()
-            } else {
-                const environmentRepresentation = new MoorhenMoleculeRepresentation('environment', selectionCid, this.commandCentre, this.glRef)
-                environmentRepresentation.setParentMolecule(this)
-                await environmentRepresentation.draw()
-                this.environmentRepresentation = environmentRepresentation
-            }
+            this.environmentRepresentation.cid = selectionCid
+            this.environmentRepresentation.redraw()
         }
     }
 
@@ -1178,12 +1185,37 @@ export class MoorhenMolecule implements moorhen.Molecule {
     }
 
     /**
+     * Get a list with the names of the chains in the current model
+     * @returns {string[]} - A list of chain names in the current structure
+     */
+    getChainNames(): string[] {
+        let result: string[] = []
+        const models = this.gemmiStructure.models
+        const modelsSize = models.size()
+        for (let modelIndex = 0; modelIndex < modelsSize; modelIndex++) {
+            const model = models.get(modelIndex)
+            const chains = model.chains
+            const chainsSize = chains.size()
+            for (let chainIndex = 0; chainIndex < chainsSize; chainIndex++) {
+                const chain = chains.get(chainIndex)
+                result.push(chain.name)
+                chain.delete()
+            }
+            model.delete()
+            chains.delete()
+        }
+        models.delete()
+        return result
+    }
+
+    /**
      * Merge a set of molecules in this molecule instance
      * @param {moorhen.Molecule} otherMolecules - A list of other molecules to merge into this instance
      * @param {boolean} [doHide=false] - Indicates whether the source molecules should be hidden when finish
      */
     async mergeMolecules(otherMolecules: moorhen.Molecule[], doHide: boolean = false): Promise<void> {
         try {
+            const prevChainNames = this.getChainNames()
             await this.commandCentre.current.cootCommand({
                 command: 'merge_molecules',
                 commandArgs: [this.molNo, `${otherMolecules.map(molecule => molecule.molNo).join(':')}`],
@@ -1204,7 +1236,20 @@ export class MoorhenMolecule implements moorhen.Molecule {
             })
             await Promise.all(promises)
 
-            this.setAtomsDirty(true)
+            await this.updateAtoms()
+            const currentChains = this.getChainNames()
+            const newChains = currentChains.filter(chainName => !prevChainNames.includes(chainName))
+            newChains.forEach(chainName => {
+                const selectedColour = getRandomMoleculeColour()
+                this.defaultColourRules.push({
+                    args: [`//${chainName}`, selectedColour],
+                    isMultiColourRule: false,
+                    ruleType: 'chain',
+                    color: selectedColour,
+                    label: `//${chainName}`,
+                })
+            })
+
             await this.redraw()
 
         } catch (err) {
@@ -1244,7 +1289,6 @@ export class MoorhenMolecule implements moorhen.Molecule {
             return newMolecule.delete()
         } else {
             console.log('Error getting monomer... Missing dictionary?')
-            this.commandCentre.current.extendConsoleMessage('Error getting monomer... Missing dictionary?')
         }
     }
 
@@ -1294,7 +1338,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
     async addDict(fileContent: string): Promise<void> {
         await this.commandCentre.current.cootCommand({
             returnType: "status",
-            command: 'shim_read_dictionary',
+            command: 'read_dictionary_string',
             commandArgs: [fileContent, this.molNo]
         }, false)
 
@@ -1371,16 +1415,21 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @param {string} cid - The CID selection
      * @returns {Promise<moorhen.AtomInfo[]>} JS objects containing atom information
      */
-    async gemmiAtomsForCid(cid: string): Promise<moorhen.AtomInfo[]> {
-        const $this = this
-
-        if ($this.atomsDirty) {
-            await $this.updateAtoms()
+    async gemmiAtomsForCid(cid: string, omitExcludedCids: boolean = false): Promise<moorhen.AtomInfo[]> {
+        if (this.atomsDirty) {
+            await this.updateAtoms()
+        }
+        
+        let excludedSelections: gemmi.Selection[] = []
+        if (omitExcludedCids) {
+            excludedSelections = this.excludedSelections.map(excludedCid => {
+                return new window.CCP4Module.Selection(excludedCid)
+            })
         }
 
         let result: moorhen.AtomInfo[] = []
         const selection = new window.CCP4Module.Selection(cid)
-        const model = $this.gemmiStructure.first_model()
+        const model = this.gemmiStructure.first_model()
 
         if (selection.matches_model(model)) {
             const modelName = model.name
@@ -1394,7 +1443,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
                     const residuesSize = residues.size()
                     for (let j = 0; j < residuesSize; j++) {
                         const residue = residues.get(j)
-                        if (selection.matches_residue(residue)) {
+                        if (selection.matches_residue(residue) && excludedSelections.every(item => !item.matches_residue(residue))) {
                             const residueName = residue.name
                             const residueSeqId = residue.seqid
                             const resNum = residueSeqId.str()
@@ -1453,8 +1502,9 @@ export class MoorhenMolecule implements moorhen.Molecule {
 
         selection.delete()
         model.delete()
+        excludedSelections.forEach(item => item.delete())
 
-        return Promise.resolve(result)
+        return result
     }
 
     /**
@@ -1488,12 +1538,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
         
         response.data.result.result.forEach(rule => {
             rules.push({
-                commandInput: {
-                    message: 'coot_command',
-                    command: 'add_colour_rule',
-                    returnType: 'status',
-                    commandArgs: [this.molNo, rule.first, rule.second]
-                },
+                args: [rule.first, rule.second],
                 isMultiColourRule: false,
                 ruleType: 'chain',
                 color: rule.second,
@@ -1507,8 +1552,9 @@ export class MoorhenMolecule implements moorhen.Molecule {
     /**
      * Hide representations for a given CID selection
      * @param {string} cid - The CID selection
+     * @param {boolean} [redraw=true] - Indicates if the molecule should be redrawn
      */
-    async hideCid(cid: string): Promise<void> {
+    async hideCid(cid: string, redraw: boolean = true): Promise<void> {
         await this.commandCentre.current.cootCommand({
             message: 'coot_command',
             command: "add_to_non_drawn_bonds",
@@ -1517,7 +1563,7 @@ export class MoorhenMolecule implements moorhen.Molecule {
         }, false)
 
         // A list with the segment CIDs
-        this.excludedSegments.push(cid)
+        this.excludedSelections.push(cid)
 
         // We also want a list with individual atom CIDs
         const selection = new window.CCP4Module.Selection(cid)
@@ -1540,30 +1586,42 @@ export class MoorhenMolecule implements moorhen.Molecule {
                     }
                 }
             })
+        } else {
+            chainIdList.forEach(chainName => {
+                const currentSequence = this.sequences.find(sequence => sequence.chain === chainName)
+                currentSequence.sequence.forEach(residue => {
+                    this.excludedCids.push(`//${chainName}/${residue.resNum}/*`)                    
+                })
+            })
         }
-
+        
         chainIds.delete()
         toSeqId.delete()
         fromSeqId.delete()
         selection.delete()
 
         // Redraw to apply changes
-        await this.redraw()
+        if (redraw) {
+            await this.redraw()
+        }
     }
 
     /**
      * Unhide all the molecule representations
+     * @param {boolean} [redraw=true] - Indicates if the molecule should be redrawn
      */
-    async unhideAll() {
+    async unhideAll(redraw: boolean = true) {
         await this.commandCentre.current.cootCommand({
             message: 'coot_command',
             command: "clear_non_drawn_bonds",
             returnType: 'status',
             commandArgs: [this.molNo],
         }, false)
-        this.excludedSegments = []
+        this.excludedSelections = []
         this.excludedCids = []
-        await this.redraw()
+        if (redraw) {
+            await this.redraw()
+        }
     }
 
     /**
@@ -1571,31 +1629,39 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @param {string} cidsString - Residue CID selection 
      * @param {number} mapNo - Map number that should be used
      */
-    rigidBodyFit(cidsString: string, mapNo: number): Promise<moorhen.WorkerResponse> {
-        return this.commandCentre.current.cootCommand({
+    async rigidBodyFit(cidsString: string, mapNo: number, redraw: boolean = true): Promise<void> {
+        await this.commandCentre.current.cootCommand({
             command: "rigid_body_fit",
             returnType: 'status',
             commandArgs: [this.molNo, cidsString, mapNo],
             changesMolecules: [this.molNo]
         }, true)
+                
+        this.setAtomsDirty(true)
+        if (redraw) {
+            await this.redraw()
+        }
     }
 
     /**
      * Generate self restraints
+     * @param {string} [cid="//"] The CID for local restraints
      * @param {number} [maxRadius=4.2] The maximum radius for the restraints
      */
-    generateSelfRestraints(maxRadius: number = 4.2): Promise<moorhen.WorkerResponse> {
-        return this.commandCentre.current.cootCommand({
+    async generateSelfRestraints(cid: string = "//", maxRadius: number = 4.2): Promise<void> {
+        await this.commandCentre.current.cootCommand({
             command: "generate_self_restraints",
             returnType: 'status',
             commandArgs: [this.molNo, maxRadius],
         }, false)
+        this.restraints.push({ maxRadius, cid })
     }
 
     /**
      * Clear all additional restraints
      */
     clearExtraRestraints(): Promise<moorhen.WorkerResponse> {
+        this.restraints = []
         return this.commandCentre.current.cootCommand({
             command: "clear_extra_restraints",
             returnType: 'status',
@@ -1608,14 +1674,39 @@ export class MoorhenMolecule implements moorhen.Molecule {
      * @param {string} cid - The CID selection with the atoms that should be refined
      * @param {string} mode - Refinement mode (SINGLE, TRIPLE ...etc.)
      * @param {number} ncyc - Number of refinement cycles
+     * @param {boolean} [redraw=true] - Indicates if the molecule should be redrawn
      */
-    refineResiduesUsingAtomCid(cid: string, mode: string, ncyc: number): Promise<moorhen.WorkerResponse> {
-        return this.commandCentre.current.cootCommand({
+    async refineResiduesUsingAtomCid(cid: string, mode: string, ncyc: number = 4000, redraw: boolean = true): Promise<void> {
+        await this.commandCentre.current.cootCommand({
             command: "refine_residues_using_atom_cid",
             returnType: 'status',
             commandArgs: [this.molNo, cid, mode, ncyc],
             changesMolecules: [this.molNo]
         }, true)
+        
+        this.setAtomsDirty(true)
+        if (redraw) {
+            await this.redraw()
+        }
+    }
+
+    /**
+     * Delete residues in a given CID
+     * @param {string} cid - The CID to delete
+     * @param {boolean} [redraw=true] - Indicates if the molecule should be redrawn
+     */
+    async deleteCid(cid: string, redraw: boolean = true): Promise<void> {
+        await this.commandCentre.current.cootCommand({
+            returnType: "status",
+            command: "delete_using_cid",
+            commandArgs: [this.molNo, cid, "LITERAL"],
+            changesMolecules: [this.molNo]
+        }, true)
+        
+        this.setAtomsDirty(true)
+        if (redraw) {
+            await this.redraw()
+        }
     }
 
     /**
@@ -1670,5 +1761,35 @@ export class MoorhenMolecule implements moorhen.Molecule {
             )
             return newMolecules
         }
+    }
+
+    /**
+     * A function to get the number of atoms in the current molecule
+     * @returns {Promise<number>} The number of atoms in the molecule
+     */
+    async getNumberOfAtoms(): Promise<number> {
+        const result = await this.commandCentre.current.cootCommand({
+            returnType: 'int',
+            command: 'get_number_of_atoms',
+            commandArgs: [this.molNo],
+        }, false) as moorhen.WorkerResponse<number>
+        this.atomCount = result.data.result.result
+        return result.data.result.result
+    }
+
+    /**
+     * Move the molecule to a new position
+     * @param {number} x - Coordinate X 
+     * @param {number} y - Coordinate Y 
+     * @param {number} z - Coordinate Z 
+     */
+    async moveMoleculeHere(x: number, y: number, z: number): Promise<void> {
+        await this.commandCentre.current.cootCommand({
+            returnType: 'int',
+            command: 'move_molecule_to_new_centre',
+            commandArgs: [this.molNo, x, y, z],
+        }, false) as moorhen.WorkerResponse<number>
+        this.setAtomsDirty(true)
+        await this.redraw()
     }
 }

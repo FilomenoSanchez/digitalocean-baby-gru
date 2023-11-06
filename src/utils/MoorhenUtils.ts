@@ -2,8 +2,74 @@ import { hexToRgb } from "@mui/material";
 import localforage from 'localforage';
 import * as vec3 from 'gl-matrix/vec3';
 import * as mat3 from 'gl-matrix/mat3';
+import { MoorhenMolecule } from "./MoorhenMolecule";
+import { MoorhenMap } from "./MoorhenMap";
 import { moorhen } from "../types/moorhen";
 import { gemmi } from "../types/gemmi";
+import { webGL } from "../types/mgWebGL";
+import { AnyAction, Dispatch } from "@reduxjs/toolkit";
+import { addMolecule, emptyMolecules } from "../store/moleculesSlice";
+import { addMap, emptyMaps } from "../store/mapsSlice";
+import { batch } from "react-redux";
+import { setActiveMap } from "../store/generalStatesSlice";
+
+export const rgbToHsv = (r: number, g:number, b:number): [number, number, number] => {
+    const cMax = Math.max(r, g, b)
+    const cMin = Math.min(r, g, b)
+    const delta = cMax - cMin
+
+    let hue: number
+    if (delta === 0) {
+        hue = 0
+    } else if (r === cMax) {
+        hue = 60 * (((g - b) / delta) % 6)
+    } else if (g === cMax) {
+        hue = 60 * (((b - r) / delta) + 2)
+    } else {
+        hue = 60 * (((r - g) / delta) + 4)
+    }
+
+    let saturation: number
+    if (cMax === 0) {
+        saturation = 0
+    } else {
+        saturation = delta / cMax
+    }
+
+    return [hue, saturation, cMax]
+}
+
+export const hsvToRgb = (hue: number, saturation: number, value: number): [number, number, number] => {
+    const c = value * saturation
+    const x = c * (1 - Math.abs((hue / 60) % 2 - 1))
+    const m = value - c
+    let rgb: [number, number, number]
+
+    if (0 <= hue && hue < 60) {
+        rgb = [c, x, 0]
+    } else if (60 <= hue && hue < 120) {
+        rgb = [x, c, 0]
+    } else if (120 <= hue && hue < 180) {
+        rgb = [0, c, x]
+    } else if (180 <= hue && hue < 240) {
+        rgb = [0, x, c]
+    } else if (240 <= hue && hue < 300) {
+        rgb = [x, 0, c]
+    } else if (300 <= hue && hue < 360) {
+        rgb = [c, 0, x]
+    }
+
+    return rgb.map(component => component + m) as [number, number, number]
+}
+
+export const getRandomMoleculeColour = (min: number = 127, max: number = 160) => {
+    const randomComponent_A = Math.floor(Math.random() * (max - min + 1)) + min
+    const randomComponent_B = max
+    const randomComponent_C = min
+    let result = [randomComponent_A, randomComponent_B, randomComponent_C]
+    result = result.sort((a, b) => 0.5 - Math.random());
+    return rgbToHex(...result as [number, number, number])
+}
 
 export function guid(): string {
     let d = Date.now();
@@ -30,49 +96,207 @@ export function sequenceIsValid(sequence: moorhen.ResidueInfo[]): boolean {
     }
     return true
 }
-
 /**
- * A reducer that can be used to manage the state of the listed molecules and maps. Here `T` indicates either
- * `moorhen.Map` or `moorhen.Molecule`
- * @param {T[]} oldList - The old state list
- * @param {moorhen.MolChange<T>} change - An object indicating the change, of shape `{ action: 'Add' | 'Remove' | 'AddList' | 'Empty'; item?: T; items?: T[]; }`
- * @returns {T[]} The resulting new state with the updated list of molecules or maps
- * @example
- * import { useReducer } from 'react'
- * import { itemReducer } from "moorhen"
- * 
- * // Define initial states
- * const initialMoleculesState = []
- * const initialMapsState = []
- * 
- * // Use reducer
- * const [molecules, changeMolecules] = useReducer(itemReducer, initialMoleculesState)
- * const [maps, changeMaps] = useReducer(itemReducer, initialMapsState)
- * 
- * // Add new molecule
- * newMolecule = new MoorhenMolecule(commandCentre, glRef, monomerLibrary)
- * changeMolecules({ action: "Add", item: newMolecule })
- * 
- * // Remove new molecule
- * changeMolecules({ action: "Remove", item: newMolecule })
- * 
- * // Remove all molecules
- * changeMolecules({ action: "Empty"})
+ * A function to load session data
+ * @param {string} sessionDataString - A JSON string representation of the object containing session data
+ * @param {string} monomerLibraryPath - Path to the monomer library
+ * @param {moorhen.Molecule[]} molecules - State containing current molecules loaded in the session
+ * @param {moorhen.Map[]} maps - State containing current maps loaded in the session
+ * @param {React.RefObject<moorhen.CommandCentre>} commandCentre - React reference to the command centre
+ * @param {React.RefObject<moorhen.TimeCapsule>} timeCapsuleRef - React reference to the time capsule
+ * @param {React.RefObject<webGL.MGWebGL>} glRef - React reference to the webGL renderer
+ * @param {Dispatch<AnyAction>} dispatch - Dispatch method for the MoorhenReduxStore
+ * @returns {number} Returns -1 if there was an error loading the session otherwise 0
  */
-export function itemReducer<T extends moorhen.Molecule | moorhen.Map> (oldList: T[], change: moorhen.MolChange<T>): T[] {
-    if (change.action === 'Add') {
-        return [...oldList, change.item]
+export async function loadSessionData(
+    sessionDataString: string,
+    monomerLibraryPath: string,
+    molecules: moorhen.Molecule[],
+    maps: moorhen.Map[],
+    commandCentre: React.RefObject<moorhen.CommandCentre>,
+    timeCapsuleRef: React.RefObject<moorhen.TimeCapsule>,
+    glRef: React.RefObject<webGL.MGWebGL>,
+    dispatch: Dispatch<AnyAction>
+): Promise<number> {
+
+    timeCapsuleRef.current.setBusy(true)
+    const sessionData: moorhen.backupSession = JSON.parse(sessionDataString)
+
+    if (!sessionData) {
+        return -1
+    } else if (!Object.hasOwn(sessionData, 'version') || timeCapsuleRef.current.version !== sessionData.version) {
+        console.warn('Outdated session backup version, wont load...')
+        return -1
     }
-    else if (change.action === 'Remove') {
-        return oldList.filter(item =>  item.molNo !== change.item.molNo)
+    
+    // Delete current scene
+    molecules.forEach(molecule => {
+        molecule.delete()
+    })
+
+    maps.forEach(map => {
+        map.delete()
+    })
+    
+    batch(() => {
+        dispatch( emptyMolecules() )
+        dispatch( emptyMaps() )    
+    })
+
+    // Load molecules stored in session from pdb string
+    const newMoleculePromises = sessionData.moleculeData.map(storedMoleculeData => {
+        const newMolecule = new MoorhenMolecule(commandCentre, glRef, monomerLibraryPath)
+        return newMolecule.loadToCootFromString(storedMoleculeData.pdbData, storedMoleculeData.name)
+    })
+    
+    // Load maps stored in session
+    const newMapPromises = sessionData.mapData.map(storedMapData => {
+        const newMap = new MoorhenMap(commandCentre, glRef)
+        if (sessionData.includesAdditionalMapData) {
+            return newMap.loadToCootFromMapData(
+                Uint8Array.from(Object.values(storedMapData.mapData)).buffer, 
+                storedMapData.name, 
+                storedMapData.isDifference
+                )
+        } else {
+            newMap.uniqueId = storedMapData.uniqueId
+            return timeCapsuleRef.current.retrieveBackup(
+                JSON.stringify({
+                    type: 'mapData',
+                    name: storedMapData.uniqueId
+                })
+                ).then(mapData => {
+                    return newMap.loadToCootFromMapData(
+                        mapData as Uint8Array, 
+                        storedMapData.name, 
+                        storedMapData.isDifference
+                        )
+                    })    
+        }
+    })
+    
+    const loadPromises = await Promise.all([...newMoleculePromises, ...newMapPromises])
+    const newMolecules = loadPromises.filter(item => item.type === 'molecule') as moorhen.Molecule[] 
+    const newMaps = loadPromises.filter(item => item.type === 'map') as moorhen.Map[] 
+    
+    // Draw the molecules with the styles stored in session (needs to be done sequentially due to colour rules)
+    for (let i = 0; i < newMolecules.length; i++) {
+        const molecule = newMolecules[i]
+        const storedMoleculeData = sessionData.moleculeData[i]
+        await Promise.all(Object.keys(storedMoleculeData.ligandDicts).map(compId => molecule.addDict(storedMoleculeData.ligandDicts[compId])))
+        molecule.defaultColourRules = storedMoleculeData.defaultColourRules
+        molecule.defaultBondOptions = storedMoleculeData.defaultBondOptions
+        for (const item of storedMoleculeData.representations) {
+            await molecule.addRepresentation(item.style, item.cid, item.isCustom, item.colourRules, item.bondOptions)
+        }
     }
-    else if (change.action === 'AddList') {
-        return oldList.concat(change.items)
+    
+    // Associate maps to reflection data
+    await Promise.all(
+        newMaps.map((map, index) => {
+            const storedMapData = sessionData.mapData[index]
+            if (sessionData.includesAdditionalMapData && storedMapData.reflectionData) {
+                return map.associateToReflectionData(
+                    storedMapData.selectedColumns, 
+                    Uint8Array.from(Object.values(storedMapData.reflectionData))
+                )
+            } else if(storedMapData.associatedReflectionFileName && storedMapData.selectedColumns) {
+                return timeCapsuleRef.current.retrieveBackup(
+                    JSON.stringify({
+                        type: 'mtzData',
+                        name: storedMapData.associatedReflectionFileName
+                    })
+                    ).then(reflectionData => {
+                        return map.associateToReflectionData(
+                            storedMapData.selectedColumns, 
+                            Uint8Array.from(Object.values(reflectionData))
+                        )
+                    })
+            }
+            return Promise.resolve()
+        })
+    )
+
+    // Change props.molecules
+    newMolecules.forEach(molecule => {
+        dispatch( addMolecule(molecule) )
+    })
+
+    // Change props.maps
+    newMaps.forEach(map => {
+        dispatch( addMap(map) )
+    })
+
+    // Set active map
+    if (sessionData.activeMapIndex !== -1){
+        dispatch( setActiveMap(newMaps[sessionData.activeMapIndex]) )
     }
-    else if (change.action === 'Empty') {
-        return []
+
+    // Set camera details
+    glRef.current.setAmbientLightNoUpdate(...Object.values(sessionData.viewData.ambientLight) as [number, number, number])
+    glRef.current.setSpecularLightNoUpdate(...Object.values(sessionData.viewData.specularLight) as [number, number, number])
+    glRef.current.setDiffuseLightNoUpdate(...Object.values(sessionData.viewData.diffuseLight) as [number, number, number])
+    glRef.current.setLightPositionNoUpdate(...Object.values(sessionData.viewData.lightPosition) as [number, number, number])
+    glRef.current.setZoom(sessionData.viewData.zoom, false)
+    glRef.current.set_fog_range(sessionData.viewData.fogStart, sessionData.viewData.fogEnd, false)
+    glRef.current.set_clip_range(sessionData.viewData.clipStart, sessionData.viewData.clipEnd, false)
+    glRef.current.doDrawClickedAtomLines = sessionData.viewData.doDrawClickedAtomLines
+    glRef.current.background_colour = sessionData.viewData.backgroundColor
+    glRef.current.setOrigin(sessionData.viewData.origin, false)
+    glRef.current.setQuat(sessionData.viewData.quat4)
+
+    // Set connected maps and molecules if any
+    const connectedMoleculeIndex = sessionData.moleculeData.findIndex(molecule => molecule.connectedToMaps !== null)
+    if (connectedMoleculeIndex !== -1) {
+        const oldConnectedMolecule = sessionData.moleculeData[connectedMoleculeIndex]        
+        const molecule = newMolecules[connectedMoleculeIndex].molNo
+        const [reflectionMap, twoFoFcMap, foFcMap] = oldConnectedMolecule.connectedToMaps.map(item => newMaps[sessionData.mapData.findIndex(map => map.molNo === item)].molNo)
+        const connectMapsArgs = [molecule, reflectionMap, twoFoFcMap, foFcMap]
+        const sFcalcArgs = [molecule, twoFoFcMap, foFcMap, reflectionMap]
+        
+        await commandCentre.current.cootCommand({
+            command: 'connect_updating_maps',
+            commandArgs: connectMapsArgs,
+            returnType: 'status'
+        }, false)
+            
+        await commandCentre.current.cootCommand({
+            command: 'sfcalc_genmaps_using_bulk_solvent',
+            commandArgs: sFcalcArgs,
+            returnType: 'status'
+        }, false)
+                
+        const connectedMapsEvent: moorhen.ConnectMapsEvent = new CustomEvent("connectMaps", {
+            "detail": {
+                molecule: molecule,
+                maps: [reflectionMap, twoFoFcMap, foFcMap],
+                uniqueMaps: [...new Set([reflectionMap, twoFoFcMap, foFcMap].slice(1))]
+            }
+        })
+        document.dispatchEvent(connectedMapsEvent)
     }
-    return oldList
+    
+    // Set map visualisation details after map card is created using a timeout
+    setTimeout(() => {
+        newMaps.forEach((map, index) => {
+            const storedMapData = sessionData.mapData[index]
+            map.mapColour = storedMapData.colour
+            let newMapContour: moorhen.NewMapContourEvent = new CustomEvent("newMapContour", {
+                "detail": {
+                    molNo: map.molNo,
+                    mapRadius: storedMapData.radius,
+                    cootContour: storedMapData.cootContour,
+                    contourLevel: storedMapData.contourLevel,
+                    mapColour: storedMapData.colour,
+                    litLines: storedMapData.litLines,
+                }
+            });               
+            document.dispatchEvent(newMapContour);
+        })
+    }, 2500);
+
+    timeCapsuleRef.current.setBusy(false)
+    return 0
 }
 
 export function convertRemToPx(rem: number): number {
@@ -96,7 +320,8 @@ export const representationLabelMapping = {
     DishyBases: "Bases",
     VdwSpheres: "Spheres",
     allHBonds: "H-Bonds",
-    glycoBlocks: "GlycoBlocks"
+    glycoBlocks: "GlycoBlocks",
+    restraints: "Restraints"
 }
 
 export const residueCodesOneToThree = {
@@ -219,7 +444,7 @@ export const webSafeFonts = [
 
 export const allFontsSet = new Set([webSafeFonts, windowsFonts, macFonts, linuxFonts].flat().sort());
 
-export const readTextFile = (source: Blob): Promise<ArrayBuffer | string> => {
+export const readTextFile = (source: File): Promise<ArrayBuffer | string> => {
     const resolveReader = (reader: FileReader, resolveCallback) => {
         reader.removeEventListener("load", resolveCallback)
         resolveCallback(reader.result)
@@ -232,7 +457,7 @@ export const readTextFile = (source: Blob): Promise<ArrayBuffer | string> => {
     })
 }
 
-export const readDataFile = (source: Blob): Promise<ArrayBuffer> => {
+export const readDataFile = (source: File): Promise<ArrayBuffer> => {
     const resolveReader = (reader: FileReader, resolveCallback) => {
         reader.removeEventListener("load", resolveCallback)
         if (typeof reader.result === 'string') {
@@ -444,8 +669,8 @@ export const getTooltipShortcutLabel = (shortCut: moorhen.Shortcut): string => {
 }
 
 // FIXME: Again looping thourhg atoms every where...
-const getMoleculeBfactors = (gemmiStructure: gemmi.Structure): { cid: string, bFactor: number }[] => {
-    let bFactors: { cid: string, bFactor: number }[] = []
+export const getMoleculeBfactors = (gemmiStructure: gemmi.Structure): { cid: string, bFactor: number, chainId: string, resNum: number, modelName: string }[] => {
+    let bFactors: { cid: string, bFactor: number, chainId: string, resNum: number, modelName: string }[] = []
     try {
         const models = gemmiStructure.models
         for (let modelIndex = 0; modelIndex < models.size(); modelIndex++) {
@@ -473,7 +698,10 @@ const getMoleculeBfactors = (gemmiStructure: gemmi.Structure): { cid: string, bF
                     }
                     bFactors.push({
                         cid: `/${modelName}/${chainName}/${resNum}/*`,
-                        bFactor: residueTemp / atomsSize
+                        bFactor: residueTemp / atomsSize,
+                        chainId: chainName,
+                        modelName: modelName,
+                        resNum: parseInt(resNum)
                     })
                     residue.delete()
                     residueSeqId.delete()
@@ -560,18 +788,17 @@ const getPlddtColourRules = (plddtList: { cid: string; bFactor: number; }[]): st
     return plddtList.map(item => `${item.cid}^${getColour(item.bFactor)}`).join('|')
 }
 
-export const getMultiColourRuleArgs = (molecule: moorhen.Molecule, ruleType: string): [number, string] => {
+export const getMultiColourRuleArgs = (molecule: moorhen.Molecule, ruleType: string): string => {
 
-    let multiRulesArgs: [number, string]
-
+    let multiRulesArgs: string
     switch (ruleType) {
         case 'b-factor':
             const bFactors = getMoleculeBfactors(molecule.gemmiStructure.clone())
-            multiRulesArgs = [molecule.molNo, getBfactorColourRules(bFactors)]
+            multiRulesArgs = getBfactorColourRules(bFactors)
             break;
         case 'af2-plddt':
             const plddt = getMoleculeBfactors(molecule.gemmiStructure.clone())
-            multiRulesArgs = [molecule.molNo, getPlddtColourRules(plddt)]
+            multiRulesArgs = getPlddtColourRules(plddt)
             break;
         default:
             console.log('Unrecognised colour rule...')
@@ -965,3 +1192,18 @@ export function getCubeLines(unitCell: gemmi.UnitCell): [{ pos: [number, number,
 
     return lines;
 }
+
+export const countResiduesInSelection = (gemmiStructure: gemmi.Structure, cidSelection?: string) => {
+    const selection = new window.CCP4Module.Selection(cidSelection ? cidSelection : '/*/*/*')
+    const count = window.CCP4Module.count_residues_in_selection(gemmiStructure, selection)
+    selection.delete()
+    return count    
+}
+
+export const copyStructureSelection = (gemmiStructure: gemmi.Structure, cidSelection?: string) => {
+    const selection = new window.CCP4Module.Selection(cidSelection ? cidSelection : '/*/*/*')
+    const newStruct = window.CCP4Module.remove_non_selected_residues(gemmiStructure, selection)
+    selection.delete()
+    return newStruct
+}
+

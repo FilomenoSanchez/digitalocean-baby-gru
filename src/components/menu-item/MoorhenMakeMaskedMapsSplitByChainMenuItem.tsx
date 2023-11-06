@@ -5,30 +5,33 @@ import { MoorhenMoleculeSelect } from "../select/MoorhenMoleculeSelect";
 import { moorhen } from "../../types/moorhen";
 import { MoorhenBaseMenuItem } from "./MoorhenBaseMenuItem";
 import { webGL } from "../../types/mgWebGL";
+import { useDispatch, useSelector } from 'react-redux';
+import { addMap } from "../../store/mapsSlice";
 
 export const MoorhenMakeMaskedMapsSplitByChainMenuItem = (props: {
-    maps: moorhen.Map[];
-    molecules: moorhen.Molecule[];
-    changeMaps: (arg0: moorhen.MolChange<moorhen.Map>) => void;
     setPopoverIsShown: React.Dispatch<React.SetStateAction<boolean>>
     commandCentre: React.RefObject<moorhen.CommandCentre>;
     glRef: React.RefObject<webGL.MGWebGL>;
 }) => {
 
     const moleculeSelectRef = useRef<HTMLSelectElement>(null)
-    const selectRef = useRef<HTMLSelectElement>(null)
+    const mapSelectRef = useRef<HTMLSelectElement>(null)
+
+    const dispatch = useDispatch()
+    const maps = useSelector((state: moorhen.State) => state.maps)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
 
     const panelContent = <>
-        <MoorhenMapSelect {...props} ref={selectRef} />
-        <MoorhenMoleculeSelect {...props} ref={moleculeSelectRef} />
+        <MoorhenMapSelect maps={maps} ref={mapSelectRef} />
+        <MoorhenMoleculeSelect molecules={molecules} ref={moleculeSelectRef} />
     </>
 
     const onCompleted = async () => {
-        if (!selectRef.current?.value || !moleculeSelectRef.current?.value) {
+        if (!mapSelectRef.current?.value || !moleculeSelectRef.current?.value) {
             return
         }
         
-        const mapNo = parseInt(selectRef.current.value)
+        const mapNo = parseInt(mapSelectRef.current.value)
         const moleculeNo = parseInt(moleculeSelectRef.current.value)
 
         const result = await props.commandCentre.current.cootCommand({
@@ -36,16 +39,23 @@ export const MoorhenMakeMaskedMapsSplitByChainMenuItem = (props: {
             command: 'make_masked_maps_split_by_chain',
             commandArgs: [moleculeNo, mapNo]
         }, false) as moorhen.WorkerResponse<number[]>
+
+        const selectedMolecule = molecules.find(molecule => molecule.molNo === moleculeNo)
+        const selectedMap = maps.find(map => map.molNo === mapNo)
         
-        if (result.data.result.result.length > 0) {
-            const oldMaps = props.maps.filter(map => map.molNo === mapNo)
-            result.data.result.result.forEach((iNewMap, listIndex) =>{
-                const newMap = new MoorhenMap(props.commandCentre, props.glRef)
-                newMap.molNo = iNewMap
-                newMap.name = `Chain ${listIndex} of ${oldMaps[0].name}`
-                newMap.isDifference = oldMaps[0].isDifference
-                props.changeMaps({ action: 'Add', item: newMap })
-            })
+        if (result.data.result.result.length > 0 && selectedMap && selectedMolecule) {
+            await Promise.all(
+                result.data.result.result.map(async (iNewMap, listIndex) =>{
+                    const newMap = new MoorhenMap(props.commandCentre, props.glRef)
+                    newMap.molNo = iNewMap
+                    newMap.name = `Chain ${listIndex} of ${selectedMap.name}`
+                    newMap.isDifference = selectedMap.isDifference
+                    await newMap.getSuggestedSettings()
+                    newMap.suggestedContourLevel = selectedMap.contourLevel
+                    newMap.suggestedRadius = selectedMap.mapRadius
+                    dispatch( addMap(newMap) )
+                })
+            )
         }
         return result
     }

@@ -3,10 +3,12 @@ import { getTooltipShortcutLabel } from "../../utils/MoorhenUtils"
 import { moorhen } from "../../types/moorhen";
 import { MoorhenContextButtonBase } from "./MoorhenContextButtonBase";
 import { MoorhenEditButtonBase } from "./MoorhenEditButtonBase";
+import { useSelector } from "react-redux";
 
 export const MoorhenAutofitRotamerButton = (props: moorhen.EditButtonProps | moorhen.ContextButtonProps) => {
 
     const [toolTipLabel, setToolTipLabel] = useState<string>("Auto-fit Rotamer")
+    const shortCuts = useSelector((state: moorhen.State) => state.shortcutSettings.shortCuts)
 
     const getCootCommandInput = (selectedMolecule: moorhen.Molecule, chosenAtom: moorhen.ResidueSpec, localParameters?: string): moorhen.cootCommandKwargs => {
         return {
@@ -24,17 +26,17 @@ export const MoorhenAutofitRotamerButton = (props: moorhen.EditButtonProps | moo
     }
 
     useEffect(() => {
-        if (props.shortCuts) {
-            const shortCut = JSON.parse(props.shortCuts as string).auto_fit_rotamer
+        if (shortCuts) {
+            const shortCut = JSON.parse(shortCuts as string).auto_fit_rotamer
             setToolTipLabel(`Auto-fit Rotamer ${getTooltipShortcutLabel(shortCut)}`)
         }
-    }, [props.shortCuts])
+    }, [shortCuts])
 
 
     if (props.mode === 'context') {
 
         return <MoorhenContextButtonBase 
-                    icon={<img style={{padding:'0.1rem', width:'100%', height: '100%'}} className="baby-gru-button-icon" src={`${props.urlPrefix}/baby-gru/pixmaps/auto-fit-rotamer.svg`} alt='Auto-Fit rotamer'/>}
+                    icon={<img className="moorhen-context-button__icon" src={`${props.urlPrefix}/baby-gru/pixmaps/auto-fit-rotamer.svg`} alt='Auto-Fit rotamer'/>}
                     needsMapData={true}
                     toolTipLabel={toolTipLabel}
                     cootCommandInput={getCootCommandInput(props.selectedMolecule, props.chosenAtom)}

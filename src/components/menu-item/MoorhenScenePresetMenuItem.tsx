@@ -2,24 +2,24 @@ import { MoorhenBaseMenuItem } from "./MoorhenBaseMenuItem"
 import { webGL } from "../../types/mgWebGL";
 import { ToggleButtonGroup, ToggleButton } from "@mui/material";
 import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { setResetClippingFogging } from "../../store/sceneSettingsSlice";
+import { moorhen } from "../../types/moorhen";
 
 export const MoorhenScenePresetMenuItem = (props: {
     glRef: React.RefObject<webGL.MGWebGL>;
-    resetClippingFogging: boolean;
-    setResetClippingFogging: React.Dispatch<React.SetStateAction<boolean>>;
-    clipCap: boolean;
-    setClipCap: React.Dispatch<React.SetStateAction<boolean>>;
     setPopoverIsShown: React.Dispatch<React.SetStateAction<boolean>>;
-    isDark: boolean;
 }) => {
 
+    const dispatch = useDispatch()
+    const isDark = useSelector((state: moorhen.State) => state.canvasStates.isDark)
     const [presetValue, setPresetValue] = useState<string | null>(null)
 
     useEffect(() => {
         switch(presetValue) {
             
             case "model-building":
-                props.setResetClippingFogging(true)
+                dispatch( setResetClippingFogging(true) )
                 const fieldDepthFront: number = 8;
                 const fieldDepthBack: number = 21;
                 if (props.glRef !== null && typeof props.glRef !== 'function') { 
@@ -31,7 +31,7 @@ export const MoorhenScenePresetMenuItem = (props: {
                 break
             
             case "figure-making":
-                props.setResetClippingFogging(false)
+                dispatch( setResetClippingFogging(false) )
                 props.glRef.current.gl_clipPlane0[3] = 40 - props.glRef.current.fogClipOffset
                 props.glRef.current.gl_clipPlane1[3] = props.glRef.current.fogClipOffset + 40
                 props.glRef.current.gl_fog_start = props.glRef.current.fogClipOffset - 2
@@ -50,7 +50,7 @@ export const MoorhenScenePresetMenuItem = (props: {
         let borderColor: string
         let color: string
         if (presetValue === value) {
-            if (props.isDark) {
+            if (isDark) {
                 borderColor = 'white'
                 color = 'white'
             } else {
@@ -70,7 +70,7 @@ export const MoorhenScenePresetMenuItem = (props: {
 
     const panelContent = <>
         <p>Select a preset...</p>
-        <ToggleButtonGroup color={props.isDark ? 'primary' : "standard"} orientation="vertical" value={presetValue} onChange={(evt, newValue: string) => {setPresetValue(newValue)}} exclusive>
+        <ToggleButtonGroup color={isDark ? 'primary' : "standard"} orientation="vertical" value={presetValue} onChange={(evt, newValue: string) => {setPresetValue(newValue)}} exclusive>
             {getToggleButton('Model building', 'model-building')}
             {getToggleButton('Figure making', 'figure-making')}
         </ToggleButtonGroup>

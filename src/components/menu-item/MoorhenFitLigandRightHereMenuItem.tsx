@@ -1,40 +1,41 @@
 import { TextField } from "@mui/material";
 import { useRef, useState } from "react";
 import { Form } from "react-bootstrap";
-import { MoorhenMolecule } from "../../utils/MoorhenMolecule";
 import { MoorhenMoleculeSelect } from "../select/MoorhenMoleculeSelect";
 import { MoorhenMapSelect } from "../select/MoorhenMapSelect";
 import { MoorhenBaseMenuItem } from "./MoorhenBaseMenuItem";
 import { moorhen } from "../../types/moorhen";
 import { webGL } from "../../types/mgWebGL";
+import { useSelector, useDispatch } from 'react-redux';
+import { addMolecule } from "../../store/moleculesSlice";
+import { MoorhenNumberForm } from "../select/MoorhenNumberForm";
 
 export const MoorhenFitLigandRightHereMenuItem = (props: {
     setPopoverIsShown: React.Dispatch<React.SetStateAction<boolean>>;
     popoverPlacement?: 'left' | 'right';
-    defaultBondSmoothness: number;
     glRef: React.RefObject<webGL.MGWebGL>;  
-    maps: moorhen.Map[];
-    molecules: moorhen.Molecule[];
     commandCentre: React.RefObject<moorhen.CommandCentre>;
-    changeMolecules: (arg0: moorhen.MolChange<moorhen.Molecule>) => void;
-    backgroundColor: [number, number, number, number];
     monomerLibraryPath: string;
-    devMode?: boolean;
 }) => {
+
+    const dispatch = useDispatch()
+    const devMode = useSelector((state: moorhen.State) => state.generalStates.devMode)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
+    const maps = useSelector((state: moorhen.State) => state.maps)
 
     const intoMoleculeRef = useRef<HTMLSelectElement | null>(null)
     const ligandMoleculeRef = useRef<HTMLSelectElement | null>(null)
     const mapSelectRef = useRef<HTMLSelectElement | null>(null)
     const useConformersRef = useRef<boolean>(false)
-    const conformerCountRef = useRef<string>('0')
+    const conformerCountRef = useRef<string>(null)
+
     const [useConformers, setUseConformers] = useState<boolean>(false)
-    const [conformerCount, setConformerCount] = useState<string>('10')
 
     const panelContent = <>
-        <MoorhenMapSelect {...props} label="Map" ref={mapSelectRef} />
-        <MoorhenMoleculeSelect {...props} label="Protein molecule" allowAny={false} ref={intoMoleculeRef} />
-        <MoorhenMoleculeSelect {...props} label="Ligand molecule" allowAny={false} ref={ligandMoleculeRef} />
-        {props.devMode && 
+        <MoorhenMapSelect maps={maps} label="Map" ref={mapSelectRef} />
+        <MoorhenMoleculeSelect molecules={molecules} label="Protein molecule" allowAny={false} ref={intoMoleculeRef} />
+        <MoorhenMoleculeSelect molecules={molecules} label="Ligand molecule" allowAny={false} ref={ligandMoleculeRef} />
+        {devMode && 
          <Form.Check
             style={{margin: '0.5rem'}} 
             type="switch"
@@ -44,32 +45,17 @@ export const MoorhenFitLigandRightHereMenuItem = (props: {
                 setUseConformers(!useConformers)
             }}
             label="Use conformers"/>}
-        {useConformers &&
-        <Form.Group>
-            <TextField
-                style={{margin: '0.5rem'}} 
-                id='conformer-count'
-                label='No. of conformers'
-                type='number'
-                variant="standard"
-                error={isNaN(parseInt(conformerCount)) || parseInt(conformerCount) < 0 || parseInt(conformerCount) === Infinity}
-                value={conformerCount}
-                onChange={(evt) => {
-                    conformerCountRef.current = evt.target.value
-                    setConformerCount(evt.target.value)
-                }}
-            />
-        </Form.Group>}
+        {useConformers && <MoorhenNumberForm ref={conformerCountRef} label="No. of conformers" defaultValue={10}/> }
     </>
 
 
     const onCompleted = async () => {
-        if (useConformersRef.current && (isNaN(parseInt(conformerCountRef.current)) || parseInt(conformerCountRef.current) < 0 || parseInt(conformerCountRef.current) === Infinity)) {
-            console.log('Unable to parse conformer count into a valid int...')
+        if (useConformersRef.current && !conformerCountRef.current) {
+            console.warn('Unable to parse conformer count into a valid int...')
             return
         }
 
-        const selectedMolecule = props.molecules.find(molecule => molecule.molNo === parseInt(intoMoleculeRef.current.value))
+        const selectedMolecule = molecules.find(molecule => molecule.molNo === parseInt(intoMoleculeRef.current.value))
         if(selectedMolecule) {
             const newMolecules = await selectedMolecule.fitLigandHere(
                 parseInt(mapSelectRef.current.value),
@@ -78,7 +64,7 @@ export const MoorhenFitLigandRightHereMenuItem = (props: {
                 useConformersRef.current,
                 parseInt(conformerCountRef.current)
             )
-            newMolecules.forEach(molecule => props.changeMolecules({ action: "Add", item: molecule }))
+            newMolecules.forEach(molecule => dispatch( addMolecule(molecule) ))
         }
     }
 

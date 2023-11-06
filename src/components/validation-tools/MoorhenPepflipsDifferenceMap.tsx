@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { Col, Row, Form, Card, Button } from 'react-bootstrap';
-import { moorhen } from "../../types/moorhen";
 import { MoorhenValidationListWidgetBase } from "./MoorhenValidationListWidgetBase"
-import MoorhenSlider from '../misc/MoorhenSlider' 
+import { MoorhenSlider } from '../misc/MoorhenSlider' 
 import { libcootApi } from "../../types/libcoot";
+import { moorhen } from "../../types/moorhen";
+import { useSelector } from "react-redux";
 
-interface Props extends moorhen.Controls {
+interface Props extends moorhen.CollectedProps {
     dropdownId: number;
     accordionDropdownId: number;
     setAccordionDropdownId: React.Dispatch<React.SetStateAction<number>>;
@@ -14,6 +15,8 @@ interface Props extends moorhen.Controls {
 }
 
 export const MoorhenPepflipsDifferenceMap = (props: Props) => {
+    const enableRefineAfterMod = useSelector((state: moorhen.State) => state.miscAppSettings.enableRefineAfterMod)
+    const molecules = useSelector((state: moorhen.State) => state.molecules)
     const [selectedRmsd, setSelectedRmsd] = useState<number>(4.5)
     
     const filterMapFunction = (map: moorhen.Map) => map.isDifference
@@ -26,7 +29,7 @@ export const MoorhenPepflipsDifferenceMap = (props: Props) => {
             changesMolecules: [selectedMolNo]
         }, true)
 
-        if (props.enableRefineAfterMod) {
+        if (enableRefineAfterMod) {
             await props.commandCentre.current.cootCommand({
                 returnType: "status",
                 command: 'refine_residues_using_atom_cid',
@@ -35,7 +38,7 @@ export const MoorhenPepflipsDifferenceMap = (props: Props) => {
             }, true)    
         }
 
-        const selectedMolecule = props.molecules.find(molecule => molecule.molNo === selectedMolNo)
+        const selectedMolecule = molecules.find(molecule => molecule.molNo === selectedMolNo)
         selectedMolecule.setAtomsDirty(true)
         selectedMolecule.redraw()
         const scoresUpdateEvent: moorhen.ScoresUpdateEvent = new CustomEvent("scoresUpdate", { detail: {origin: props.glRef.current.origin,  modifiedMolecule: selectedMolecule.molNo} })
@@ -96,9 +99,6 @@ export const MoorhenPepflipsDifferenceMap = (props: Props) => {
     }
 
     return <MoorhenValidationListWidgetBase 
-                molecules={props.molecules}
-                maps={props.maps}
-                backgroundColor={props.backgroundColor}
                 sideBarWidth={props.sideBarWidth}
                 dropdownId={props.dropdownId}
                 accordionDropdownId={props.accordionDropdownId}

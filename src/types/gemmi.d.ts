@@ -39,13 +39,22 @@ export namespace gemmi {
         str: (arg0: number) => string;
     }
     interface Selection extends emscriptem.instance<Selection> {
+        residue_names: any;
         matches_model: (model: Model) => boolean;
         matches_chain: (chain: Chain) => boolean;
         matches_residue: (residue: Residue) => boolean;
         matches_atom: (atom: Atom) => boolean;
+        models: (struct: Structure) => emscriptem.vector<Model>;
+        chains: (model: Model) => emscriptem.vector<Chain>;
+        residues: (chain: Chain) => emscriptem.vector<Residue>;
+        atoms: (res: Residue) => emscriptem.vector<Atom>;
         chain_ids: SelectionChainList;
         to_seqid: SelectionSeqId;
         from_seqid: SelectionSeqId;
+    }
+    interface SelectionResidueNamesList extends emscriptem.instance<SelectionResidueNamesList> {
+        str: () => string;
+        all: boolean;
     }
     interface SelectionChainList extends emscriptem.instance<SelectionChainList> {
         str: () => string;

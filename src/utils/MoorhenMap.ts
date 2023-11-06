@@ -1,4 +1,4 @@
-import { readDataFile, guid } from "./MoorhenUtils"
+import { readDataFile, guid, rgbToHsv, hsvToRgb } from "./MoorhenUtils"
 import { moorhen } from "../types/moorhen";
 import { webGL } from "../types/mgWebGL";
 import { libcootApi } from "../types/libcoot";
@@ -40,11 +40,13 @@ export class MoorhenMap implements moorhen.Map {
     
     type: string
     name: string
+    isEM: boolean
     molNo: number
     commandCentre: React.RefObject<moorhen.CommandCentre>
     glRef: React.RefObject<webGL.MGWebGL>
     mapCentre: [number, number, number]
     suggestedContourLevel: number
+    suggestedRadius: number
     contourLevel: number
     mapRadius: number
     mapColour: [number, number, number, number]
@@ -59,6 +61,8 @@ export class MoorhenMap implements moorhen.Map {
     associatedReflectionFileName: string
     uniqueId: string
     mapRmsd: number
+    suggestedMapWeight: number
+    otherMapForColouring: {molNo: number, min: number, max: number};
     diffMapColourBuffers: { positiveDiffColour: number[], negativeDiffColour: number[] }
     rgba: {
         mapColour: {r: number, g: number, b: number};
@@ -70,6 +74,7 @@ export class MoorhenMap implements moorhen.Map {
     constructor(commandCentre: React.RefObject<moorhen.CommandCentre>, glRef: React.RefObject<webGL.MGWebGL>) {
         this.type = 'map'
         this.name = "unnamed"
+        this.isEM = false
         this.molNo = null
         this.commandCentre = commandCentre
         this.glRef = glRef
@@ -87,8 +92,11 @@ export class MoorhenMap implements moorhen.Map {
         this.associatedReflectionFileName = null
         this.uniqueId = guid()
         this.mapRmsd = null
+        this.suggestedMapWeight = null
         this.suggestedContourLevel = null
+        this.suggestedRadius = null
         this.mapCentre = null
+        this.otherMapForColouring = null
         this.diffMapColourBuffers = { positiveDiffColour: [], negativeDiffColour: [] }
         this.rgba = {
             mapColour: { r: 0.30000001192092896, g: 0.30000001192092896, b: 0.699999988079071},
@@ -96,6 +104,25 @@ export class MoorhenMap implements moorhen.Map {
             negativeDiffColour: {r: 0.800000011920929, g: 0.4000000059604645, b: 0.4000000059604645},
             a: 1.0
         }
+    }
+
+    /**
+     * Helper function to set this map instance as the "active" map for refinement
+     */
+    async setActive(): Promise<void> {
+        await this.commandCentre.current.cootCommand({
+            returnType: "status",
+            command: "set_imol_refinement_map",
+            commandArgs: [this.molNo]
+        }, false)
+        if (this.suggestedMapWeight === null) {
+            await this.estimateMapWeight()
+        }
+        await this.commandCentre.current.cootCommand({
+            returnType: "status",
+            command: "set_map_weight",
+            commandArgs: [this.suggestedMapWeight]
+        }, false)
     }
 
     /**
@@ -107,9 +134,11 @@ export class MoorhenMap implements moorhen.Map {
         })
         this.glRef.current.drawScene()
         const promises = [
-            this.commandCentre.current.postMessage({
-                message: "delete", molNo: this.molNo
-            }),
+            this.commandCentre.current.cootCommand({
+                returnType: "status",
+                command: 'close_molecule',
+                commandArgs: [this.molNo]
+            }, true),
             this.hasReflectionData ?
                 this.commandCentre.current.postMessage({
                     message: 'delete_file_name', fileName: this.associatedReflectionFileName
@@ -125,7 +154,7 @@ export class MoorhenMap implements moorhen.Map {
      * @param {string} fileUrl - The uri to the MTZ file
      * @param {string} name - The name of the map
      * @param {moorhen.selectedMtzColumns} selectedColumns - Object indicating the selected MTZ columns
-     * @param mapColour - The map colour
+     * @param {object} mapColour - The map colour
      * @returns {Promise<void>}
      */
     async replaceMapWithMtzFile(fileUrl: RequestInfo | URL, name: string, selectedColumns: moorhen.selectedMtzColumns, mapColour?: { [type: string]: {r: number, g: number, b: number} }): Promise<void> {
@@ -207,6 +236,7 @@ export class MoorhenMap implements moorhen.Map {
                 return Promise.reject(reply.data.result.consoleMessage)
             }
             this.molNo = reply.data.result.result
+            this.selectedColumns = selectedColumns
             if (Object.keys(selectedColumns).includes('isDifference')) {
                 this.isDifference = selectedColumns.isDifference
             }
@@ -219,11 +249,11 @@ export class MoorhenMap implements moorhen.Map {
 
     /**
      * Load map to moorhen from a MTZ file
-     * @param {Blob} source - The MTZ file data in the form of a blob
+     * @param {File} source - The MTZ file
      * @param {moorhen.selectedMtzColumns} selectedColumns - Object indicating the selected MTZ columns
      * @returns {Promise<moorhen.Map>} This moorhenMap instance
      */
-    loadToCootFromMtzFile = async function (source: Blob, selectedColumns: moorhen.selectedMtzColumns): Promise<moorhen.Map> {
+    loadToCootFromMtzFile = async function (source: File, selectedColumns: moorhen.selectedMtzColumns): Promise<moorhen.Map> {
         const $this = this
         let reflectionData = await readDataFile(source)
         const asUIntArray = new Uint8Array(reflectionData)
@@ -282,11 +312,11 @@ export class MoorhenMap implements moorhen.Map {
 
     /**
      * Load a map to moorhen from a map file data blob
-     * @param {Blob} source - The map file data in the form of a blob
+     * @param {File} source - The map file
      * @param {boolean} isDiffMap - Indicates whether the new map is a difference map
      * @returns {Promise<moorhen.Map>} This moorhenMap instance
      */
-    async loadToCootFromMapFile (source: Blob, isDiffMap: boolean): Promise<moorhen.Map> {
+    async loadToCootFromMapFile (source: File, isDiffMap: boolean): Promise<moorhen.Map> {
         const mapData = await readDataFile(source)
         const asUIntArray = new Uint8Array(mapData)
         return this.loadToCootFromMapData(asUIntArray, source.name, isDiffMap)
@@ -305,14 +335,21 @@ export class MoorhenMap implements moorhen.Map {
 
     /**
      * Set the map weight
-     * @param {number} weight - The new map weight
+     * @param {number} [weight=moorhen.Map.suggestedMapWeight] - The new map weight
      * @returns {Promise<moorhen.WorkerResponse>} Void worker response
      */
-    setMapWeight(weight: number): Promise<moorhen.WorkerResponse> {
+    setMapWeight(weight?: number): Promise<moorhen.WorkerResponse> {
+        let newWeight: number
+        if (typeof weight !== 'undefined') {
+            newWeight = weight
+        }
+        else {
+            newWeight = this.suggestedMapWeight
+        }
         return this.commandCentre.current.cootCommand({
             returnType: 'status',
             command: "set_map_weight",
-            commandArgs: [this.molNo, weight]
+            commandArgs: [newWeight]
         }, false)
     }
 
@@ -361,6 +398,47 @@ export class MoorhenMap implements moorhen.Map {
         this.displayObjects[style] = []
     }
 
+    setupContourBuffers(objects: any[], keepCootColours: boolean = false) {
+        try {
+            const diffMapColourBuffers = { positiveDiffColour: [], negativeDiffColour: [] }
+            this.clearBuffersOfStyle("Coot")
+            objects.filter(object => typeof object !== 'undefined' && object !== null).forEach(object => {
+                object.col_tri.forEach((cols: number[][]) => {
+                    cols.forEach((col: number[]) => {
+                        for (let idx = 0; idx < col.length; idx += 4) {
+                            if (this.isDifference) {
+                                if (col[idx] < 0.5) {
+                                    diffMapColourBuffers.positiveDiffColour.push(idx)
+                                    col[idx] = this.rgba.positiveDiffColour.r
+                                    col[idx + 1] = this.rgba.positiveDiffColour.g
+                                    col[idx + 2] = this.rgba.positiveDiffColour.b    
+                                } else {
+                                    diffMapColourBuffers.negativeDiffColour.push(idx)
+                                    col[idx] = this.rgba.negativeDiffColour.r
+                                    col[idx + 1] = this.rgba.negativeDiffColour.g
+                                    col[idx + 2] = this.rgba.negativeDiffColour.b    
+                                }
+                            } else if (!keepCootColours) {
+                                col[idx] = this.rgba.mapColour.r
+                                col[idx + 1] = this.rgba.mapColour.g
+                                col[idx + 2] = this.rgba.mapColour.b
+                            }
+                            col[idx + 3] = this.rgba.a
+                        }
+                    })
+                })
+                let a = this.glRef.current.appendOtherData(object, true);
+                this.diffMapColourBuffers.positiveDiffColour = this.diffMapColourBuffers.positiveDiffColour.concat(diffMapColourBuffers.positiveDiffColour)
+                this.diffMapColourBuffers.negativeDiffColour = this.diffMapColourBuffers.negativeDiffColour.concat(diffMapColourBuffers.negativeDiffColour)
+                this.displayObjects['Coot'] = this.displayObjects['Coot'].concat(a)
+            })
+            this.glRef.current.buildBuffers();
+            this.glRef.current.drawScene();
+            } catch(err) {
+                console.log(err)
+            } 
+    }
+
     /**
      * Draw the map contour around a given origin
      * @param {number} x - Origin coord. X
@@ -380,53 +458,37 @@ export class MoorhenMap implements moorhen.Map {
             returnType = "lines_mesh"
         }
 
-        const response = await this.commandCentre.current.cootCommand({
-            returnType: returnType,
-            command: "get_map_contours_mesh",
-            commandArgs: [this.molNo, x, y, z, radius, contourLevel]
-        }, false)
-        try {
-            const objects = [response.data.result.result]
-            const diffMapColourBuffers = { positiveDiffColour: [], negativeDiffColour: [] }
-            this.clearBuffersOfStyle("Coot")
-            objects.filter(object => typeof object !== 'undefined' && object !== null).forEach(object => {
-                object.col_tri.forEach((cols: number[][]) => {
-                    cols.forEach((col: number[]) => {
-                        if (!this.isDifference) {
-                            for (let idx = 0; idx < col.length; idx += 4) {
-                                col[idx] = this.rgba.mapColour.r
-                                col[idx + 1] = this.rgba.mapColour.g
-                                col[idx + 2] = this.rgba.mapColour.b
-                                col[idx + 3] = this.rgba.a
-                            }
-                        } else {
-                            for (let idx = 0; idx < col.length; idx += 4) {
-                                if (col[idx] < 0.5) {
-                                    diffMapColourBuffers.positiveDiffColour.push(idx)
-                                    col[idx] = this.rgba.positiveDiffColour.r
-                                    col[idx + 1] = this.rgba.positiveDiffColour.g
-                                    col[idx + 2] = this.rgba.positiveDiffColour.b    
-                                } else {
-                                    diffMapColourBuffers.negativeDiffColour.push(idx)
-                                    col[idx] = this.rgba.negativeDiffColour.r
-                                    col[idx + 1] = this.rgba.negativeDiffColour.g
-                                    col[idx + 2] = this.rgba.negativeDiffColour.b    
-                                }
-                                col[idx + 3] = this.rgba.a
-                            }
-                        }
-                    })
-                })
-                let a = this.glRef.current.appendOtherData(object, true);
-                this.diffMapColourBuffers.positiveDiffColour = this.diffMapColourBuffers.positiveDiffColour.concat(diffMapColourBuffers.positiveDiffColour)
-                this.diffMapColourBuffers.negativeDiffColour = this.diffMapColourBuffers.negativeDiffColour.concat(diffMapColourBuffers.negativeDiffColour)
-                this.displayObjects['Coot'] = this.displayObjects['Coot'].concat(a)
-            })
-            this.glRef.current.buildBuffers();
-            this.glRef.current.drawScene();
-            } catch(err) {
-                console.log(err)
-            }
+        let response: moorhen.WorkerResponse<any>
+        if (this.otherMapForColouring !== null) {
+            response = await this.commandCentre.current.cootCommand({
+                returnType: returnType,
+                command: "get_map_contours_mesh_using_other_map_for_colours",
+                commandArgs: [this.molNo, this.otherMapForColouring.molNo, x, y, z, radius, contourLevel, this.otherMapForColouring.min, this.otherMapForColouring.max, false]
+            }, false)
+        } else {
+            response = await this.commandCentre.current.cootCommand({
+                returnType: returnType,
+                command: "get_map_contours_mesh",
+                commandArgs: [this.molNo, x, y, z, radius, contourLevel]
+            }, false)
+        }
+
+        const objects = [response.data.result.result]
+        this.setupContourBuffers(objects, this.otherMapForColouring !== null)
+    }
+
+    /**
+     * Set colouring for this map instance based on another map
+     * @param {number} molNo - The imol for the other map
+     * @param {number} min - The min value
+     * @param {number} max - The max value
+     */
+    setOtherMapForColouring(molNo: number, min: number = -0.9, max: number = 0.9) {
+        if (molNo === null) {
+            this.otherMapForColouring = null
+        } else {
+            this.otherMapForColouring = { molNo, min, max }
+        }
     }
 
     /**
@@ -475,6 +537,10 @@ export class MoorhenMap implements moorhen.Map {
         if (this.isDifference) {
             console.error('Cannot use moorhen.Map.setColour to change difference map colour. Use moorhen.Map.setDiffMapColour instead...')
             return
+        }
+
+        if (this.otherMapForColouring !== null) {
+            this.otherMapForColouring = null
         }
         
         this.rgba.mapColour = { r, g, b }
@@ -529,9 +595,10 @@ export class MoorhenMap implements moorhen.Map {
      * @param {Uint8Array} reflectionData - The reflection data that will be associates to this map
      * @returns {Promise<moorhen.WorkerResponse>} - Void promise
      */
-    async associateToReflectionData (selectedColumns: moorhen.selectedMtzColumns, reflectionData: Uint8Array | ArrayBuffer): Promise<moorhen.WorkerResponse> {
+    async associateToReflectionData (selectedColumns: moorhen.selectedMtzColumns, reflectionData: Uint8Array | ArrayBuffer): Promise<void> {
         if (!selectedColumns.Fobs || !selectedColumns.SigFobs || !selectedColumns.FreeR) {
-            return Promise.reject('Missing column data')
+            console.warn('WARNING: Missing column data, cannot associate reflection data with map')
+            return Promise.resolve()
         }
 
         const commandArgs = [
@@ -547,10 +614,13 @@ export class MoorhenMap implements moorhen.Map {
 
         if (response.data.result.status === "Completed") {
             this.hasReflectionData = true
-            this.selectedColumns = selectedColumns
+            this.selectedColumns = {
+                ...this.selectedColumns,
+                ...selectedColumns
+            }
             this.associatedReflectionFileName = response.data.result.result
         } else {
-            console.log('Unable to associate reflection data with map')
+            console.warn('Unable to associate reflection data with map')
         }
     }
 
@@ -577,7 +647,10 @@ export class MoorhenMap implements moorhen.Map {
     async duplicate(): Promise<moorhen.Map> {
         const reply = await this.getMap()
         const newMap = new MoorhenMap(this.commandCentre, this.glRef)
-        return newMap.loadToCootFromMapData(reply.data.result.mapData, `Copy of ${this.name}`, this.isDifference)
+        await newMap.loadToCootFromMapData(reply.data.result.mapData, `Copy of ${this.name}`, this.isDifference)
+        newMap.suggestedContourLevel = this.contourLevel
+        newMap.suggestedRadius = this.mapRadius
+        return newMap
     }
 
     /**
@@ -608,7 +681,7 @@ export class MoorhenMap implements moorhen.Map {
     }
 
     /**
-     * Get the suggested level for this map instance
+     * Get the suggested level for this map instance (only for MX maps)
      * @returns {number} The suggested map contour level
      */
     async fetchSuggestedLevel(): Promise<number> {
@@ -629,7 +702,7 @@ export class MoorhenMap implements moorhen.Map {
     }
 
     /**
-     * Get the suggested map centre for this map instance
+     * Get the suggested map centre for this map instance (it will also fetch suggested level for EM maps)
      * @returns {number[]} The map centre
      */
     async fetchMapCentre(): Promise<[number, number, number]> {
@@ -641,6 +714,10 @@ export class MoorhenMap implements moorhen.Map {
         
         if (response.data.result.result.success) {
             this.mapCentre = response.data.result.result.updated_centre.map(coord => -coord) as [number, number, number]
+            if (this.isEM) {
+                this.suggestedContourLevel = response.data.result.result.suggested_contour_level
+                this.suggestedRadius = response.data.result.result.suggested_radius
+            }
         } else {
             console.log('Problem finding map centre')
             this.mapCentre = null
@@ -650,13 +727,33 @@ export class MoorhenMap implements moorhen.Map {
     }
 
     /**
-     * Get suggested contour level and map centre for this map instance
+     * Estimate the map weight based on the map rmsd
+     */
+    async estimateMapWeight(): Promise<void> {
+        if (this.mapRmsd === null) {
+            await this.fetchMapRmsd()
+        }
+        this.suggestedMapWeight = 50 * 0.3 / this.mapRmsd
+    }
+    
+    /**
+     * Get suggested contour level, radius and map centre for this map instance
      */
     async getSuggestedSettings(): Promise<void> {
+
+        const response = await this.commandCentre.current.cootCommand({
+            command: 'is_EM_map',
+            commandArgs: [this.molNo],
+            returnType: "boolean"
+        }, false) as moorhen.WorkerResponse<boolean>
+        
+        this.isEM = response.data.result.result
+       
         await Promise.all([
-            this.fetchMapRmsd(),
-            this.fetchSuggestedLevel(),
-            this.fetchMapCentre()
+            this.fetchMapRmsd().then(_ => this.estimateMapWeight()),
+            this.fetchMapCentre(),
+            this.setDefaultColour(),
+            !this.isEM && this.fetchSuggestedLevel()
         ])
     }
 
@@ -672,5 +769,74 @@ export class MoorhenMap implements moorhen.Map {
             }
         }
         this.glRef.current.setOriginAnimated(this.mapCentre)
+    }
+
+    /**
+     * Get the histogram data for this map instance
+     * @returns {object} - An object with the histogram data
+     */
+    async getHistogram(nBins: number = 200, zoomFactor: number = 1): Promise<libcootApi.HistogramInfoJS> {
+        const response = await this.commandCentre.current.cootCommand({
+            command: 'get_map_histogram',
+            commandArgs: [this.molNo, nBins, zoomFactor],
+            returnType: "histogram_info_t"
+        }, false) as moorhen.WorkerResponse<any>
+        return response.data.result.result
+    }
+
+    /**
+     * Fetch whether this is a difference map
+     * @returns {boolean} - True if this map instance is a difference map
+     */
+    async fetchIsDifferenceMap(): Promise<boolean> {
+        const isDifferenceMap = await this.commandCentre.current.cootCommand({
+            command: 'is_a_difference_map',
+            commandArgs: [this.molNo],
+            returnType: "boolean"
+        }, false) as moorhen.WorkerResponse<boolean>
+        this.isDifference = isDifferenceMap.data.result.result
+        return this.isDifference
+    }
+
+    /**
+     * Set the default colour for this map depending on the current number of maps loaded in the session
+     */
+    async setDefaultColour(): Promise<void> {
+        if (this.isDifference) {
+            return
+        }
+        
+        const validMapMolNos = await Promise.all([...Array(this.molNo).keys()].map(async (molNo) => {
+            if (molNo === this.molNo) {
+                return false
+            }
+            const isValidMap = await this.commandCentre.current.cootCommand({
+                command: 'is_valid_map_molecule',
+                commandArgs: [molNo],
+                returnType: "boolean"
+            }, false) as moorhen.WorkerResponse<boolean>
+            if (!isValidMap.data.result.result) {
+                return false
+            } else {
+                const isDifferenceMap = await this.commandCentre.current.cootCommand({
+                    command: 'is_a_difference_map',
+                    commandArgs: [molNo],
+                    returnType: "boolean"
+                }, false) as moorhen.WorkerResponse<boolean>
+                return !isDifferenceMap.data.result.result
+            }
+        }))
+
+        const numberOfMaps = validMapMolNos.filter(Boolean).length
+
+        let [h, s, v] = rgbToHsv(0.30000001192092896, 0.30000001192092896, 0.699999988079071)
+        h += (10 * numberOfMaps)
+        if (h > 360) {
+            h -= 360
+        }
+        const [r, g, b] = hsvToRgb(h, s, v)
+        this.rgba.mapColour = {
+            r, g, b
+        }
     }
 }

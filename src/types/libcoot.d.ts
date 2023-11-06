@@ -10,6 +10,8 @@ declare global {
 
 export namespace libcootApi {
     type CCP4ModuleType = {
+        count_residues_in_selection(gemmiStructure: gemmi.Structure, selection: gemmi.Selection): number;
+        remove_non_selected_residues(gemmiStructure: gemmi.Structure, selection: gemmi.Selection): gemmi.Structure;
         check_polymer_type(polymerConst: emscriptem.instance<number>): {value: number};
         remove_ligands_and_waters_chain(chain: gemmi.Chain): void;
         gemmi_setup_entities(gemmiStructure: gemmi.Structure): void;
@@ -46,6 +48,16 @@ export namespace libcootApi {
         res_no: string;
         res_name: string;
         label: string;
+    }
+    interface AutoReadMtzInfo extends emscriptem.instance<AutoReadMtzInfo> {
+        idx: number;
+        F: string;
+        phi: string;
+        w: string;
+        F_obs: string;
+        sigF_obs: string;
+        Rfree: string;
+        weights_used: boolean;
     }
     interface CootPhiPsi extends emscriptem.instance<CootPhiPsi> {
         ins_code: string;
@@ -107,6 +119,26 @@ export namespace libcootApi {
         ligand_atom_is_donor: boolean;
         hydrogen_is_ligand_atom: boolean;
         bond_has_hydrogen_flag: boolean;
+    }
+    interface HistogramInfo extends emscriptem.instance<HistogramInfo> {
+        base: number;
+        bin_width: number;
+        counts: emscriptem.vector<number>;
+    }
+    type HistogramInfoJS = {
+        base: number;
+        bin_width: number;
+        counts: number[];
+    }
+    type AutoReadMtzInfoJS = {
+        idx: number;
+        F: string;
+        phi: string;
+        w: string;
+        F_obs: string;
+        sigF_obs: string;
+        Rfree: string;
+        weights_used: boolean;
     }
     type HBondJS = {
         hb_hydrogen: libcootApi.HBondAtom;
@@ -200,12 +232,14 @@ export namespace libcootApi {
         success: boolean;
         updated_centre: ClipperCoordOrth;
         suggested_contour_level: number;
+        suggested_radius: number;
         sum_of_densities: number;
     }
     type MapMoleculeCentreInfoJS = {
         success: boolean;
         updated_centre: [number, number, number];
         suggested_contour_level: number;
+        suggested_radius: number;
     }
     interface ResidueSpecT extends emscriptem.instance<ResidueSpecT> {
         model_number: number;
@@ -218,7 +252,29 @@ export namespace libcootApi {
         insCode: string;
         modelNumber: number;
         chainId: string;
-    } 
+    }
+    interface AtomSpecT extends emscriptem.instance<ResidueSpecT> {
+        chain_id: string;
+        res_no: number;
+        ins_code: string;
+        atom_name: string;
+        alt_conf: string;
+        int_user_data: number;
+        float_user_data: number;
+        string_user_data: string;
+        model_number: number;
+    }
+    interface AtomSpecJS {
+        chain_id: string;
+        res_no: number;
+        ins_code: string;
+        atom_name: string;
+        alt_conf: string;
+        int_user_data: number;
+        float_user_data: number;
+        string_user_data: string;
+        model_number: number;
+    }
     interface ResidueValidationInformationT extends emscriptem.instance<ResidueValidationInformationT> {
         label: string;
         residue_spec: ResidueSpecT;
